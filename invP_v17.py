@@ -5,11 +5,6 @@ Created on Jun 09 2020
 
 @author: vamaral
 
--having flux at every depth and integrated fluxes with residence times in each 
-layer calculated in the same loop takes too long if we also want to integrate
-depth horizons that are not contained within each layer, so I removed
-flux integral and residence time calculations from the flux calculation loop 
-
 """
 import numpy as np
 import scipy.linalg as splinalg
