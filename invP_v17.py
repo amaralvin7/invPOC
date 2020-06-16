@@ -365,36 +365,43 @@ def cvmsli(cvm, vlist):
     return cvms
 
 #given a mathmatical function for flux at particular depth, return flux and uncertainty
+#if err==True, considers uncertainties
 #if cov==True, considers covariances
-def flxep(y, cov):
-    #print('stepped in, creating CVM')
+def flxep(y, err, cov):
+    #print('stepped in')
     x = y.free_symbols #gets all (symbolic) variables in function
     nx = len(x) #number of variables
     xv = np.zeros(nx) #numerical values of symbolic variables
-    dy = [None]*nx #empty list to store derivatives
-    cvms = cvmsli(CVM,x) #covariance matrix for all variables
-    #print('cvm created, deriving')
-    for i,v in enumerate(x): #for each symbolic variable
-        dy[i] = y.diff(v) #calculate derivatives w.r.t x
+    #print('obtaining numerical values')
+    for i,v in enumerate(x): #for each symbolic variable, get numerical value
         if "_" in str(v): #if the variable varies with depth
             svar, di = str(v).split('_') #what kind of state variable (tracer or param?)
             if svar in td.keys(): xv[i] = td[svar]['xh'][int(di)]
             else: xv[i] = pdi[svar][str(di)]['xh']
-        else: xv[i] = pdi[str(v)]['xh']
-    #print('derivations complete, building variance equation')
-    u = 0 #initialize value to calculate uncertainties
-    #iterate through entries of cvms and calculate relevant term
-    for i, r in enumerate(cvms):
-        for j, c in enumerate(r):
-            if  i>j: continue #only take upper diagonal (including diagonal)
-            elif i == j: u += (dy[i]**2)*cvms[i,j]
-            else: 
-                if cov == True: u += 2*dy[i]*dy[j]*cvms[i,j]
+        else: xv[i] = pdi[str(v)]['xh'] #if it's a depth-constant variable
+    if err == True: #if we are propagating errors
+        #print('creating CVM')
+        dy = [None]*nx #empty list to store derivatives
+        cvms = cvmsli(CVM,x) #covariance matrix for all variables
+        #print('cvm created, deriving')
+        #calculate derivatives w.r.t each symbolic variable
+        for i,v in enumerate(x): dy[i] = y.diff(v) 
+        #print('derivations complete, building variance equation')
+        u = 0 #initialize value to calculate uncertainties
+        #iterate through entries of cvms and calculate relevant term
+        for i, r in enumerate(cvms):
+            for j, c in enumerate(r):
+                if  i>j: continue #only take upper diagonal (including diagonal)
+                elif i == j: u += (dy[i]**2)*cvms[i,j]
+                else: 
+                    if cov == True: u += 2*dy[i]*dy[j]*cvms[i,j]
+        flx, unc = sym.lambdify(x,(y,u))(*xv)
+        result = (flx, np.sqrt(unc))
+    else: result = sym.lambdify(x,y)(*xv) #if just evaluating the function without propagating errors
     #print(y), print(u)
-    #print('equation built, evaluating')
-    flx, unc = sym.lambdify(x,(y,u))(*xv) #asterisks unpacks array values into function arguments
+    #print('equations built, evaluating')
     #print('Returned!')
-    return (flx, np.sqrt(unc))
+    return result
 
 ####Pt estimates    
 #read in cast match data
@@ -952,17 +959,17 @@ for f in flxd.keys():
             w, Pi = sym.symbols(f'{pwi} {twi}')
             if i == 0: #mixed layer    
                 y = w*Pi/h
-                fxh[i], fxhe[i] = flxep(y,cov=True) 
+                fxh[i], fxhe[i] = flxep(y,err=True,cov=True) 
             elif (i == 1 or i == 2): #first two points below ML
                 twip1, twim1 = "_".join([t,str(i+1)]), "_".join([t,str(i-1)])
                 Pip1, Pim1 = sym.symbols(f'{twip1} {twim1}')
                 y = w*(Pip1-Pim1)/(2*dz) #calculate flux estimate
-                fxh[i], fxhe[i]  = flxep(y,cov=True) 
+                fxh[i], fxhe[i]  = flxep(y,err=True,cov=True) 
             else: #all other depths
                 twim1, twim2 = "_".join([t,str(i-1)]), "_".join([t,str(i-2)])
                 Pim1, Pim2 = sym.symbols(f'{twim1} {twim2}')
                 y = w*(3*Pi-4*Pim1+Pim2)/(2*dz) #calculate flux estimate
-                fxh[i], fxhe[i]  = flxep(y,cov=True)
+                fxh[i], fxhe[i]  = flxep(y,err=True,cov=True)
     else: #all other terms that are not sinking flux divergence
         for i in np.arange(0,n):
             dzi = dz if i != 0 else h
@@ -975,7 +982,7 @@ for f in flxd.keys():
                 twi = "_".join([t,str(i)]) 
                 pa, tr = sym.symbols(f'{pwi} {twi}')
                 y = pa*tr**ordr 
-            fxh[i], fxhe[i] = flxep(y,cov=True)
+            fxh[i], fxhe[i] = flxep(y,err=True,cov=True)
     flxd[f]['xh'], flxd[f]['xhe'] = fxh, fxhe 
 
 
@@ -997,8 +1004,8 @@ for pr in flxpairs:
     ax.legend()
         
 #integrated fluxes (stored in a separate dict)
-#iflxs = ['ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
-iflxs = ['Bm1s_Ps','Bm1l_Pl','ws_Psdz','wl_Pldz']
+iflxs = ['ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
+#iflxs = ['Bm1s_Ps','Bm1l_Pl']
 def iflxcalc(fluxes, deprngs):
     for f in fluxes:
         if '_' in f: #if not Psdot
@@ -1047,13 +1054,13 @@ def iflxcalc(fluxes, deprngs):
                     pa, tr = sym.symbols(f'{pwi} {twi}')
                     iF += (pa*tr**ordr)*dzi
                     iI += tr*dzi
-            intflx = flxep(iF,cov=True)
-            resT = flxep(iI/iF,cov=True)
+            intflx = flxep(iF,err=True,cov=True)
+            resT = flxep(iI/iF,err=False,cov=False) #doesn't return error prop (takes too long)
             flxd[f][rstr]['iflx'], flxd[f][rstr]['tau'] = intflx, resT
             #return(intflx)
 
 #should be equal to the fluxes integrated in A and B (WORKS)
-iflxcalc(iflxs,((95,zmax),))
+iflxcalc(iflxs,((dA,zmax),(h,110)))
 
 # #one test for iflxcalc with two layers (WORKS!)
 # tid, tid1, pid, pid1 = vidxSV.index('Pl_16'), vidxSV.index('Pl_17'), vidxSV.index('Bm2_A'), vidxSV.index('Bm2_B')
