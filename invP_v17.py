@@ -98,8 +98,9 @@ p_oe = {'ws':2,
        'Bm1l':0.15, 
        'Gh':180/h/mm*0.25, 
        'Lp':28*0.5}
-#depth layer boundaries
-dA, dB = 115, zmax
+
+#have a single layer seperation
+bnd = 112.5
 
 #update entries in pd
 for p in pdi.keys():
@@ -211,9 +212,8 @@ def Rmatx(sampledepths,griddepths,lengthscale):
 
 #given sampling depths, return layer with which that depth is associated
 def lmatch(di):
-#shallower than 115m is 'A', 115 and deeper is 'B'
     d = zml[int(di)]
-    if d < dA: layer = 'A'
+    if d < bnd: layer = 'A'
     else: layer = 'B'
     return layer
 
@@ -337,8 +337,8 @@ def p_int(model, alpha, xstar, x):
 def acdrange(drange):
     dmin, dmax = drange #min and max depths within the range
     dslice = zml[difind(dmin):difind(dmax)+1] #slice of zml corresponding to drange
-    tslice = cppt['Pt_hat'].values[difind(dmin):difind(dmax)+1]#slice of tracer data array corresponding to drange, in this case Pt
-    kn = np.ceil(len(dslice)/4) #number of lags, round up
+    tslice = cppt['Pt_hat'].values[difind(dmin):difind(dmax)+1] #slice of tracer data array corresponding to drange, in this case Pt
+    kn = int(np.ceil(len(dslice)/4)) #number of lags, round up
     kdz = np.arange(0,(kn+1)*dz, dz) #lags in units of m
     ac = smt.acf(tslice,fft=False,nlags=kn) #autocorrelation function
     lmod_dic = {'rk':ac,'kdz':kdz}
@@ -482,8 +482,10 @@ runs_z, runs_p = smr.runstest_1samp(model.resid)
 #Cf_addPt = np.diag(cppt['Pt_hat_pint']**2)
 Cf_addPt = np.diag(np.ones(n)*model.mse_resid)
 
-kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A = acdrange((h,dA))
-kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B = acdrange((dA,zmax))
+#kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A = acdrange((h,bnd-dz/2))
+#kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B = acdrange((bnd+dz/2,zmax))
+kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A = acdrange((h,115))
+kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B = acdrange((115,zmax))
 fig, ax = plt.subplots(1,1)
 cA, cB = blue, green
 ax.scatter(kdz_A,np.log(ac_A),label='A (EZ)',marker='o',color=cA) 
@@ -542,8 +544,8 @@ oi['A']['Ps']['y'],oi['B']['Ps']['y'] = Ps_mean[0:3].values,Ps_mean[3:].values #
 oi['A']['Pl']['y'],oi['B']['Pl']['y'] = Pl_mean[0:3].values,Pl_mean[3:].values
 oi['A']['Pl']['sig_j'],oi['B']['Pl']['sig_j'] = Pl_sd[0:3].values,Pl_sd[3:].values #POC standard deviation
 oi['A']['Ps']['sig_j'],oi['B']['Ps']['sig_j'] = Ps_sd[0:3].values,Ps_sd[3:].values
-oi['A']['smpd'], oi['A']['grdd'] = zs[0:3].values, zml[difind(h):difind(dA)] #sample and grid depths, layer A
-oi['B']['smpd'], oi['B']['grdd'] = zs[3:].values, zml[difind(dA):] #sample and grid depths, layer B
+oi['A']['smpd'], oi['A']['grdd'] = zs[0:3].values, zml[difind(h):difind(bnd-dz/2)+1] #sample and grid depths, layer A
+oi['B']['smpd'], oi['B']['grdd'] = zs[3:].values, zml[difind(bnd+dz/2):] #sample and grid depths, layer B
 oi['A']['L'], oi['B']['L'] = L_A, L_B #interpolation length scales
 
 
@@ -885,9 +887,9 @@ ax2.legend()
 ax3.errorbar(Pt_xh, zml, fmt='o', xerr=Pt_xhe, ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='Inv', fillstyle='none')
 ax3.errorbar(cppt.Pt_hat, zml+1, fmt='o', xerr=np.ones(n)*np.sqrt(model.mse_resid), ecolor=green, elinewidth=elw, c=green, ms=ms, capsize=cs, lw=lw, label='Data', fillstyle='none')
 ax3.legend()
-ax1.axhline(dA-2.5,c='k',ls='--',lw=lw/2)
-ax2.axhline(dA-2.5,c='k',ls='--',lw=lw/2)
-ax3.axhline(dA-2.5,c='k',ls='--',lw=lw/2)
+ax1.axhline(bnd,c='k',ls='--',lw=lw/2)
+ax2.axhline(bnd,c='k',ls='--',lw=lw/2)
+ax3.axhline(bnd,c='k',ls='--',lw=lw/2)
 
 #just the pump data (for presentation)
 fig, [ax1,ax2,ax3] = plt.subplots(1,3) #P figures
@@ -998,16 +1000,17 @@ for pr in flxpairs:
     ax.set_ylim(top=0,bottom=zmax+dz)
     c1, c2, c3, c4 = navy, teal, red, purple
     ax.errorbar(flxd[pr[0]]['xh'], zml, fmt='o', xerr=flxd[pr[0]]['xhe'], ecolor=c1, elinewidth=elw, c=c1, ms=ms, capsize=cs, lw=lw, label=flxnames[pr[0]], fillstyle='none')
-    ax.axhline(dA-2.5,c='k',ls='--',lw=lw/2)
+    ax.axhline(bnd,c='k',ls='--',lw=lw/2)
     if len(pr) > 1: #if it's actually a pair
         ax.errorbar(flxd[pr[1]]['xh'], zml, fmt='o', xerr=flxd[pr[1]]['xhe'], ecolor=c2, elinewidth=elw, c=c2, ms=ms, capsize=cs, lw=lw, label=flxnames[pr[1]], fillstyle='none')
     ax.legend()
         
 #integrated fluxes (stored in a separate dict)
 iflxs = ['ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
-#iflxs = ['Bm1s_Ps','Bm1l_Pl']
+iflxs = ['Psdot']
 def iflxcalc(fluxes, deprngs):
     for f in fluxes:
+        print(f'-------{f}-------')
         if '_' in f: #if not Psdot
             p,t = f.split('_')[0], f.split('_')[1][:2]
             ordr = flxd[f]['o'] #get order from the flx dict
@@ -1019,48 +1022,60 @@ def iflxcalc(fluxes, deprngs):
             dis = np.arange(doi,dni+1) 
             iF, iI = 0, 0 #initialize variable to collect summation (integrals) of fluxes and inventory
             if 'dz' in f: #if sinking flux divergence term, more complicated
-                for i in dis:
-                    dzi = dz if i != 0 else h #if it's the ML, multiply by h instead of dz
-                    l = lmatch(i)
+                for i,di in enumerate(dis):
+                    #if we're on the first or last gridpoint for a layer and it's not the MLD
+                    if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
+                    elif di == 0: dzi = h+dz/2 #if we're on the MLD
+                    else: dzi = dz #all other depths
+                    l = lmatch(di)
                     pwi = "_".join([p,l])
-                    twi = "_".join([t,str(i)])
+                    twi = "_".join([t,str(di)])
                     w, Pi = sym.symbols(f'{pwi} {twi}')
-                    if i == 0: #mixed layer
+                    if di == 0: #mixed layer
                         iF += w*Pi/h*dzi
                         iI += Pi*dzi
-                    elif (i == 1 or i == 2): #first two points below ML
-                        twip1, twim1 = "_".join([t,str(i+1)]), "_".join([t,str(i-1)])
+                    elif (di == 1 or di == 2): #first two points below ML
+                        twip1, twim1 = "_".join([t,str(di+1)]), "_".join([t,str(di-1)])
                         Pip1, Pim1 = sym.symbols(f'{twip1} {twim1}')
                         iF += w*(Pip1-Pim1)/(2*dz)*dzi #calculate flux estimate
                         iI += Pi*dzi
                     else: #all other depths
-                        twim1, twim2 = "_".join([t,str(i-1)]), "_".join([t,str(i-2)])
+                        twim1, twim2 = "_".join([t,str(di-1)]), "_".join([t,str(di-2)])
                         Pim1, Pim2 = sym.symbols(f'{twim1} {twim2}')
                         iF += w*(3*Pi-4*Pim1+Pim2)/(2*dz)*dzi #calculate flux estimate
                         iI += Pi*dzi
+                    print(i, di, zml[di], dzi)
             elif f == 'Psdot': #if it's the production term
                 gh, lp = sym.symbols('Gh Lp')
-                for i in dis:
-                    dzi = dz if i != 0 else h
-                    Pi = sym.symbols(f'Ps_{i}')
-                    iF += gh*sym.exp(-(zml[i]-h)/lp)*dzi
+                for i,di in enumerate(dis):
+                    #if we're on the first or last gridpoint for a layer and it's not the MLD
+                    if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
+                    elif di == 0: dzi = h+dz/2 #if we're on the MLD
+                    else: dzi = dz #all other depths
+                    Pi = sym.symbols(f'Ps_{di}')
+                    iF += gh*sym.exp(-(zml[di]-h)/lp)*dzi
                     iI += Pi*dzi
+                    print(i, di, zml[di], dzi)
             else: #all other terms that are not sinking or production
-                for i in dis:
-                    dzi = dz if i != 0 else h
-                    l = lmatch(i)
+                for i,di in enumerate(dis):
+                    #if we're on the first or last gridpoint for a layer and it's not the MLD
+                    if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
+                    elif di == 0: dzi = h+dz/2 #if we're on the MLD
+                    else: dzi = dz #all other depths
+                    l = lmatch(di)
                     pwi = "_".join([p,l])
-                    twi = "_".join([t,str(i)])
+                    twi = "_".join([t,str(di)])
                     pa, tr = sym.symbols(f'{pwi} {twi}')
                     iF += (pa*tr**ordr)*dzi
                     iI += tr*dzi
+                    print(i, di, zml[di], dzi)
             intflx = flxep(iF,err=True,cov=True)
             resT = flxep(iI/iF,err=False,cov=False) #doesn't return error prop (takes too long)
             flxd[f][rstr]['iflx'], flxd[f][rstr]['tau'] = intflx, resT
             #return(intflx)
 
 #should be equal to the fluxes integrated in A and B (WORKS)
-iflxcalc(iflxs,((dA,zmax),(h,110)))
+iflxcalc(iflxs,((h,110),(115,zmax)))
 
 # #one test for iflxcalc with two layers (WORKS!)
 # tid, tid1, pid, pid1 = vidxSV.index('Pl_16'), vidxSV.index('Pl_17'), vidxSV.index('Bm2_A'), vidxSV.index('Bm2_B')
