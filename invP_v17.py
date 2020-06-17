@@ -482,10 +482,8 @@ runs_z, runs_p = smr.runstest_1samp(model.resid)
 #Cf_addPt = np.diag(cppt['Pt_hat_pint']**2)
 Cf_addPt = np.diag(np.ones(n)*model.mse_resid)
 
-#kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A = acdrange((h,bnd-dz/2))
-#kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B = acdrange((bnd+dz/2,zmax))
-kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A = acdrange((h,115))
-kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B = acdrange((115,zmax))
+kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A = acdrange((h,bnd-dz/2))
+kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B = acdrange((bnd+dz/2,zmax))
 fig, ax = plt.subplots(1,1)
 cA, cB = blue, green
 ax.scatter(kdz_A,np.log(ac_A),label='A (EZ)',marker='o',color=cA) 
@@ -1007,10 +1005,10 @@ for pr in flxpairs:
         
 #integrated fluxes (stored in a separate dict)
 iflxs = ['ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
-iflxs = ['Psdot']
+#iflxs = ['Psdot']
 def iflxcalc(fluxes, deprngs):
     for f in fluxes:
-        print(f'-------{f}-------')
+        #print(f'-------{f}-------')
         if '_' in f: #if not Psdot
             p,t = f.split('_')[0], f.split('_')[1][:2]
             ordr = flxd[f]['o'] #get order from the flx dict
@@ -1044,7 +1042,7 @@ def iflxcalc(fluxes, deprngs):
                         Pim1, Pim2 = sym.symbols(f'{twim1} {twim2}')
                         iF += w*(3*Pi-4*Pim1+Pim2)/(2*dz)*dzi #calculate flux estimate
                         iI += Pi*dzi
-                    print(i, di, zml[di], dzi)
+                    #print(i, di, zml[di], dzi)
             elif f == 'Psdot': #if it's the production term
                 gh, lp = sym.symbols('Gh Lp')
                 for i,di in enumerate(dis):
@@ -1055,7 +1053,7 @@ def iflxcalc(fluxes, deprngs):
                     Pi = sym.symbols(f'Ps_{di}')
                     iF += gh*sym.exp(-(zml[di]-h)/lp)*dzi
                     iI += Pi*dzi
-                    print(i, di, zml[di], dzi)
+                    #print(i, di, zml[di], dzi)
             else: #all other terms that are not sinking or production
                 for i,di in enumerate(dis):
                     #if we're on the first or last gridpoint for a layer and it's not the MLD
@@ -1068,7 +1066,7 @@ def iflxcalc(fluxes, deprngs):
                     pa, tr = sym.symbols(f'{pwi} {twi}')
                     iF += (pa*tr**ordr)*dzi
                     iI += tr*dzi
-                    print(i, di, zml[di], dzi)
+                    #print(i, di, zml[di], dzi)
             intflx = flxep(iF,err=True,cov=True)
             resT = flxep(iI/iF,err=False,cov=False) #doesn't return error prop (takes too long)
             flxd[f][rstr]['iflx'], flxd[f][rstr]['tau'] = intflx, resT
