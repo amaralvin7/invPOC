@@ -87,7 +87,7 @@ p_o = {'ws':2, #m/d
        'Bm2':400/dpy, #from Murnane 1994, converted to d
        'Bm1s':36/dpy, #from Clegg surface value, converted to d
        'Bm1l':0.15, #based on preliminary RESPIRE data from A Santoro
-       'Gh':180/h/mm, #prior set to typical NPP shared data value (divided by h), error is 25% of that. mg/m2/d converted to mmol
+       'Gh':0.28, #prior set to typical NPP shared data value (divided by h), error is 25% of that. mg/m2/d converted to mmol
        'Lp':28} #from NPP data, m
 #prior errors
 p_oe = {'ws':2, 
@@ -96,7 +96,7 @@ p_oe = {'ws':2,
        'Bm2':1000/dpy, 
        'Bm1s':36/dpy, 
        'Bm1l':0.15, 
-       'Gh':180/h/mm*0.25, 
+       'Gh':0.12, 
        'Lp':28*0.5}
 
 #have a single layer seperation
@@ -367,7 +367,7 @@ def cvmsli(cvm, vlist):
 #given a mathmatical function for flux at particular depth, return flux and uncertainty
 #if err==True, considers uncertainties
 #if cov==True, considers covariances
-def flxep(y, err, cov):
+def symfunceval(y, err, cov):
     #print('stepped in')
     x = y.free_symbols #gets all (symbolic) variables in function
     nx = len(x) #number of variables
@@ -402,6 +402,93 @@ def flxep(y, err, cov):
     #print('equations built, evaluating')
     #print('Returned!')
     return result
+
+#given a depth range, calculate integrated fluxes
+def iflxcalc(fluxes, deprngs):
+    for f in fluxes:
+        #print(f'-------{f}-------')
+        if '_' in f: #if not Psdot
+            p,t = f.split('_')[0], f.split('_')[1][:2]
+            ordr = flxd[f]['o'] #get order from the flx dict
+        for dr in deprngs:        
+            do, dn = dr #unpack start and end depths
+            doi, dni = zml.tolist().index(do), zml.tolist().index(dn)
+            rstr = "_".join([str(do),str(dn)])
+            flxd[f][rstr] = {} #create dict to store integrated flux and res time for this depthrange
+            dis = np.arange(doi,dni+1) 
+            iF, iI = 0, 0 #initialize variable to collect summation (integrals) of fluxes and inventory
+            if 'dz' in f: #if sinking flux divergence term, more complicated
+                for i,di in enumerate(dis):
+                    #if we're on the first or last gridpoint for a layer and it's not the MLD
+                    if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
+                    elif di == 0: dzi = h+dz/2 #if we're on the MLD
+                    else: dzi = dz #all other depths
+                    l = lmatch(di)
+                    pwi = "_".join([p,l])
+                    twi = "_".join([t,str(di)])
+                    w, Pi = sym.symbols(f'{pwi} {twi}')
+                    if di == 0: #mixed layer
+                        iF += w*Pi/h*dzi
+                        iI += Pi*dzi
+                    elif (di == 1 or di == 2): #first two points below ML
+                        twip1, twim1 = "_".join([t,str(di+1)]), "_".join([t,str(di-1)])
+                        Pip1, Pim1 = sym.symbols(f'{twip1} {twim1}')
+                        iF += w*(Pip1-Pim1)/(2*dz)*dzi #calculate flux estimate
+                        iI += Pi*dzi
+                    else: #all other depths
+                        twim1, twim2 = "_".join([t,str(di-1)]), "_".join([t,str(di-2)])
+                        Pim1, Pim2 = sym.symbols(f'{twim1} {twim2}')
+                        iF += w*(3*Pi-4*Pim1+Pim2)/(2*dz)*dzi #calculate flux estimate
+                        iI += Pi*dzi
+                    #print(i, di, zml[di], dzi)
+            elif f == 'Psdot': #if it's the production term
+                gh, lp = sym.symbols('Gh Lp')
+                for i,di in enumerate(dis):
+                    #if we're on the first or last gridpoint for a layer and it's not the MLD
+                    if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
+                    elif di == 0: dzi = h+dz/2 #if we're on the MLD
+                    else: dzi = dz #all other depths
+                    Pi = sym.symbols(f'Ps_{di}')
+                    iF += gh*sym.exp(-(zml[di]-h)/lp)*dzi
+                    iI += Pi*dzi
+                    #print(i, di, zml[di], dzi)
+            else: #all other terms that are not sinking or production
+                for i,di in enumerate(dis):
+                    #if we're on the first or last gridpoint for a layer and it's not the MLD
+                    if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
+                    elif di == 0: dzi = h+dz/2 #if we're on the MLD
+                    else: dzi = dz #all other depths
+                    l = lmatch(di)
+                    pwi = "_".join([p,l])
+                    twi = "_".join([t,str(di)])
+                    pa, tr = sym.symbols(f'{pwi} {twi}')
+                    iF += (pa*tr**ordr)*dzi
+                    iI += tr*dzi
+                    #print(i, di, zml[di], dzi)
+            intflx = symfunceval(iF,err=True,cov=True)
+            resT = symfunceval(iI/iF,err=False,cov=False) #doesn't return error prop (takes too long)
+            flxd[f][rstr]['iflx'], flxd[f][rstr]['tau'] = intflx, resT
+            #return(intflx)
+
+#given a depth range, calculate (integrated) inventory
+def inventory(deprngs):
+    for t in tracers:
+        td[t]['inv'] = {} #initialize dict to store inventories for each depth range
+        for dr in deprngs:        
+            do, dn = dr #unpack start and end depths
+            doi, dni = zml.tolist().index(do), zml.tolist().index(dn)
+            rstr = "_".join([str(do),str(dn)])
+            dis = np.arange(doi,dni+1) 
+            I = 0 #initialize variable to collect summation (integrals) of inventory
+            for i,di in enumerate(dis):
+                #if we're on the first or last gridpoint for a layer and it's not the MLD
+                if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
+                elif di == 0: dzi = h+dz/2 #if we're on the MLD
+                else: dzi = dz #all other depths
+                twi = "_".join([t,str(di)]) #get the tracer at this depth index
+                tr = sym.symbols(f'{twi}') #make it a symbolic variable
+                I += tr*dzi
+            td[t]['inv'][rstr] = symfunceval(I,err=True,cov=True)
 
 ####Pt estimates    
 #read in cast match data
@@ -959,17 +1046,17 @@ for f in flxd.keys():
             w, Pi = sym.symbols(f'{pwi} {twi}')
             if i == 0: #mixed layer    
                 y = w*Pi/h
-                fxh[i], fxhe[i] = flxep(y,err=True,cov=True) 
+                fxh[i], fxhe[i] = symfunceval(y,err=True,cov=True) 
             elif (i == 1 or i == 2): #first two points below ML
                 twip1, twim1 = "_".join([t,str(i+1)]), "_".join([t,str(i-1)])
                 Pip1, Pim1 = sym.symbols(f'{twip1} {twim1}')
                 y = w*(Pip1-Pim1)/(2*dz) #calculate flux estimate
-                fxh[i], fxhe[i]  = flxep(y,err=True,cov=True) 
+                fxh[i], fxhe[i]  = symfunceval(y,err=True,cov=True) 
             else: #all other depths
                 twim1, twim2 = "_".join([t,str(i-1)]), "_".join([t,str(i-2)])
                 Pim1, Pim2 = sym.symbols(f'{twim1} {twim2}')
                 y = w*(3*Pi-4*Pim1+Pim2)/(2*dz) #calculate flux estimate
-                fxh[i], fxhe[i]  = flxep(y,err=True,cov=True)
+                fxh[i], fxhe[i]  = symfunceval(y,err=True,cov=True)
     else: #all other terms that are not sinking flux divergence
         for i in np.arange(0,n):
             dzi = dz if i != 0 else h
@@ -982,7 +1069,7 @@ for f in flxd.keys():
                 twi = "_".join([t,str(i)]) 
                 pa, tr = sym.symbols(f'{pwi} {twi}')
                 y = pa*tr**ordr 
-            fxh[i], fxhe[i] = flxep(y,err=True,cov=True)
+            fxh[i], fxhe[i] = symfunceval(y,err=True,cov=True)
     flxd[f]['xh'], flxd[f]['xhe'] = fxh, fxhe 
 
 
@@ -1003,78 +1090,15 @@ for pr in flxpairs:
         ax.errorbar(flxd[pr[1]]['xh'], zml, fmt='o', xerr=flxd[pr[1]]['xhe'], ecolor=c2, elinewidth=elw, c=c2, ms=ms, capsize=cs, lw=lw, label=flxnames[pr[1]], fillstyle='none')
     ax.legend()
         
-#integrated fluxes (stored in a separate dict)
+#fluxes that we want to integrate
 iflxs = ['ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
 #iflxs = ['Psdot']
-def iflxcalc(fluxes, deprngs):
-    for f in fluxes:
-        #print(f'-------{f}-------')
-        if '_' in f: #if not Psdot
-            p,t = f.split('_')[0], f.split('_')[1][:2]
-            ordr = flxd[f]['o'] #get order from the flx dict
-        for dr in deprngs:        
-            do, dn = dr #unpack start and end depths
-            doi, dni = zml.tolist().index(do), zml.tolist().index(dn)
-            rstr = "_".join([str(do),str(dn)])
-            flxd[f][rstr] = {} #create dict to store integrated flux and res time for this depthrange
-            dis = np.arange(doi,dni+1) 
-            iF, iI = 0, 0 #initialize variable to collect summation (integrals) of fluxes and inventory
-            if 'dz' in f: #if sinking flux divergence term, more complicated
-                for i,di in enumerate(dis):
-                    #if we're on the first or last gridpoint for a layer and it's not the MLD
-                    if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
-                    elif di == 0: dzi = h+dz/2 #if we're on the MLD
-                    else: dzi = dz #all other depths
-                    l = lmatch(di)
-                    pwi = "_".join([p,l])
-                    twi = "_".join([t,str(di)])
-                    w, Pi = sym.symbols(f'{pwi} {twi}')
-                    if di == 0: #mixed layer
-                        iF += w*Pi/h*dzi
-                        iI += Pi*dzi
-                    elif (di == 1 or di == 2): #first two points below ML
-                        twip1, twim1 = "_".join([t,str(di+1)]), "_".join([t,str(di-1)])
-                        Pip1, Pim1 = sym.symbols(f'{twip1} {twim1}')
-                        iF += w*(Pip1-Pim1)/(2*dz)*dzi #calculate flux estimate
-                        iI += Pi*dzi
-                    else: #all other depths
-                        twim1, twim2 = "_".join([t,str(di-1)]), "_".join([t,str(di-2)])
-                        Pim1, Pim2 = sym.symbols(f'{twim1} {twim2}')
-                        iF += w*(3*Pi-4*Pim1+Pim2)/(2*dz)*dzi #calculate flux estimate
-                        iI += Pi*dzi
-                    #print(i, di, zml[di], dzi)
-            elif f == 'Psdot': #if it's the production term
-                gh, lp = sym.symbols('Gh Lp')
-                for i,di in enumerate(dis):
-                    #if we're on the first or last gridpoint for a layer and it's not the MLD
-                    if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
-                    elif di == 0: dzi = h+dz/2 #if we're on the MLD
-                    else: dzi = dz #all other depths
-                    Pi = sym.symbols(f'Ps_{di}')
-                    iF += gh*sym.exp(-(zml[di]-h)/lp)*dzi
-                    iI += Pi*dzi
-                    #print(i, di, zml[di], dzi)
-            else: #all other terms that are not sinking or production
-                for i,di in enumerate(dis):
-                    #if we're on the first or last gridpoint for a layer and it's not the MLD
-                    if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
-                    elif di == 0: dzi = h+dz/2 #if we're on the MLD
-                    else: dzi = dz #all other depths
-                    l = lmatch(di)
-                    pwi = "_".join([p,l])
-                    twi = "_".join([t,str(di)])
-                    pa, tr = sym.symbols(f'{pwi} {twi}')
-                    iF += (pa*tr**ordr)*dzi
-                    iI += tr*dzi
-                    #print(i, di, zml[di], dzi)
-            intflx = flxep(iF,err=True,cov=True)
-            resT = flxep(iI/iF,err=False,cov=False) #doesn't return error prop (takes too long)
-            flxd[f][rstr]['iflx'], flxd[f][rstr]['tau'] = intflx, resT
-            #return(intflx)
 
-#should be equal to the fluxes integrated in A and B (WORKS)
-iflxcalc(iflxs,((h,110),(115,zmax)))
+depthranges = ((h,95),(95,500)) #For the these depth rangers,
+iflxcalc(iflxs,depthranges) #calculate integrated fluxes and timescales
+inventory(depthranges) #calculate tracer inventory
 
+# # SOME LINES FOR TESTING
 # #one test for iflxcalc with two layers (WORKS!)
 # tid, tid1, pid, pid1 = vidxSV.index('Pl_16'), vidxSV.index('Pl_17'), vidxSV.index('Bm2_A'), vidxSV.index('Bm2_B')
 # tv, te = td['Pl']['xh'][16], td['Pl']['xhe'][16]
@@ -1087,7 +1111,7 @@ iflxcalc(iflxs,((h,110),(115,zmax)))
 # v1_st, v2_st, v3_st, v4_st = '_'.join(['Bm2','A']), '_'.join(['Bm2','B']), '_'.join(['Pl','16']), '_'.join(['Pl','17'])
 # v1, v2, v3, v4 = sym.symbols(f'{v1_st} {v2_st} {v3_st} {v4_st}')
 # y = (v1*v3+v2*v4)*dz
-# print(flxep(y,cov=True))
+# print(symfunceval(y,cov=True))
 # print(y)
 # print(iflxcalc(['Bm2_Pl'],((zml[16],zml[17]),)))
 
@@ -1104,5 +1128,16 @@ iflxcalc(iflxs,((h,110),(115,zmax)))
 #         print(flxd[f]['30_110']['iflx'][0]-invPl_A/flxd[f]['30_110']['tau'][0])
 #         print(flxd[f]['115_500']['iflx'][0]-invPl_B/flxd[f]['115_500']['tau'][0])  
 
-        
+#test that inventory calcs are accurate (looks good!)
+for t in tracers:
+    tflxs = [i for i in iflxs if t in i]
+    for dr in depthranges:
+        rstr = "_".join([str(dr[0]),str(dr[1])])
+        print(f'----{t}, {dr}: {td[t]["inv"][rstr][0]:.3f}----')
+        for tf in tflxs:
+            flx = flxd[tf][rstr]['iflx']
+            tau = flxd[tf][rstr]['tau']
+            inv = flx[0]*tau
+            print(f'{tf}: {flx}, {tau:.3f}, {inv:.3f}')
+            
 print(f'--- {time.time() - start_time} seconds ---')
