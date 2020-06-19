@@ -267,27 +267,27 @@ def modresi(sv):
         #POC, SSF
         if t == 'Ps':
             if d == 0: #mixed layer
-                n_err[i] = (wsio/h+Bm1sio+B2pio*Psio)*Psio-Bm2io*Plio-Ghio
+                n_err[i] = Ghio+Bm2io*Plio-(wsio/h+Bm1sio+B2pio*Psio)*Psio
             elif (d == 1 or d == 2): #first or second grid point
                 iPsip1,Psip1o = fidx2('Ps',d+1,vidxP,sv)
                 iPsim1,Psim1o = fidx2('Ps',d-1,vidxP,sv)
-                n_err[i] = (wsio/(2*dz))*Psip1o+(Bm1sio+B2pio*Psio)*Psio-(wsio/(2*dz))*Psim1o-(Bm2io*Plio)-Ghio*np.exp(-(zml[d]-h)/(Lpio))
+                n_err[i] = Ghio*np.exp(-(zml[d]-h)/(Lpio))+(Bm2io*Plio)-(Bm1sio+B2pio*Psio)*Psio-wsio/(2*dz)*(Psip1o-Psim1o)
             else: #everywhere else
                 iPsim1,Psim1o = fidx2('Ps',d-1,vidxP,sv)
                 iPsim2,Psim2o = fidx2('Ps',d-2,vidxP,sv)
-                n_err[i] = ((3*wsio)/(2*dz)+Bm1sio+B2pio*Psio)*Psio-(2*wsio/dz)*Psim1o+(wsio/(2*dz))*Psim2o-(Bm2io*Plio)-Ghio*np.exp(-(zml[d]-h)/(Lpio))
+                n_err[i] = Ghio*np.exp(-(zml[d]-h)/(Lpio))+(Bm2io*Plio)-(Bm1sio+B2pio*Psio)*Psio-wsio/(2*dz)*(3*Psio-4*Psim1o+Psim2o)
         #POC, LSF
         else:
             if d == 0:
-                n_err[i] = (wlio/h+Bm2io+Bm1lio)*Plio-(B2pio*(Psio)**2)                
+                n_err[i] = (B2pio*(Psio)**2)-(wlio/h+Bm2io+Bm1lio)*Plio                
             elif (d == 1 or d == 2):
                 iPlip1,Plip1o = fidx2('Pl',d+1,vidxP,sv)    
                 iPlim1,Plim1o = fidx2('Pl',d-1,vidxP,sv)
-                n_err[i] = wlio/(2*dz)*Plip1o+(Bm2io+Bm1lio)*Plio-wlio/(2*dz)*Plim1o-(B2pio*(Psio)**2)
+                n_err[i] = (B2pio*(Psio)**2)-(Bm2io+Bm1lio)*Plio-wlio/(2*dz)*(Plip1o-Plim1o)
             else:
                 iPlim1,Plim1o = fidx2('Pl',d-1,vidxP,sv)
                 iPlim2,Plim2o = fidx2('Pl',d-2,vidxP,sv)
-                n_err[i] = ((3*wlio)/(2*dz)+Bm2io+Bm1lio)*Plio-(2*wlio/dz*Plim1o)+(wlio/(2*dz))*Plim2o-(B2pio*(Psio)**2)
+                n_err[i] = (B2pio*(Psio)**2)-(Bm2io+Bm1lio)*Plio-wlio/(2*dz)*(3*Plio-4*Plim1o+Plim2o)
     #extract errors of individual tracers from diagonal of Cf
     Ps_n, Pl_n = vsli(n_err,td['Ps']['si']), vsli(n_err,td['Pl']['si'])
     Ps_nm, Pl_nm = np.mean(Ps_n), np.mean(Pl_n)
@@ -742,60 +742,60 @@ while convergecheck(eps, x_diff)[0] == False:
         iBm1li,Bm1lio,Bm1li = findp_dv(xo,xk,vidxSV,'Bm1l',l)
         #POC, SSF
         if t == 'Ps':
-            F[i,iBm2i] = -Pli*Plio*Bm2io*Bm2i
-            F[i,iBm1si] = Psi*Psio*Bm1sio*Bm1si
-            F[i,iB2pi]  = B2pio*(Psi*Psio)**2*B2pi
-            F[i,iPli] = -Bm2i*Bm2io*Plio*Pli
+            F[i,iBm2i] = Pli*Plio*Bm2io*Bm2i
+            F[i,iBm1si] = -Psi*Psio*Bm1sio*Bm1si
+            F[i,iB2pi]  = -B2pio*(Psi*Psio)**2*B2pi
+            F[i,iPli] = Bm2i*Bm2io*Plio*Pli
             if d == 0: #mixed layer
-                F[i,iPsi] = (wsi*wsio/h+Bm1si*Bm1sio+2*B2pi*B2pio*Psi*Psio)*Psi*Psio
-                F[i,iwsi] = Psi*Psio*wsio/h*wsi
-                F[i,iGhi] = -Ghio*Ghi
-                f[i] = (wsi*wsio/h+Bm1si*Bm1sio+B2pi*B2pio*Psi*Psio)*Psi*Psio-Bm2i*Bm2io*Pli*Plio-Ghi*Ghio
+                F[i,iPsi] = -(wsi*wsio/h+Bm1si*Bm1sio+2*B2pi*B2pio*Psi*Psio)*Psi*Psio
+                F[i,iwsi] = -Psi*Psio*wsio/h*wsi
+                F[i,iGhi] = Ghio*Ghi
+                f[i] = Ghi*Ghio+Bm2i*Bm2io*Pli*Plio-(wsi*wsio/h+Bm1si*Bm1sio+B2pi*B2pio*Psi*Psio)*Psi*Psio
             elif (d == 1 or d == 2): #first or second grid point
                 iPsip1,Psip1,Psip1o = fidx3e('Ps',d+1,vidx_allP,xk,xo)
                 iPsim1,Psim1,Psim1o = fidx3e('Ps',d-1,vidx_allP,xk,xo)
-                F[i,iPsip1] = wsi*wsio*Psip1o/(2*dz)*Psip1
-                F[i,iPsi] = (Bm1si*Bm1sio+2*B2pi*B2pio*Psi*Psio)*Psi*Psio
-                F[i,iPsim1] = -wsi*wsio*Psim1o/(2*dz)*Psim1
-                F[i,iwsi] = wsio*(Psip1*Psip1o-Psim1*Psim1o)/(2*dz)*wsi
-                F[i,iGhi] = -Ghio*np.exp(-(zml[d]-h)/(Lpi*Lpio))*Ghi
-                F[i,iLpi] = -(Ghi*Ghio*(zml[d]-h))/(Lpio*Lpi)*np.exp(-(zml[d]-h)/(Lpio*Lpi))
-                f[i] = (wsi*wsio/(2*dz))*Psip1*Psip1o+(Bm1si*Bm1sio+B2pi*B2pio*Psi*Psio)*Psi*Psio-(wsi*wsio/(2*dz))*Psim1*Psim1o-(Bm2i*Bm2io*Pli*Plio)-Ghi*Ghio*np.exp(-(zml[d]-h)/(Lpi*Lpio))
+                F[i,iPsip1] = -wsi*wsio*Psip1o/(2*dz)*Psip1
+                F[i,iPsi] = -(Bm1si*Bm1sio+2*B2pi*B2pio*Psi*Psio)*Psi*Psio
+                F[i,iPsim1] = wsi*wsio*Psim1o/(2*dz)*Psim1
+                F[i,iwsi] = -wsio*(Psip1*Psip1o-Psim1*Psim1o)/(2*dz)*wsi
+                F[i,iGhi] = Ghio*np.exp(-(zml[d]-h)/(Lpi*Lpio))*Ghi
+                F[i,iLpi] = (Ghi*Ghio*(zml[d]-h))/(Lpio*Lpi)*np.exp(-(zml[d]-h)/(Lpio*Lpi))
+                f[i] = Ghi*Ghio*np.exp(-(zml[d]-h)/(Lpi*Lpio))+(Bm2i*Bm2io*Pli*Plio)-(Bm1si*Bm1sio+B2pi*B2pio*Psi*Psio)*Psi*Psio-wsi*wsio/(2*dz)*(Psip1*Psip1o-Psim1*Psim1o)
             else: #everywhere else
                 iPsim1,Psim1,Psim1o = fidx3e('Ps',d-1,vidx_allP,xk,xo)
                 iPsim2,Psim2,Psim2o = fidx3e('Ps',d-2,vidx_allP,xk,xo)
-                F[i,iPsi] = ((3*wsi*wsio)/(2*dz)+Bm1si*Bm1sio+2*B2pi*B2pio*Psi*Psio)*Psi*Psio
-                F[i,iPsim1] = -2*wsi*wsio*Psim1o/dz*Psim1
-                F[i,iPsim2] = wsi*wsio*Psim2o/(2*dz)*Psim2
-                F[i,iwsi] = wsio*(Psim2*Psim2o-4*Psim1*Psim1o+3*Psi*Psio)/(2*dz)*wsi
-                F[i,iGhi] = -Ghio*np.exp(-(zml[d]-h)/(Lpi*Lpio))*Ghi
-                F[i,iLpi] = -(Ghi*Ghio*(zml[d]-h))/(Lpio*Lpi)*np.exp(-(zml[d]-h)/(Lpio*Lpi))
-                f[i] = ((3*wsi*wsio)/(2*dz)+Bm1si*Bm1sio+B2pi*B2pio*Psi*Psio)*Psi*Psio-(2*wsi*wsio/dz)*Psim1*Psim1o+(wsi*wsio/(2*dz))*Psim2*Psim2o-(Bm2i*Bm2io*Pli*Plio)-Ghi*Ghio*np.exp(-(zml[d]-h)/(Lpi*Lpio))
+                F[i,iPsi] = -((3*wsi*wsio)/(2*dz)+Bm1si*Bm1sio+2*B2pi*B2pio*Psi*Psio)*Psi*Psio
+                F[i,iPsim1] = 2*wsi*wsio*Psim1o/dz*Psim1
+                F[i,iPsim2] = -wsi*wsio*Psim2o/(2*dz)*Psim2
+                F[i,iwsi] = -wsio*(Psim2*Psim2o-4*Psim1*Psim1o+3*Psi*Psio)/(2*dz)*wsi
+                F[i,iGhi] = Ghio*np.exp(-(zml[d]-h)/(Lpi*Lpio))*Ghi
+                F[i,iLpi] = (Ghi*Ghio*(zml[d]-h))/(Lpio*Lpi)*np.exp(-(zml[d]-h)/(Lpio*Lpi))
+                f[i] = Ghi*Ghio*np.exp(-(zml[d]-h)/(Lpi*Lpio))+(Bm2i*Bm2io*Pli*Plio)-(Bm1si*Bm1sio+B2pi*B2pio*Psi*Psio)*Psi*Psio-wsi*wsio/(2*dz)*(3*Psio*Psi-4*Psim1o*Psim1+Psim2o*Psim2)
         #POC, LSF
         elif t == 'Pl':
-            F[i,iPsi] = -2*B2pi*B2pio*(Psi*Psio)**2
-            F[i,iBm2i], F[i,iBm1li] = Pli*Plio*Bm2io*Bm2i, Pli*Plio*Bm1lio*Bm1li
-            F[i,iB2pi] = -B2pio*(Psi*Psio)**2*B2pi
+            F[i,iPsi] = 2*B2pi*B2pio*(Psi*Psio)**2
+            F[i,iBm2i], F[i,iBm1li] = -Pli*Plio*Bm2io*Bm2i, -Pli*Plio*Bm1lio*Bm1li
+            F[i,iB2pi] = B2pio*(Psi*Psio)**2*B2pi
             if d == 0:
-                F[i,iPli] = (wli*wlio/h+Bm2i*Bm2io+Bm1li*Bm1lio)*Plio*Pli
-                F[i,iwli] = Pli*Plio*wlio/h*wli
-                f[i] = (wli*wlio/h+Bm2i*Bm2io+Bm1li*Bm1lio)*Pli*Plio-(B2pi*B2pio*(Psi*Psio)**2)                
+                F[i,iPli] = -(wli*wlio/h+Bm2i*Bm2io+Bm1li*Bm1lio)*Plio*Pli
+                F[i,iwli] = -Pli*Plio*wlio/h*wli
+                f[i] = (B2pi*B2pio*(Psi*Psio)**2)-(wli*wlio/h+Bm2i*Bm2io+Bm1li*Bm1lio)*Pli*Plio                
             elif (d == 1 or d == 2):
                 iPlip1,Plip1,Plip1o = fidx3e('Pl',d+1,vidx_allP,xk,xo)    
                 iPlim1,Plim1,Plim1o = fidx3e('Pl',d-1,vidx_allP,xk,xo)
-                F[i,iPlip1] = wli*wlio*Plip1o/(2*dz)*Plip1
-                F[i,iPli] = Plio*(Bm2i*Bm2io+Bm1li*Bm1lio)*Pli
-                F[i,iPlim1] = -wli*wlio*Plim1o/(2*dz)*Plim1
-                F[i,iwli] = wlio*(Plip1*Plip1o-Plim1*Plim1o)/(2*dz)*wli
-                f[i] = wli*wlio/(2*dz)*Plip1*Plip1o+(Bm2i*Bm2io+Bm1li*Bm1lio)*Pli*Plio-wli*wlio/(2*dz)*Plim1*Plim1o-(B2pi*B2pio*(Psi*Psio)**2)
+                F[i,iPlip1] = -wli*wlio*Plip1o/(2*dz)*Plip1
+                F[i,iPli] = -Plio*(Bm2i*Bm2io+Bm1li*Bm1lio)*Pli
+                F[i,iPlim1] = wli*wlio*Plim1o/(2*dz)*Plim1
+                F[i,iwli] = -wlio*(Plip1*Plip1o-Plim1*Plim1o)/(2*dz)*wli
+                f[i] = B2pi*B2pio*(Psi*Psio)**2-(Bm2i*Bm2io+Bm1li*Bm1lio)*Pli*Plio-wli*wlio/(2*dz)*(Plip1*Plip1o-Plim1*Plim1o)
             else:
                 iPlim1,Plim1,Plim1o = fidx3e('Pl',d-1,vidx_allP,xk,xo)
                 iPlim2,Plim2,Plim2o = fidx3e('Pl',d-2,vidx_allP,xk,xo)
-                F[i,iPli] = ((3*wli*wlio)/(2*dz)+Bm2i*Bm2io+Bm1li*Bm1lio)*Plio*Pli
-                F[i,iPlim1] = -2*wli*wlio*Plim1o/dz*Plim1
-                F[i,iPlim2] = wli*wlio*Plim2o/(2*dz)*Plim2
-                F[i,iwli] = wlio*(Plim2*Plim2o-4*Plim1*Plim1o+3*Pli*Plio)/(2*dz)*wli
-                f[i] = ((3*wli*wlio)/(2*dz)+Bm2i*Bm2io+Bm1li*Bm1lio)*Pli*Plio-(2*wli*wlio/dz*Plim1*Plim1o)+(wli*wlio/(2*dz))*Plim2*Plim2o-(B2pi*B2pio*(Psi*Psio)**2)
+                F[i,iPli] = -((3*wli*wlio)/(2*dz)+Bm2i*Bm2io+Bm1li*Bm1lio)*Plio*Pli
+                F[i,iPlim1] = 2*wli*wlio*Plim1o/dz*Plim1
+                F[i,iPlim2] = -wli*wlio*Plim2o/(2*dz)*Plim2
+                F[i,iwli] = -wlio*(Plim2*Plim2o-4*Plim1*Plim1o+3*Pli*Plio)/(2*dz)*wli
+                f[i] = B2pi*B2pio*(Psi*Psio)**2-(Bm2i*Bm2io+Bm1li*Bm1lio)*Pli*Plio-wli*wlio/(2*dz)*(3*Plio*Pli-4*Plim1o*Plim1+Plim2o*Plim2)
         #POC, Ps + Pl = Pt
         else:
             iPti,Pti = fidx2('Pt',d,vidxPt,cppt.Pt_hat)
@@ -936,9 +936,9 @@ axA.set_xlabel('$n^{k+1}_{P_{S}}$ (mmol/m3/d)'), axB.set_xlabel('$n^{k+1}_{P_{L}
 axA.set_ylabel('Depth (m)')
 axA.set_ylim(top=0,bottom=zmax+dz), axB.set_ylim(top=0,bottom=zmax+dz)
 axA.scatter(td['Ps']['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
-axA.axvline(td['Ps']['nm'],c=purple,ls='--',label='mean'), axA.axvline(td['Ps']['nma'],c=green,ls=':',label='mean_a')
+axA.axvline(td['Ps']['nm'],c=purple,ls='--',label='mean')#, axA.axvline(td['Ps']['nma'],c=green,ls=':',label='mean_a')
 axB.scatter(td['Pl']['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
-axB.axvline(td['Pl']['nm'],c=purple,ls='--',label='mean'), axB.axvline(td['Pl']['nma'],c=green,ls=':',label='mean_a')
+axB.axvline(td['Pl']['nm'],c=purple,ls='--',label='mean')#, axB.axvline(td['Pl']['nma'],c=green,ls=':',label='mean_a')
 axA.legend(), axB.legend()
 
 #plot evolution of convergence
@@ -1090,54 +1090,54 @@ for pr in flxpairs:
         ax.errorbar(flxd[pr[1]]['xh'], zml, fmt='o', xerr=flxd[pr[1]]['xhe'], ecolor=c2, elinewidth=elw, c=c2, ms=ms, capsize=cs, lw=lw, label=flxnames[pr[1]], fillstyle='none')
     ax.legend()
         
-#fluxes that we want to integrate
-iflxs = ['ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
-#iflxs = ['Psdot']
+# #fluxes that we want to integrate
+# iflxs = ['ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
+# #iflxs = ['Psdot']
 
-depthranges = ((h,95),(95,500)) #For the these depth rangers,
-iflxcalc(iflxs,depthranges) #calculate integrated fluxes and timescales
-inventory(depthranges) #calculate tracer inventory
+# depthranges = ((h,95),(95,500)) #For the these depth rangers,
+# iflxcalc(iflxs,depthranges) #calculate integrated fluxes and timescales
+# inventory(depthranges) #calculate tracer inventory
 
-# # SOME LINES FOR TESTING
-# #one test for iflxcalc with two layers (WORKS!)
-# tid, tid1, pid, pid1 = vidxSV.index('Pl_16'), vidxSV.index('Pl_17'), vidxSV.index('Bm2_A'), vidxSV.index('Bm2_B')
-# tv, te = td['Pl']['xh'][16], td['Pl']['xhe'][16]
-# tv1, te1 = td['Pl']['xh'][17], td['Pl']['xhe'][17]
-# pv, pe = pdi['Bm2']['A']['xh'], pdi['Bm2']['A']['xhe']
-# pv1, pe1 = pdi['Bm2']['B']['xh'], pdi['Bm2']['B']['xhe']
-# print((pv*tv+pv1*tv1)*dz, np.sqrt((pv*dz*te)**2+(pv1*dz*te1)**2+(tv*dz*pe)**2+(tv1*dz*pe1)**2+
-#                             2*dz**2*(tv*tv1*CVM[pid,pid1]+pv*pv1*CVM[tid,tid1]+tv*pv*CVM[pid,tid]+
-#                             tv1*pv*CVM[pid1,tid]+tv*pv1*CVM[pid,tid1]+tv1*pv1*CVM[pid1,tid1])))
-# v1_st, v2_st, v3_st, v4_st = '_'.join(['Bm2','A']), '_'.join(['Bm2','B']), '_'.join(['Pl','16']), '_'.join(['Pl','17'])
-# v1, v2, v3, v4 = sym.symbols(f'{v1_st} {v2_st} {v3_st} {v4_st}')
-# y = (v1*v3+v2*v4)*dz
-# print(symfunceval(y,cov=True))
-# print(y)
-# print(iflxcalc(['Bm2_Pl'],((zml[16],zml[17]),)))
+# # # SOME LINES FOR TESTING
+# # #one test for iflxcalc with two layers (WORKS!)
+# # tid, tid1, pid, pid1 = vidxSV.index('Pl_16'), vidxSV.index('Pl_17'), vidxSV.index('Bm2_A'), vidxSV.index('Bm2_B')
+# # tv, te = td['Pl']['xh'][16], td['Pl']['xhe'][16]
+# # tv1, te1 = td['Pl']['xh'][17], td['Pl']['xhe'][17]
+# # pv, pe = pdi['Bm2']['A']['xh'], pdi['Bm2']['A']['xhe']
+# # pv1, pe1 = pdi['Bm2']['B']['xh'], pdi['Bm2']['B']['xhe']
+# # print((pv*tv+pv1*tv1)*dz, np.sqrt((pv*dz*te)**2+(pv1*dz*te1)**2+(tv*dz*pe)**2+(tv1*dz*pe1)**2+
+# #                             2*dz**2*(tv*tv1*CVM[pid,pid1]+pv*pv1*CVM[tid,tid1]+tv*pv*CVM[pid,tid]+
+# #                             tv1*pv*CVM[pid1,tid]+tv*pv1*CVM[pid,tid1]+tv1*pv1*CVM[pid1,tid1])))
+# # v1_st, v2_st, v3_st, v4_st = '_'.join(['Bm2','A']), '_'.join(['Bm2','B']), '_'.join(['Pl','16']), '_'.join(['Pl','17'])
+# # v1, v2, v3, v4 = sym.symbols(f'{v1_st} {v2_st} {v3_st} {v4_st}')
+# # y = (v1*v3+v2*v4)*dz
+# # print(symfunceval(y,cov=True))
+# # print(y)
+# # print(iflxcalc(['Bm2_Pl'],((zml[16],zml[17]),)))
 
-# #checking calculation of timescales (LOOKS GOOD)       
-# invPs_A = np.sum(td['Ps']['xh'][1:17])*dz+td['Ps']['xh'][0]*h
-# invPl_A = np.sum(td['Pl']['xh'][1:17])*dz+td['Pl']['xh'][0]*h
-# invPs_B = np.sum(td['Ps']['xh'][17:])*dz
-# invPl_B = np.sum(td['Pl']['xh'][17:])*dz
-# for f in iflxs:
-#     if 'Ps' in f:
-#         print(flxd[f]['30_110']['iflx'][0]-invPs_A/flxd[f]['30_110']['tau'][0])
-#         print(flxd[f]['115_500']['iflx'][0]-invPs_B/flxd[f]['115_500']['tau'][0])
-#     else:
-#         print(flxd[f]['30_110']['iflx'][0]-invPl_A/flxd[f]['30_110']['tau'][0])
-#         print(flxd[f]['115_500']['iflx'][0]-invPl_B/flxd[f]['115_500']['tau'][0])  
+# # #checking calculation of timescales (LOOKS GOOD)       
+# # invPs_A = np.sum(td['Ps']['xh'][1:17])*dz+td['Ps']['xh'][0]*h
+# # invPl_A = np.sum(td['Pl']['xh'][1:17])*dz+td['Pl']['xh'][0]*h
+# # invPs_B = np.sum(td['Ps']['xh'][17:])*dz
+# # invPl_B = np.sum(td['Pl']['xh'][17:])*dz
+# # for f in iflxs:
+# #     if 'Ps' in f:
+# #         print(flxd[f]['30_110']['iflx'][0]-invPs_A/flxd[f]['30_110']['tau'][0])
+# #         print(flxd[f]['115_500']['iflx'][0]-invPs_B/flxd[f]['115_500']['tau'][0])
+# #     else:
+# #         print(flxd[f]['30_110']['iflx'][0]-invPl_A/flxd[f]['30_110']['tau'][0])
+# #         print(flxd[f]['115_500']['iflx'][0]-invPl_B/flxd[f]['115_500']['tau'][0])  
 
-#test that inventory calcs are accurate (looks good!)
-for t in tracers:
-    tflxs = [i for i in iflxs if t in i]
-    for dr in depthranges:
-        rstr = "_".join([str(dr[0]),str(dr[1])])
-        print(f'----{t}, {dr}: {td[t]["inv"][rstr][0]:.3f}----')
-        for tf in tflxs:
-            flx = flxd[tf][rstr]['iflx']
-            tau = flxd[tf][rstr]['tau']
-            inv = flx[0]*tau
-            print(f'{tf}: {flx}, {tau:.3f}, {inv:.3f}')
+# #test that inventory calcs are accurate (looks good!)
+# for t in tracers:
+#     tflxs = [i for i in iflxs if t in i]
+#     for dr in depthranges:
+#         rstr = "_".join([str(dr[0]),str(dr[1])])
+#         print(f'----{t}, {dr}: {td[t]["inv"][rstr][0]:.3f}----')
+#         for tf in tflxs:
+#             flx = flxd[tf][rstr]['iflx']
+#             tau = flxd[tf][rstr]['tau']
+#             inv = flx[0]*tau
+#             print(f'{tf}: {flx}, {tau:.3f}, {inv:.3f}')
             
 print(f'--- {time.time() - start_time} seconds ---')
