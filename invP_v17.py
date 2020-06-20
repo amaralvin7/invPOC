@@ -470,16 +470,16 @@ def iflxcalc(fluxes, deprngs):
             flxd[f][rstr]['iflx'], flxd[f][rstr]['tau'] = intflx, resT
             #return(intflx)
 
-#given a depth range, calculate (integrated) inventory
+#given a depth range, calculate (integrated) inventory and residuals
 def inventory(deprngs):
     for t in tracers:
-        td[t]['inv'] = {} #initialize dict to store inventories for each depth range
+        td[t]['inv'], td[t]['ires'] = {}, {} #initialize dicts to store inventories and integrated residuals for each depth range
         for dr in deprngs:        
             do, dn = dr #unpack start and end depths
             doi, dni = zml.tolist().index(do), zml.tolist().index(dn)
             rstr = "_".join([str(do),str(dn)])
             dis = np.arange(doi,dni+1) 
-            I = 0 #initialize variable to collect summation (integrals) of inventory
+            I, ir = 0, 0 #initialize variable to collect summation (integrals) of inventory
             for i,di in enumerate(dis):
                 #if we're on the first or last gridpoint for a layer and it's not the MLD
                 if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
@@ -488,8 +488,10 @@ def inventory(deprngs):
                 twi = "_".join([t,str(di)]) #get the tracer at this depth index
                 tr = sym.symbols(f'{twi}') #make it a symbolic variable
                 I += tr*dzi
+                ir += td[t]['n'][di]*dzi #integrated residual
             td[t]['inv'][rstr] = symfunceval(I,err=True,cov=True)
-
+            td[t]['ires'][rstr] = ir
+            
 ####Pt estimates    
 #read in cast match data
 #cmdp = '/Users/vamaral/GoogleDrive/DOCS/Py/pyEXPORTS/misc/castmatch_v1.csv' #v1 has "exact" matches, but includes ctd cast 39 which has a bad values 
@@ -1090,43 +1092,43 @@ for pr in flxpairs:
         ax.errorbar(flxd[pr[1]]['xh'], zml, fmt='o', xerr=flxd[pr[1]]['xhe'], ecolor=c2, elinewidth=elw, c=c2, ms=ms, capsize=cs, lw=lw, label=flxnames[pr[1]], fillstyle='none')
     ax.legend()
         
-# #fluxes that we want to integrate
-# iflxs = ['ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
-# #iflxs = ['Psdot']
+#fluxes that we want to integrate
+iflxs = ['ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
+#iflxs = ['Psdot']
 
-# depthranges = ((h,95),(95,500)) #For the these depth rangers,
-# iflxcalc(iflxs,depthranges) #calculate integrated fluxes and timescales
-# inventory(depthranges) #calculate tracer inventory
+depthranges = ((h,95),(95,500)) #For the these depth rangers,
+iflxcalc(iflxs,depthranges) #calculate integrated fluxes and timescales
+inventory(depthranges) #calculate tracer inventory and integrated residuals
 
-# # # SOME LINES FOR TESTING
-# # #one test for iflxcalc with two layers (WORKS!)
-# # tid, tid1, pid, pid1 = vidxSV.index('Pl_16'), vidxSV.index('Pl_17'), vidxSV.index('Bm2_A'), vidxSV.index('Bm2_B')
-# # tv, te = td['Pl']['xh'][16], td['Pl']['xhe'][16]
-# # tv1, te1 = td['Pl']['xh'][17], td['Pl']['xhe'][17]
-# # pv, pe = pdi['Bm2']['A']['xh'], pdi['Bm2']['A']['xhe']
-# # pv1, pe1 = pdi['Bm2']['B']['xh'], pdi['Bm2']['B']['xhe']
-# # print((pv*tv+pv1*tv1)*dz, np.sqrt((pv*dz*te)**2+(pv1*dz*te1)**2+(tv*dz*pe)**2+(tv1*dz*pe1)**2+
-# #                             2*dz**2*(tv*tv1*CVM[pid,pid1]+pv*pv1*CVM[tid,tid1]+tv*pv*CVM[pid,tid]+
-# #                             tv1*pv*CVM[pid1,tid]+tv*pv1*CVM[pid,tid1]+tv1*pv1*CVM[pid1,tid1])))
-# # v1_st, v2_st, v3_st, v4_st = '_'.join(['Bm2','A']), '_'.join(['Bm2','B']), '_'.join(['Pl','16']), '_'.join(['Pl','17'])
-# # v1, v2, v3, v4 = sym.symbols(f'{v1_st} {v2_st} {v3_st} {v4_st}')
-# # y = (v1*v3+v2*v4)*dz
-# # print(symfunceval(y,cov=True))
-# # print(y)
-# # print(iflxcalc(['Bm2_Pl'],((zml[16],zml[17]),)))
+# # SOME LINES FOR TESTING
+# #one test for iflxcalc with two layers (WORKS!)
+# tid, tid1, pid, pid1 = vidxSV.index('Pl_16'), vidxSV.index('Pl_17'), vidxSV.index('Bm2_A'), vidxSV.index('Bm2_B')
+# tv, te = td['Pl']['xh'][16], td['Pl']['xhe'][16]
+# tv1, te1 = td['Pl']['xh'][17], td['Pl']['xhe'][17]
+# pv, pe = pdi['Bm2']['A']['xh'], pdi['Bm2']['A']['xhe']
+# pv1, pe1 = pdi['Bm2']['B']['xh'], pdi['Bm2']['B']['xhe']
+# print((pv*tv+pv1*tv1)*dz, np.sqrt((pv*dz*te)**2+(pv1*dz*te1)**2+(tv*dz*pe)**2+(tv1*dz*pe1)**2+
+#                             2*dz**2*(tv*tv1*CVM[pid,pid1]+pv*pv1*CVM[tid,tid1]+tv*pv*CVM[pid,tid]+
+#                             tv1*pv*CVM[pid1,tid]+tv*pv1*CVM[pid,tid1]+tv1*pv1*CVM[pid1,tid1])))
+# v1_st, v2_st, v3_st, v4_st = '_'.join(['Bm2','A']), '_'.join(['Bm2','B']), '_'.join(['Pl','16']), '_'.join(['Pl','17'])
+# v1, v2, v3, v4 = sym.symbols(f'{v1_st} {v2_st} {v3_st} {v4_st}')
+# y = (v1*v3+v2*v4)*dz
+# print(symfunceval(y,cov=True))
+# print(y)
+# print(iflxcalc(['Bm2_Pl'],((zml[16],zml[17]),)))
 
-# # #checking calculation of timescales (LOOKS GOOD)       
-# # invPs_A = np.sum(td['Ps']['xh'][1:17])*dz+td['Ps']['xh'][0]*h
-# # invPl_A = np.sum(td['Pl']['xh'][1:17])*dz+td['Pl']['xh'][0]*h
-# # invPs_B = np.sum(td['Ps']['xh'][17:])*dz
-# # invPl_B = np.sum(td['Pl']['xh'][17:])*dz
-# # for f in iflxs:
-# #     if 'Ps' in f:
-# #         print(flxd[f]['30_110']['iflx'][0]-invPs_A/flxd[f]['30_110']['tau'][0])
-# #         print(flxd[f]['115_500']['iflx'][0]-invPs_B/flxd[f]['115_500']['tau'][0])
-# #     else:
-# #         print(flxd[f]['30_110']['iflx'][0]-invPl_A/flxd[f]['30_110']['tau'][0])
-# #         print(flxd[f]['115_500']['iflx'][0]-invPl_B/flxd[f]['115_500']['tau'][0])  
+# #checking calculation of timescales (LOOKS GOOD)       
+# invPs_A = np.sum(td['Ps']['xh'][1:17])*dz+td['Ps']['xh'][0]*h
+# invPl_A = np.sum(td['Pl']['xh'][1:17])*dz+td['Pl']['xh'][0]*h
+# invPs_B = np.sum(td['Ps']['xh'][17:])*dz
+# invPl_B = np.sum(td['Pl']['xh'][17:])*dz
+# for f in iflxs:
+#     if 'Ps' in f:
+#         print(flxd[f]['30_110']['iflx'][0]-invPs_A/flxd[f]['30_110']['tau'][0])
+#         print(flxd[f]['115_500']['iflx'][0]-invPs_B/flxd[f]['115_500']['tau'][0])
+#     else:
+#         print(flxd[f]['30_110']['iflx'][0]-invPl_A/flxd[f]['30_110']['tau'][0])
+#         print(flxd[f]['115_500']['iflx'][0]-invPl_B/flxd[f]['115_500']['tau'][0])  
 
 # #test that inventory calcs are accurate (looks good!)
 # for t in tracers:
@@ -1139,5 +1141,20 @@ for pr in flxpairs:
 #             tau = flxd[tf][rstr]['tau']
 #             inv = flx[0]*tau
 #             print(f'{tf}: {flx}, {tau:.3f}, {inv:.3f}')
-            
+
+# #check that residuals of fluxes match with previously calculated model residuals (looks good)
+# td['Ps']['FRes'] = flxd['Psdot']['xh']+flxd['Bm2_Pl']['xh']-flxd['Bm1s_Ps']['xh']-flxd['B2p_Ps2']['xh']-flxd['ws_Psdz']['xh']
+# td['Pl']['FRes'] = flxd['B2p_Ps2']['xh']-flxd['Bm2_Pl']['xh']-flxd['Bm1l_Pl']['xh']-flxd['wl_Pldz']['xh']
+# axA.scatter(td['Ps']['FRes'], zml, marker='o', s=10, label='FRes', facecolors='none', edgecolors=red)
+# axB.scatter(td['Pl']['FRes'], zml, marker='o', s=10, label='FRes', facecolors='none', edgecolors=red)
+# axA.legend(), axB.legend()
+
+# #check budgets that budget defecits equal integrated residuals (they do!)
+# for dr in depthranges:
+#     rstr = "_".join([str(dr[0]),str(dr[1])])
+#     print(f'----Depth range: {dr}----')
+#     Ps_bud = flxd['Psdot'][rstr]['iflx'][0]+flxd['Bm2_Pl'][rstr]['iflx'][0]-flxd['Bm1s_Ps'][rstr]['iflx'][0]-flxd['B2p_Ps2'][rstr]['iflx'][0]-flxd['ws_Psdz'][rstr]['iflx'][0]
+#     Pl_bud = flxd['B2p_Ps2'][rstr]['iflx'][0]-flxd['Bm2_Pl'][rstr]['iflx'][0]-flxd['Bm1l_Pl'][rstr]['iflx'][0]-flxd['wl_Pldz'][rstr]['iflx'][0]
+#     print(f'Ps Budget: {Ps_bud:.5f} \nPs IResiduals: {td["Ps"]["ires"][rstr]:.5f} \nPl Budget: {Pl_bud:.5f} \nPl IResiduals: {td["Pl"]["ires"][rstr]:.5f}')
+   
 print(f'--- {time.time() - start_time} seconds ---')
