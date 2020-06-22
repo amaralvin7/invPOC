@@ -18,11 +18,14 @@ import statsmodels.sandbox.stats.runs as smr
 import statsmodels.tsa.stattools as smt
 import sympy as sym
 import os
+import sys
 import time
 
 start_time = time.time()
-
 plt.close('all')
+
+#need for when running on remote server
+sys.setrecursionlimit(10000)
 
 """
 SETUP FOR GENERATING PSEUDODATA
@@ -888,16 +891,16 @@ fig.subplots_adjust(wspace=0.5)
 ax1.set_ylabel('P',size=16)
 ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16)
 ax1.hist(pdfx,density=True,bins=20,color=blue)
-ax1.axvline(pdfx_Ps_m,c=purple,ls=':',label='Ps_m',lw=lw*2), ax1.axvline(pdfx_Ps_ma,c=green,ls=':',label='Ps_ma',lw=lw*2)
-ax1.axvline(pdfx_Pl_m,c=purple,ls='--',label='Pl_m',lw=lw*2), ax1.axvline(pdfx_Pl_ma,c=green,ls='--',label='Pl_ma',lw=lw*2)
+#ax1.axvline(pdfx_Ps_m,c=purple,ls=':',label='mean',lw=lw*2), ax1.axvline(pdfx_Ps_ma,c=green,ls=':',label='Ps_ma',lw=lw*2)
+#ax1.axvline(pdfx_Pl_m,c=purple,ls='--',label='mean',lw=lw*2), ax1.axvline(pdfx_Pl_ma,c=green,ls='--',label='Pl_ma',lw=lw*2)
 ax2.hist(pdfn,density=True,bins=20,color=blue)
-ax2.axvline(pdfn_Ps_m,c=purple,ls=':',label='Ps_m',lw=lw*2), ax2.axvline(pdfn_Ps_ma,c=green,ls=':',label='Ps_ma',lw=lw*2)
-ax2.axvline(pdfn_Pl_m,c=purple,ls='--',label='Pl_m',lw=lw*2), ax2.axvline(pdfn_Pl_ma,c=green,ls='--',label='Pl_ma',lw=lw*2)
+#ax2.axvline(pdfn_Ps_m,c=purple,ls=':',label='Ps_m',lw=lw*2), ax2.axvline(pdfn_Ps_ma,c=green,ls=':',label='Ps_ma',lw=lw*2)
+#ax2.axvline(pdfn_Pl_m,c=purple,ls='--',label='Pl_m',lw=lw*2), ax2.axvline(pdfn_Pl_ma,c=green,ls='--',label='Pl_ma',lw=lw*2)
 ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
 
 #plot gaussians, show legend
 ax1.plot(xg,yg_pdf,c=red), ax2.plot(xg,yg_pdf,c=red)
-ax1.legend(), ax2.legend()
+#ax1.legend(), ax2.legend()
 
 #CDFs
 fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
@@ -938,9 +941,7 @@ axA.set_xlabel('$n^{k+1}_{P_{S}}$ (mmol/m3/d)'), axB.set_xlabel('$n^{k+1}_{P_{L}
 axA.set_ylabel('Depth (m)')
 axA.set_ylim(top=0,bottom=zmax+dz), axB.set_ylim(top=0,bottom=zmax+dz)
 axA.scatter(td['Ps']['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
-axA.axvline(td['Ps']['nm'],c=purple,ls='--',label='mean')#, axA.axvline(td['Ps']['nma'],c=green,ls=':',label='mean_a')
 axB.scatter(td['Pl']['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
-axB.axvline(td['Pl']['nm'],c=purple,ls='--',label='mean')#, axB.axvline(td['Pl']['nma'],c=green,ls=':',label='mean_a')
 axA.legend(), axB.legend()
 
 #plot evolution of convergence
@@ -955,6 +956,7 @@ fig, ax = plt.subplots(1)
 ax.plot(np.arange(0, len(cost_ev)),cost_ev,marker='o',ms=ms)
 ax.set_xlabel('k')
 ax.set_ylabel('j')
+ax.set_yscale('log')
 
 #comparison plots
 fig, [ax1,ax2,ax3] = plt.subplots(1,3) #P figures
@@ -1149,12 +1151,14 @@ inventory(depthranges) #calculate tracer inventory and integrated residuals
 # axB.scatter(td['Pl']['FRes'], zml, marker='o', s=10, label='FRes', facecolors='none', edgecolors=red)
 # axA.legend(), axB.legend()
 
-# #check budgets that budget defecits equal integrated residuals (they do!)
-# for dr in depthranges:
-#     rstr = "_".join([str(dr[0]),str(dr[1])])
-#     print(f'----Depth range: {dr}----')
-#     Ps_bud = flxd['Psdot'][rstr]['iflx'][0]+flxd['Bm2_Pl'][rstr]['iflx'][0]-flxd['Bm1s_Ps'][rstr]['iflx'][0]-flxd['B2p_Ps2'][rstr]['iflx'][0]-flxd['ws_Psdz'][rstr]['iflx'][0]
-#     Pl_bud = flxd['B2p_Ps2'][rstr]['iflx'][0]-flxd['Bm2_Pl'][rstr]['iflx'][0]-flxd['Bm1l_Pl'][rstr]['iflx'][0]-flxd['wl_Pldz'][rstr]['iflx'][0]
-#     print(f'Ps Budget: {Ps_bud:.5f} \nPs IResiduals: {td["Ps"]["ires"][rstr]:.5f} \nPl Budget: {Pl_bud:.5f} \nPl IResiduals: {td["Pl"]["ires"][rstr]:.5f}')
-   
+#check budgets that budget defecits equal integrated residuals (they do)
+for dr in depthranges:
+    rstr = "_".join([str(dr[0]),str(dr[1])])
+    print(f'----Depth range: {dr}----')
+    Ps_bud = flxd['Psdot'][rstr]['iflx'][0]+flxd['Bm2_Pl'][rstr]['iflx'][0]-flxd['Bm1s_Ps'][rstr]['iflx'][0]-flxd['B2p_Ps2'][rstr]['iflx'][0]-flxd['ws_Psdz'][rstr]['iflx'][0]
+    Pl_bud = flxd['B2p_Ps2'][rstr]['iflx'][0]-flxd['Bm2_Pl'][rstr]['iflx'][0]-flxd['Bm1l_Pl'][rstr]['iflx'][0]-flxd['wl_Pldz'][rstr]['iflx'][0]
+    print(f'Ps Budget: {Ps_bud:.5f} \nPs IResiduals: {td["Ps"]["ires"][rstr]:.5f} \nPl Budget: {Pl_bud:.5f} \nPl IResiduals: {td["Pl"]["ires"][rstr]:.5f}')
+  
 print(f'--- {time.time() - start_time} seconds ---')
+
+plt.show()
