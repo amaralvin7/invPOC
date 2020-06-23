@@ -46,7 +46,6 @@ zmax = 500   #max depth, m
 h = 30 #MLD, m
 zml = np.arange(h, zmax+dz, dz) #this one DOES include h meters (need for OI)
 n = len(zml)
-phi = 10**-13 #convergence criteria
 
 #some conversion factors
 mm = 12 #molar mass of C (12 g/mol)
@@ -171,20 +170,9 @@ def LUdecomp(A,b):
     return [x,bp]
 
 #some parameters for plotting later
-ms, lw = 4, 1
+ms, lw = 3, 1
 elw = 0.5
 cs = 2
-
-#define a function to check convergence
-def convergecheck(e, diff):
-    epsilon = e
-    abs_diff = diff
-    diff_vector = e-diff
-    diff_mag = np.linalg.norm(diff_vector)
-    for i, val in enumerate(epsilon):
-        #if any absolute difference is too large, method has not converged
-        if (abs_diff[i] >= epsilon[i]) : return([False, diff_mag])
-    return([True, diff_mag])
 
 #given sampling depths, return indices at which those depths correspond to
 #INCLUDES MIXED LAYER, hence zml
@@ -718,16 +706,13 @@ Cf = splinalg.block_diag(Cf_noPt,Cf_addPt)
 F = np.zeros((M, N))
 f = np.zeros(M)
 xk = xon
-eps = phi*(xo/xo)
-xkp1 = xon + 1 #initialize this to some dummy value 
-x_diff = np.abs(xkp1-xk) #initialize this to some dummy value
+xkp1 = np.ones(N) #initialize this to some dummy value 
 k = 0 #keep a counter for how many steps it takes
 conv_ev = np.empty(0) # keep track of evolution of convergence
 cost_ev = np.empty(0) #keep track of evolution of the cost function, j
 
-
-#while k < 100:
-while convergecheck(eps, x_diff)[0] == False:
+#ATI
+while True:
     #depth-independent params
     iGhi,Ghio,Ghi = findp_dc(xo,xk,vidxSV,'Gh')
     iLpi,Lpio,Lpi = findp_dc(xo,xk,vidxSV,'Lp')
@@ -814,15 +799,17 @@ while convergecheck(eps, x_diff)[0] == False:
     #print(FC_check)
     B = np.matmul(np.matmul(Co,F.T),np.linalg.inv(FCoFT+Cf))
     xkp1 = xon + np.matmul(B,np.matmul(F,xk-xon)-f)
-    conv_ev = np.append(conv_ev,convergecheck(eps, x_diff)[1])
+    #convergence criteria based on Murnane 94
+    if (xk != 0).any(): #if we're not on the first iteration i.e. some xk,i != 0
+        maxchange = np.max(np.abs(xkp1-xk)/xk)
+        conv_ev = np.append(conv_ev,maxchange)
+        if maxchange < 0.01 or k > 2000: break
     if gam == 0: cost = np.matmul(np.matmul((xk-xon).T,np.linalg.inv(Co)),(xk-xon))
     else: cost = np.matmul(np.matmul((xk-xon).T,np.linalg.inv(Co)),(xk-xon))+np.matmul(np.matmul(f.T,np.linalg.inv(Cf)),f)
     cost_ev = np.append(cost_ev,cost)
-    x_diff = np.abs((np.exp(xkp1)-np.exp(xk)))
-    #print(np.linalg.norm(x_diff))
     k += 1
     xk = xkp1
-#print(k)
+
 #calculate posterior errors
 I = np.identity(Co.shape[0])
 CoFT = np.matmul(Co,F.T)
@@ -891,16 +878,11 @@ fig.subplots_adjust(wspace=0.5)
 ax1.set_ylabel('P',size=16)
 ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16)
 ax1.hist(pdfx,density=True,bins=20,color=blue)
-#ax1.axvline(pdfx_Ps_m,c=purple,ls=':',label='mean',lw=lw*2), ax1.axvline(pdfx_Ps_ma,c=green,ls=':',label='Ps_ma',lw=lw*2)
-#ax1.axvline(pdfx_Pl_m,c=purple,ls='--',label='mean',lw=lw*2), ax1.axvline(pdfx_Pl_ma,c=green,ls='--',label='Pl_ma',lw=lw*2)
 ax2.hist(pdfn,density=True,bins=20,color=blue)
-#ax2.axvline(pdfn_Ps_m,c=purple,ls=':',label='Ps_m',lw=lw*2), ax2.axvline(pdfn_Ps_ma,c=green,ls=':',label='Ps_ma',lw=lw*2)
-#ax2.axvline(pdfn_Pl_m,c=purple,ls='--',label='Pl_m',lw=lw*2), ax2.axvline(pdfn_Pl_ma,c=green,ls='--',label='Pl_ma',lw=lw*2)
 ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
 
 #plot gaussians, show legend
 ax1.plot(xg,yg_pdf,c=red), ax2.plot(xg,yg_pdf,c=red)
-#ax1.legend(), ax2.legend()
 
 #CDFs
 fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
@@ -919,12 +901,12 @@ y1,y2 = np.arange(1,len(x1)+1)/len(x1), np.arange(1,len(x2)+1)/len(x2)
 #plot estimate residuals, params as orange circles
 for i, v in enumerate(x1):
     if 'P' not in cdf_dfxs.var_name[i]:
-        marsize = ms*2
+        marsize = 8
         ec = orange
         mar = 'o'
         fc = 'none'
     else:
-        marsize = ms
+        marsize = 4
         ec = blue
         mar = '.'
         fc = ec
@@ -933,7 +915,7 @@ for i, v in enumerate(x1):
 ax2.scatter(x2,y2,s=ms,marker='.',facecolors=blue,edgecolors=blue)
         
 
-#model residual depth profiles (ppsteriors)
+#model residual depth profiles (posteriors)
 fig1, [axA,axB] = plt.subplots(1,2)
 fig1.subplots_adjust(wspace=0.5)  
 axA.invert_yaxis(), axB.invert_yaxis()
@@ -947,9 +929,10 @@ axA.legend(), axB.legend()
 #plot evolution of convergence
 ms=3
 fig, ax = plt.subplots(1)
-ax.plot(np.arange(0, len(conv_ev)), np.log10(conv_ev),marker='o',ms=ms)
+ax.plot(np.arange(0, len(conv_ev)), conv_ev, marker='o',ms=ms)
+ax.set_yscale('log')
 ax.set_xlabel('k')
-ax.set_ylabel('$log(||\epsilon - |x_{i,k+1}-x_{i,k}| ||)$')
+ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',size=12)
 
 #plot evolution of cost function
 fig, ax = plt.subplots(1)
@@ -1102,7 +1085,15 @@ depthranges = ((h,95),(95,500)) #For the these depth rangers,
 iflxcalc(iflxs,depthranges) #calculate integrated fluxes and timescales
 inventory(depthranges) #calculate tracer inventory and integrated residuals
 
-# # SOME LINES FOR TESTING
+#check budgets that budget defecits equal integrated residuals (they do)
+for dr in depthranges:
+    rstr = "_".join([str(dr[0]),str(dr[1])])
+    print(f'----Depth range: {dr}----')
+    Ps_bud = flxd['Psdot'][rstr]['iflx'][0]+flxd['Bm2_Pl'][rstr]['iflx'][0]-flxd['Bm1s_Ps'][rstr]['iflx'][0]-flxd['B2p_Ps2'][rstr]['iflx'][0]-flxd['ws_Psdz'][rstr]['iflx'][0]
+    Pl_bud = flxd['B2p_Ps2'][rstr]['iflx'][0]-flxd['Bm2_Pl'][rstr]['iflx'][0]-flxd['Bm1l_Pl'][rstr]['iflx'][0]-flxd['wl_Pldz'][rstr]['iflx'][0]
+    print(f'Ps Budget: {Ps_bud:.5f} \nPs IResiduals: {td["Ps"]["ires"][rstr]:.5f} \nPl Budget: {Pl_bud:.5f} \nPl IResiduals: {td["Pl"]["ires"][rstr]:.5f}')
+
+# # SOME OTHER LINES FOR TESTING
 # #one test for iflxcalc with two layers (WORKS!)
 # tid, tid1, pid, pid1 = vidxSV.index('Pl_16'), vidxSV.index('Pl_17'), vidxSV.index('Bm2_A'), vidxSV.index('Bm2_B')
 # tv, te = td['Pl']['xh'][16], td['Pl']['xhe'][16]
@@ -1118,6 +1109,13 @@ inventory(depthranges) #calculate tracer inventory and integrated residuals
 # print(symfunceval(y,cov=True))
 # print(y)
 # print(iflxcalc(['Bm2_Pl'],((zml[16],zml[17]),)))
+
+# #check that residuals of fluxes match with previously calculated model residuals (looks good)
+# td['Ps']['FRes'] = flxd['Psdot']['xh']+flxd['Bm2_Pl']['xh']-flxd['Bm1s_Ps']['xh']-flxd['B2p_Ps2']['xh']-flxd['ws_Psdz']['xh']
+# td['Pl']['FRes'] = flxd['B2p_Ps2']['xh']-flxd['Bm2_Pl']['xh']-flxd['Bm1l_Pl']['xh']-flxd['wl_Pldz']['xh']
+# axA.scatter(td['Ps']['FRes'], zml, marker='o', s=10, label='FRes', facecolors='none', edgecolors=red)
+# axB.scatter(td['Pl']['FRes'], zml, marker='o', s=10, label='FRes', facecolors='none', edgecolors=red)
+# axA.legend(), axB.legend()
 
 # #checking calculation of timescales (LOOKS GOOD)       
 # invPs_A = np.sum(td['Ps']['xh'][1:17])*dz+td['Ps']['xh'][0]*h
@@ -1143,22 +1141,7 @@ inventory(depthranges) #calculate tracer inventory and integrated residuals
 #             tau = flxd[tf][rstr]['tau']
 #             inv = flx[0]*tau
 #             print(f'{tf}: {flx}, {tau:.3f}, {inv:.3f}')
-
-# #check that residuals of fluxes match with previously calculated model residuals (looks good)
-# td['Ps']['FRes'] = flxd['Psdot']['xh']+flxd['Bm2_Pl']['xh']-flxd['Bm1s_Ps']['xh']-flxd['B2p_Ps2']['xh']-flxd['ws_Psdz']['xh']
-# td['Pl']['FRes'] = flxd['B2p_Ps2']['xh']-flxd['Bm2_Pl']['xh']-flxd['Bm1l_Pl']['xh']-flxd['wl_Pldz']['xh']
-# axA.scatter(td['Ps']['FRes'], zml, marker='o', s=10, label='FRes', facecolors='none', edgecolors=red)
-# axB.scatter(td['Pl']['FRes'], zml, marker='o', s=10, label='FRes', facecolors='none', edgecolors=red)
-# axA.legend(), axB.legend()
-
-#check budgets that budget defecits equal integrated residuals (they do)
-for dr in depthranges:
-    rstr = "_".join([str(dr[0]),str(dr[1])])
-    print(f'----Depth range: {dr}----')
-    Ps_bud = flxd['Psdot'][rstr]['iflx'][0]+flxd['Bm2_Pl'][rstr]['iflx'][0]-flxd['Bm1s_Ps'][rstr]['iflx'][0]-flxd['B2p_Ps2'][rstr]['iflx'][0]-flxd['ws_Psdz'][rstr]['iflx'][0]
-    Pl_bud = flxd['B2p_Ps2'][rstr]['iflx'][0]-flxd['Bm2_Pl'][rstr]['iflx'][0]-flxd['Bm1l_Pl'][rstr]['iflx'][0]-flxd['wl_Pldz'][rstr]['iflx'][0]
-    print(f'Ps Budget: {Ps_bud:.5f} \nPs IResiduals: {td["Ps"]["ires"][rstr]:.5f} \nPl Budget: {Pl_bud:.5f} \nPl IResiduals: {td["Pl"]["ires"][rstr]:.5f}')
-  
+            
 print(f'--- {time.time() - start_time} seconds ---')
 
 plt.show()
