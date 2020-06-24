@@ -846,8 +846,11 @@ for t in td.keys():
 td['Ps']['n'], td['Ps']['nm'], td['Ps']['nma'], td['Pl']['n'], td['Pl']['nm'], td['Pl']['nma'] = modresi(xhmean) 
 
 #propagating errors on Pt
-Pt_xh = td['Ps']['xh'] + td['Pl']['xh'] 
-Pt_xhe = np.sqrt((td['Ps']['xhe']**2)+(td['Pl']['xhe']**2))
+Pt_xh, Pt_xhe = np.zeros(n), np.zeros(n)
+for i in np.arange(0,n):
+    pswi, plwi = "_".join(['Ps',str(i)]), "_".join(['Pl',str(i)])
+    ps, pl = sym.symbols(f'{pswi} {plwi}')
+    Pt_xh[i], Pt_xhe = symfunceval(ps+pl,err=True,cov=True)
 
 #PDF and CDF calculations
 xg = np.linspace(-2,2,100)
