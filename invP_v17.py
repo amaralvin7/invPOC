@@ -680,7 +680,8 @@ M = len(vidx_allP) #dimension that includes all three P size fractions (for F an
 
 #construct Co as a (normalized) diagonal matrix, blocks for tracers and diagonals otherwise. Considers the ln()
 Co_noln = np.zeros((N,N))
-Co_noln[:P,:P] = splinalg.block_diag(oi['A']['Ps']['Pn'],oi['B']['Ps']['Pn'],oi['A']['Ps']['Pn'],oi['B']['Pl']['Pn'])
+blocks = [oi[l][t]['Pn'] for t in tracers for l in layers] #tracers is outer loop, layers is inner
+Co_noln[:P,:P] = splinalg.block_diag(*blocks)
 for i in np.arange(P,N):
     Co_noln[i,i] = (params_o_e[i-P]**2)/xo[i]**2
 Co_noln_cond = np.linalg.cond(Co_noln)
