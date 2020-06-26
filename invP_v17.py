@@ -159,6 +159,12 @@ def fidx3e(s, d, idx, sv, pv):
     pri = pv[idx]
     return [idx,val,pri]
 
+#like fidx2, but returns the exp of the state variable instead.
+def fidx2e(s, d, idx, sv):
+    idx = [x for x, st in enumerate(idx) if st == f'{s}_{d}']
+    val = np.exp(sv[idx])
+    return [idx,val]
+
 #LU decomposition. Takes matrix A and b as input, returns x, solution vector
 #Also returns bp,  to verify solution 
 def LUdecomp(A,b):
@@ -222,18 +228,16 @@ def findp_dcp(pvec,vi,param):
     return p
 
 #like findp_dvp, but also returns exponential of state variable
-def findp_dv(pvec,svec,vi,param,layer):
+def findp_dv(svec,vi,param,layer):
     ip = vi.index('_'.join([param,layer]))
-    pp = pvec[ip]
     ps = np.exp(svec[ip])
-    return ip,pp,ps
+    return ip,ps
 
 #like findp_dvp, but also returns exponential of state variable
-def findp_dc(pvec,svec,vi,param):
+def findp_dc(svec,vi,param):
     ip = vi.index(param)
-    pp = pvec[ip]
     ps = np.exp(svec[ip])
-    return ip,pp,ps
+    return ip,ps
 
 #calculate model errors given a state vector
 def modresi(sv):
@@ -649,10 +653,6 @@ for lay in oi.keys():
         oi[lay][tra]['xa'] = np.matmul(np.matmul(oi[lay][tra]['Rxy'],oi[lay][tra]['Ryyi']),oi[lay][tra]['ya']) #interpolated anomalies
         oi[lay][tra]['x'] = oi[lay][tra]['xa'] + oi[lay][tra]['ym'] #interpolated estimates
         oi[lay][tra]['P'] = oi[lay][tra]['Rxxnn'] - np.matmul(np.matmul(oi[lay][tra]['Rxy'],oi[lay][tra]['Ryyi']),oi[lay][tra]['Rxy'].T)#covariance matrix
-        oi[lay][tra]['Pn'] = np.zeros((noi,noi)) #normalized covariance matrix
-        for i in np.arange(0,noi):
-            for j in np.arange(0,noi):
-                oi[lay][tra]['Pn'][i,j] = oi[lay][tra]['P'][i,j]/(oi[lay][tra]['x'][i]*oi[lay][tra]['x'][j])
         oi[lay][tra]['xerr'] = np.sqrt(np.diagonal(oi[lay][tra]['P']))
 
 #make an oi matrix with some values concatenated
@@ -671,7 +671,7 @@ for tra in tracers:
               
 #combine xo's to form one xo, normalize xo and take the ln
 xo = np.concatenate((tpri,params_o))
-xon = np.log(xo/xo)
+xoln = np.log(xo)
 
 #redefine some useful params
 N = len(xo)
@@ -679,19 +679,21 @@ P = N-len(params_o) #dimension of everything minus params (# of model equations)
 M = len(vidx_allP) #dimension that includes all three P size fractions (for F and f)
 
 #construct Co as a (normalized) diagonal matrix, blocks for tracers and diagonals otherwise. Considers the ln()
-Co_noln = np.zeros((N,N))
-blocks = [oi[l][t]['Pn'] for t in tracers for l in layers] #tracers is outer loop, layers is inner
-Co_noln[:P,:P] = splinalg.block_diag(*blocks)
+Co, Coln = np.zeros((N,N)), np.zeros((N,N))
+blocks = [oi[l][t]['P'] for t in tracers for l in layers] #tracers is outer loop, layers is inner
+Co[:P,:P] = splinalg.block_diag(*blocks)
 for i in np.arange(P,N):
-    Co_noln[i,i] = (params_o_e[i-P]**2)/xo[i]**2
-Co_noln_cond = np.linalg.cond(Co_noln)
-Co = np.log(1+Co_noln)
+    Co[i,i] = (params_o_e[i-P]**2)
+Co_cond = np.linalg.cond(Co)
+for i, r in enumerate(Coln):
+    for j, c in enumerate(r):
+        Coln[i,j] = np.log(1+Co[i,j]/(xo[i]*xo[j]))
 Co_cond = np.linalg.cond(Co)
 Co_neg = (Co<0).any() #checks if any element of Co is negative
 
 #check that the Co inversion is accurate
-CoCoinv = np.matmul(Co,np.linalg.inv(Co))
-Co_check = np.sum(CoCoinv-np.identity(N))
+ColnColninv = np.matmul(Coln,np.linalg.inv(Coln))
+Coln_check = np.sum(ColnColninv-np.identity(N))
 
 #construct Cf
 #initialize model equation errors and matrix
@@ -706,127 +708,126 @@ Cf = splinalg.block_diag(Cf_noPt,Cf_addPt)
 #initialize the iterative loop
 F = np.zeros((M, N))
 f = np.zeros(M)
-xk = xon
+xk = xoln
 xkp1 = np.ones(N) #initialize this to some dummy value 
 k = 0 #keep a counter for how many steps it takes
 conv_ev = np.empty(0) # keep track of evolution of convergence
 cost_ev = np.empty(0) #keep track of evolution of the cost function, j
-pdelt = 0.01 #allowable percent change in each state element for convergence
+pdelt = 0.0001 #allowable percent change in each state element for convergence
 
 #ATI
 while True:
     #depth-independent params
-    iGhi,Ghio,Ghi = findp_dc(xo,xk,vidxSV,'Gh')
-    iLpi,Lpio,Lpi = findp_dc(xo,xk,vidxSV,'Lp')
+    iGhi,Ghi = findp_dc(xk,vidxSV,'Gh')
+    iLpi,Lpi = findp_dc(xk,vidxSV,'Lp')
     for i, r in enumerate(F):
         #what tracer and depth are we on?
         t,d = vidx_allP[i].split('_')
         d = int(d)
         l = lmatch(d) #what layer does this depth index correspond to?
-        iPsi,Psi,Psio = fidx3e('Ps',d,vidx_allP,xk,xo)
-        iPli,Pli,Plio = fidx3e('Pl',d,vidx_allP,xk,xo)
+        iPsi,Psi = fidx2e('Ps',d,vidx_allP,xk)
+        iPli,Pli = fidx2e('Pl',d,vidx_allP,xk)
         #depth-dependent parameters
-        iwsi,wsio,wsi = findp_dv(xo,xk,vidxSV,'ws',l)
-        iwli,wlio,wli = findp_dv(xo,xk,vidxSV,'wl',l)
-        iB2pi,B2pio,B2pi = findp_dv(xo,xk,vidxSV,'B2p',l)
-        iBm2i,Bm2io,Bm2i = findp_dv(xo,xk,vidxSV,'Bm2',l)
-        iBm1si,Bm1sio,Bm1si = findp_dv(xo,xk,vidxSV,'Bm1s',l)
-        iBm1li,Bm1lio,Bm1li = findp_dv(xo,xk,vidxSV,'Bm1l',l)
+        iwsi,wsi = findp_dv(xk,vidxSV,'ws',l)
+        iwli,wli = findp_dv(xk,vidxSV,'wl',l)
+        iB2pi,B2pi = findp_dv(xk,vidxSV,'B2p',l)
+        iBm2i,Bm2i = findp_dv(xk,vidxSV,'Bm2',l)
+        iBm1si,Bm1si = findp_dv(xk,vidxSV,'Bm1s',l)
+        iBm1li,Bm1li = findp_dv(xk,vidxSV,'Bm1l',l)
         #POC, SSF
         if t == 'Ps':
-            F[i,iBm2i] = Pli*Plio*Bm2io*Bm2i
-            F[i,iBm1si] = -Psi*Psio*Bm1sio*Bm1si
-            F[i,iB2pi]  = -B2pio*(Psi*Psio)**2*B2pi
-            F[i,iPli] = Bm2i*Bm2io*Plio*Pli
+            F[i,iBm2i] = Pli*Bm2i
+            F[i,iBm1si] = -Psi*Bm1si
+            F[i,iB2pi]  = -B2pi*Psi**2
+            F[i,iPli] = Bm2i*Pli
             if d == 0: #mixed layer
-                F[i,iPsi] = -(wsi*wsio/h+Bm1si*Bm1sio+2*B2pi*B2pio*Psi*Psio)*Psi*Psio
-                F[i,iwsi] = -Psi*Psio*wsio/h*wsi
-                F[i,iGhi] = Ghio*Ghi
-                f[i] = Ghi*Ghio+Bm2i*Bm2io*Pli*Plio-(wsi*wsio/h+Bm1si*Bm1sio+B2pi*B2pio*Psi*Psio)*Psi*Psio
+                F[i,iPsi] = -(wsi/h+Bm1si+2*B2pi*Psi)*Psi
+                F[i,iwsi] = -Psi/h*wsi
+                F[i,iGhi] = Ghi
+                f[i] = Ghi+Bm2i*Pli-(wsi/h+Bm1si+B2pi*Psi)*Psi
             elif (d == 1 or d == 2): #first or second grid point
-                iPsip1,Psip1,Psip1o = fidx3e('Ps',d+1,vidx_allP,xk,xo)
-                iPsim1,Psim1,Psim1o = fidx3e('Ps',d-1,vidx_allP,xk,xo)
-                F[i,iPsip1] = -wsi*wsio*Psip1o/(2*dz)*Psip1
-                F[i,iPsi] = -(Bm1si*Bm1sio+2*B2pi*B2pio*Psi*Psio)*Psi*Psio
-                F[i,iPsim1] = wsi*wsio*Psim1o/(2*dz)*Psim1
-                F[i,iwsi] = -wsio*(Psip1*Psip1o-Psim1*Psim1o)/(2*dz)*wsi
-                F[i,iGhi] = Ghio*np.exp(-(zml[d]-h)/(Lpi*Lpio))*Ghi
-                F[i,iLpi] = (Ghi*Ghio*(zml[d]-h))/(Lpio*Lpi)*np.exp(-(zml[d]-h)/(Lpio*Lpi))
-                f[i] = Ghi*Ghio*np.exp(-(zml[d]-h)/(Lpi*Lpio))+(Bm2i*Bm2io*Pli*Plio)-(Bm1si*Bm1sio+B2pi*B2pio*Psi*Psio)*Psi*Psio-wsi*wsio/(2*dz)*(Psip1*Psip1o-Psim1*Psim1o)
+                iPsip1,Psip1 = fidx2e('Ps',d+1,vidx_allP,xk)
+                iPsim1,Psim1 = fidx2e('Ps',d-1,vidx_allP,xk)
+                F[i,iPsip1] = -wsi/(2*dz)*Psip1
+                F[i,iPsi] = -(Bm1si+2*B2pi*Psi)*Psi
+                F[i,iPsim1] = wsi/(2*dz)*Psim1
+                F[i,iwsi] = -(Psip1-Psim1)/(2*dz)*wsi
+                F[i,iGhi] = np.exp(-(zml[d]-h)/(Lpi))*Ghi
+                F[i,iLpi] = (Ghi*(zml[d]-h))/(Lpi)*np.exp(-(zml[d]-h)/(Lpi))
+                f[i] = Ghi*np.exp(-(zml[d]-h)/(Lpi))+(Bm2i*Pli)-(Bm1si+B2pi*Psi)*Psi-wsi/(2*dz)*(Psip1-Psim1)
             else: #everywhere else
-                iPsim1,Psim1,Psim1o = fidx3e('Ps',d-1,vidx_allP,xk,xo)
-                iPsim2,Psim2,Psim2o = fidx3e('Ps',d-2,vidx_allP,xk,xo)
-                F[i,iPsi] = -((3*wsi*wsio)/(2*dz)+Bm1si*Bm1sio+2*B2pi*B2pio*Psi*Psio)*Psi*Psio
-                F[i,iPsim1] = 2*wsi*wsio*Psim1o/dz*Psim1
-                F[i,iPsim2] = -wsi*wsio*Psim2o/(2*dz)*Psim2
-                F[i,iwsi] = -wsio*(Psim2*Psim2o-4*Psim1*Psim1o+3*Psi*Psio)/(2*dz)*wsi
-                F[i,iGhi] = Ghio*np.exp(-(zml[d]-h)/(Lpi*Lpio))*Ghi
-                F[i,iLpi] = (Ghi*Ghio*(zml[d]-h))/(Lpio*Lpi)*np.exp(-(zml[d]-h)/(Lpio*Lpi))
-                f[i] = Ghi*Ghio*np.exp(-(zml[d]-h)/(Lpi*Lpio))+(Bm2i*Bm2io*Pli*Plio)-(Bm1si*Bm1sio+B2pi*B2pio*Psi*Psio)*Psi*Psio-wsi*wsio/(2*dz)*(3*Psio*Psi-4*Psim1o*Psim1+Psim2o*Psim2)
+                iPsim1,Psim1 = fidx2e('Ps',d-1,vidx_allP,xk)
+                iPsim2,Psim2 = fidx2e('Ps',d-2,vidx_allP,xk)
+                F[i,iPsi] = -((3*wsi)/(2*dz)+Bm1si+2*B2pi*Psi)*Psi
+                F[i,iPsim1] = 2*wsi/dz*Psim1
+                F[i,iPsim2] = -wsi/(2*dz)*Psim2
+                F[i,iwsi] = -(Psim2-4*Psim1+3*Psi)/(2*dz)*wsi
+                F[i,iGhi] = np.exp(-(zml[d]-h)/(Lpi))*Ghi
+                F[i,iLpi] = (Ghi*(zml[d]-h))/(Lpi)*np.exp(-(zml[d]-h)/(Lpi))
+                f[i] = Ghi*np.exp(-(zml[d]-h)/(Lpi))+(Bm2i*Pli)-(Bm1si+B2pi*Psi)*Psi-wsi/(2*dz)*(3*Psi-4*Psim1+Psim2)
         #POC, LSF
         elif t == 'Pl':
-            F[i,iPsi] = 2*B2pi*B2pio*(Psi*Psio)**2
-            F[i,iBm2i], F[i,iBm1li] = -Pli*Plio*Bm2io*Bm2i, -Pli*Plio*Bm1lio*Bm1li
-            F[i,iB2pi] = B2pio*(Psi*Psio)**2*B2pi
+            F[i,iPsi] = 2*B2pi*Psi**2
+            F[i,iBm2i], F[i,iBm1li] = -Pli*Bm2i, -Pli*Bm1li
+            F[i,iB2pi] = B2pi*Psi**2
             if d == 0:
-                F[i,iPli] = -(wli*wlio/h+Bm2i*Bm2io+Bm1li*Bm1lio)*Plio*Pli
-                F[i,iwli] = -Pli*Plio*wlio/h*wli
-                f[i] = (B2pi*B2pio*(Psi*Psio)**2)-(wli*wlio/h+Bm2i*Bm2io+Bm1li*Bm1lio)*Pli*Plio                
+                F[i,iPli] = -(wli/h+Bm2i+Bm1li)*Pli
+                F[i,iwli] = -Pli/h*wli
+                f[i] = (B2pi*(Psi)**2)-(wli/h+Bm2i+Bm1li)*Pli      
             elif (d == 1 or d == 2):
-                iPlip1,Plip1,Plip1o = fidx3e('Pl',d+1,vidx_allP,xk,xo)    
-                iPlim1,Plim1,Plim1o = fidx3e('Pl',d-1,vidx_allP,xk,xo)
-                F[i,iPlip1] = -wli*wlio*Plip1o/(2*dz)*Plip1
-                F[i,iPli] = -Plio*(Bm2i*Bm2io+Bm1li*Bm1lio)*Pli
-                F[i,iPlim1] = wli*wlio*Plim1o/(2*dz)*Plim1
-                F[i,iwli] = -wlio*(Plip1*Plip1o-Plim1*Plim1o)/(2*dz)*wli
-                f[i] = B2pi*B2pio*(Psi*Psio)**2-(Bm2i*Bm2io+Bm1li*Bm1lio)*Pli*Plio-wli*wlio/(2*dz)*(Plip1*Plip1o-Plim1*Plim1o)
+                iPlip1,Plip1 = fidx2e('Pl',d+1,vidx_allP,xk)
+                iPlim1,Plim1 = fidx2e('Pl',d-1,vidx_allP,xk)
+                F[i,iPlip1] = -wli/(2*dz)*Plip1
+                F[i,iPli] = -(Bm2i+Bm1li)*Pli
+                F[i,iPlim1] = wli/(2*dz)*Plim1
+                F[i,iwli] = -(Plip1-Plim1)/(2*dz)*wli
+                f[i] = B2pi*Psi**2-(Bm2i+Bm1li)*Pli-wli/(2*dz)*(Plip1-Plim1)
             else:
-                iPlim1,Plim1,Plim1o = fidx3e('Pl',d-1,vidx_allP,xk,xo)
-                iPlim2,Plim2,Plim2o = fidx3e('Pl',d-2,vidx_allP,xk,xo)
-                F[i,iPli] = -((3*wli*wlio)/(2*dz)+Bm2i*Bm2io+Bm1li*Bm1lio)*Plio*Pli
-                F[i,iPlim1] = 2*wli*wlio*Plim1o/dz*Plim1
-                F[i,iPlim2] = -wli*wlio*Plim2o/(2*dz)*Plim2
-                F[i,iwli] = -wlio*(Plim2*Plim2o-4*Plim1*Plim1o+3*Pli*Plio)/(2*dz)*wli
-                f[i] = B2pi*B2pio*(Psi*Psio)**2-(Bm2i*Bm2io+Bm1li*Bm1lio)*Pli*Plio-wli*wlio/(2*dz)*(3*Plio*Pli-4*Plim1o*Plim1+Plim2o*Plim2)
+                iPlim1,Plim1 = fidx2e('Pl',d-1,vidx_allP,xk)
+                iPlim2,Plim2 = fidx2e('Pl',d-2,vidx_allP,xk)
+                F[i,iPli] = -((3*wli)/(2*dz)+Bm2i+Bm1li)*Pli
+                F[i,iPlim1] = 2*wli/dz*Plim1
+                F[i,iPlim2] = -wli/(2*dz)*Plim2
+                F[i,iwli] = -(Plim2-4*Plim1+3*Pli)/(2*dz)*wli
+                f[i] = B2pi*Psi**2-(Bm2i+Bm1li)*Pli-wli/(2*dz)*(3*Pli-4*Plim1+Plim2)
         #POC, Ps + Pl = Pt
         else:
             iPti,Pti = fidx2('Pt',d,vidxPt,cppt.Pt_hat)
-            F[i,iPsi] = Psi*Psio
-            F[i,iPli] = Pli*Plio
-            f[i] = Psi*Psio+Pli*Plio-Pti
-    FCoFT = np.matmul(np.matmul(F,Co),F.T)
+            F[i,iPsi] = Psi
+            F[i,iPli] = Pli
+            f[i] = Psi+Pli-Pti
+    FCoFT = np.matmul(np.matmul(F,Coln),F.T)
     FCoFT_cond = np.linalg.cond(FCoFT)
     FCFCinv = np.matmul(FCoFT,np.linalg.inv(FCoFT))
     FC_check = np.sum(FCFCinv-np.identity(M))
     #print(FC_check)
-    B = np.matmul(np.matmul(Co,F.T),np.linalg.inv(FCoFT+Cf))
-    xkp1 = xon + np.matmul(B,np.matmul(F,xk-xon)-f)
+    B = np.matmul(np.matmul(Coln,F.T),np.linalg.inv(FCoFT+Cf))
+    xkp1 = xoln + np.matmul(B,np.matmul(F,xk-xoln)-f)
     #convergence criteria based on Murnane 94
-    if (xk != 0).any(): #if we're not on the first iteration i.e. some xk,i != 0
-        maxchange = np.max(np.abs((xkp1-xk)/xk))
-        conv_ev = np.append(conv_ev,maxchange)
-        if maxchange < pdelt or k > 2000: break
-    if gam == 0: cost = np.matmul(np.matmul((xk-xon).T,np.linalg.inv(Co)),(xk-xon))
-    else: cost = np.matmul(np.matmul((xk-xon).T,np.linalg.inv(Co)),(xk-xon))+np.matmul(np.matmul(f.T,np.linalg.inv(Cf)),f)
+    maxchange = np.max(np.abs((xkp1-xk)/xk))
+    conv_ev = np.append(conv_ev,maxchange)
+    if gam == 0: cost = np.matmul(np.matmul((xk-xoln).T,np.linalg.inv(Coln)),(xk-xoln))
+    else: cost = np.matmul(np.matmul((xk-xoln).T,np.linalg.inv(Coln)),(xk-xoln))+np.matmul(np.matmul(f.T,np.linalg.inv(Cf)),f)
     cost_ev = np.append(cost_ev,cost)
+    if maxchange < pdelt or k > 2000: break
     k += 1
     xk = xkp1
 
 #calculate posterior errors
-I = np.identity(Co.shape[0])
-CoFT = np.matmul(Co,F.T)
+I = np.identity(Coln.shape[0])
+CoFT = np.matmul(Coln,F.T)
 FCoFTpCfinv = np.linalg.inv(FCoFT+Cf)
 C = I-np.matmul(np.matmul(CoFT,FCoFTpCfinv),F)
-D = I-np.matmul(np.matmul(np.matmul(F.T,FCoFTpCfinv),F),Co)
-Ckp1 = np.matmul(np.matmul(C,Co),D)
+D = I-np.matmul(np.matmul(np.matmul(F.T,FCoFTpCfinv),F),Coln)
+Ckp1 = np.matmul(np.matmul(C,Coln),D)
 
 #expected value and variance of tracers AND params
 EyP, VyP = xkp1, np.diag(Ckp1)
 #recover dimensional values of median, mean, mode, standard deviation
-xhmed = np.exp(EyP)*xo
-xhmod = np.exp(EyP-VyP)*xo
-xhmean = np.exp(EyP+VyP/2)*xo
-xhe = np.sqrt(np.exp(2*EyP+VyP)*(np.exp(VyP)-1))*xo
+xhmed = np.exp(EyP)
+xhmod = np.exp(EyP-VyP)
+xhmean = np.exp(EyP+VyP/2)
+xhe = np.sqrt(np.exp(2*EyP+VyP)*(np.exp(VyP)-1))
 
 #calculate covariances of unlogged state variables
 CVM = np.zeros((N,N))
@@ -834,7 +835,7 @@ for i, row in enumerate(CVM):
     for j, unu in enumerate(row):
         mi, mj = EyP[i], EyP[j] #mu's (expected vals)
         vi, vj = VyP[i], VyP[j] #sig2's (variances)
-        CVM[i,j] = np.exp(mi+mj)*np.exp((vi+vj)/2)*(np.exp(Ckp1[i,j])-1)*xo[i]*xo[j]
+        CVM[i,j] = np.exp(mi+mj)*np.exp((vi+vj)/2)*(np.exp(Ckp1[i,j])-1)
 
 #check that sqrt of diagonals of CVM are equal to xhe
 CVM_xhe_check = np.sqrt(np.diag(CVM)) - xhe
@@ -861,7 +862,7 @@ yg_cdf = sstats.norm.cdf(xg,0,1)
 
 #comparison of estimates to priors (means don't include params, histogram does)
 xdiff = xhmean-xo
-x_osd = np.sqrt(np.diag(Co_noln))*xo
+x_osd = np.sqrt(np.diag(Co))
 pdfx = xdiff/x_osd
 pdfx_Ps_m = np.mean(vsli(pdfx,td['Ps']['si']))
 pdfx_Pl_m = np.mean(vsli(pdfx,td['Pl']['si']))
