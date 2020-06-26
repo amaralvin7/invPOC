@@ -711,6 +711,7 @@ xkp1 = np.ones(N) #initialize this to some dummy value
 k = 0 #keep a counter for how many steps it takes
 conv_ev = np.empty(0) # keep track of evolution of convergence
 cost_ev = np.empty(0) #keep track of evolution of the cost function, j
+pdelt = 0.01 #allowable percent change in each state element for convergence
 
 #ATI
 while True:
@@ -802,9 +803,9 @@ while True:
     xkp1 = xon + np.matmul(B,np.matmul(F,xk-xon)-f)
     #convergence criteria based on Murnane 94
     if (xk != 0).any(): #if we're not on the first iteration i.e. some xk,i != 0
-        maxchange = np.max(np.abs(xkp1-xk)/xk)
+        maxchange = np.max(np.abs((xkp1-xk)/xk))
         conv_ev = np.append(conv_ev,maxchange)
-        if maxchange < 0.01 or k > 2000: break
+        if maxchange < pdelt or k > 2000: break
     if gam == 0: cost = np.matmul(np.matmul((xk-xon).T,np.linalg.inv(Co)),(xk-xon))
     else: cost = np.matmul(np.matmul((xk-xon).T,np.linalg.inv(Co)),(xk-xon))+np.matmul(np.matmul(f.T,np.linalg.inv(Cf)),f)
     cost_ev = np.append(cost_ev,cost)
@@ -827,7 +828,7 @@ xhmod = np.exp(EyP-VyP)*xo
 xhmean = np.exp(EyP+VyP/2)*xo
 xhe = np.sqrt(np.exp(2*EyP+VyP)*(np.exp(VyP)-1))*xo
 
-#calculate covariances of unlogged state variables 
+#calculate covariances of unlogged state variables
 CVM = np.zeros((N,N))
 for i, row in enumerate(CVM):
     for j, unu in enumerate(row):
