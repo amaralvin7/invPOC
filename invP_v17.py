@@ -359,6 +359,32 @@ def cvmsli(cvm, vlist):
             cvms[i,j] = cvm[vi,vj]
     return cvms
 
+#given a depth index and function, evaluate the function and fill in corresponding jacobian values
+def Fnf(y,i,di):
+    f_x, f_xv, f_xi = Fnf_helper(y,i,di)
+    f[i] = sym.lambdify(f_x,y)(*f_xv)
+    for j, v in enumerate(f_x):
+        dy = y.diff(v)*v #multiplied by v becuase it's atually dy/d(lnv) = v*dy/dv
+        F_x, F_xv, F_xi = Fnf_helper(dy,i,di)
+        F[i,int(f_xi[j])] = sym.lambdify(F_x,dy)(*F_xv)
+
+def Fnf_helper(y,i,di):
+    x = y.free_symbols #gets all (symbolic) variables in function
+    nx = len(x) #number of variables
+    xv, xi = np.zeros(nx), np.zeros(nx) #numerical values of symbolic variables and their indices in vidxSV
+    for j,v in enumerate(x): #for each symbolic variable
+        if '_' in v.name: #if it's a tracer
+            t, rdi = v.name.split('_') #get tracer and relative (to di) depth index
+            adi = str(di+int(rdi)) #the absolute di for this tracer
+            iSV = vidxSV.index('_'.join([t,adi])) #index of the state variable
+        else: #it it's a parameter
+            if pdi[v.name]['dv'] == 1:
+                l = lmatch(di)
+                iSV = vidxSV.index('_'.join([v.name,l]))
+            else: iSV = vidxSV.index(v.name)
+        xv[j],xi[j] = np.exp(xk[iSV]), iSV
+    return x, xv, xi
+
 #given a mathmatical function for flux at particular depth, return flux and uncertainty
 #if err==True, considers uncertainties
 #if cov==True, considers covariances
@@ -715,87 +741,42 @@ conv_ev = np.empty(0) # keep track of evolution of convergence
 cost_ev = np.empty(0) #keep track of evolution of the cost function, j
 pdelt = 0.0001 #allowable percent change in each state element for convergence
 
+#define all possible symbolic variables
+svarnames = 'Ps_0 Ps_1 Ps_-1 Ps_-2 \
+    Pl_0 Pl_1 Pl_-1 Pl_-2 \
+        Bm2 B2p Bm1s Bm1l \
+            Gh Lp ws wl'
+Psi, Psip1, Psim1, Psim2, \
+    Pli, Plip1, Plim1, Plim2, \
+        Bm2i, B2pi, Bm1si, Bm1li, \
+            Ghi, Lpi, wsi, wli = sym.symbols(svarnames)
 #ATI
 while True:
-    #depth-independent params
-    iGhi,Ghi = findp_dc(xk,vidxSV,'Gh')
-    iLpi,Lpi = findp_dc(xk,vidxSV,'Lp')
-    for i, r in enumerate(F):
+    for i in np.arange(0,M):
         #what tracer and depth are we on?
         t,d = vidx_allP[i].split('_')
         d = int(d)
-        l = lmatch(d) #what layer does this depth index correspond to?
-        iPsi,Psi = fidx2e('Ps',d,vidx_allP,xk)
-        iPli,Pli = fidx2e('Pl',d,vidx_allP,xk)
-        #depth-dependent parameters
-        iwsi,wsi = findp_dv(xk,vidxSV,'ws',l)
-        iwli,wli = findp_dv(xk,vidxSV,'wl',l)
-        iB2pi,B2pi = findp_dv(xk,vidxSV,'B2p',l)
-        iBm2i,Bm2i = findp_dv(xk,vidxSV,'Bm2',l)
-        iBm1si,Bm1si = findp_dv(xk,vidxSV,'Bm1s',l)
-        iBm1li,Bm1li = findp_dv(xk,vidxSV,'Bm1l',l)
         #POC, SSF
         if t == 'Ps':
-            F[i,iBm2i] = Pli*Bm2i
-            F[i,iBm1si] = -Psi*Bm1si
-            F[i,iB2pi]  = -B2pi*Psi**2
-            F[i,iPli] = Bm2i*Pli
             if d == 0: #mixed layer
-                F[i,iPsi] = -(wsi/h+Bm1si+2*B2pi*Psi)*Psi
-                F[i,iwsi] = -Psi/h*wsi
-                F[i,iGhi] = Ghi
-                f[i] = Ghi+Bm2i*Pli-(wsi/h+Bm1si+B2pi*Psi)*Psi
+                eq = Ghi+Bm2i*Pli-(wsi/h+Bm1si+B2pi*Psi)*Psi
             elif (d == 1 or d == 2): #first or second grid point
-                iPsip1,Psip1 = fidx2e('Ps',d+1,vidx_allP,xk)
-                iPsim1,Psim1 = fidx2e('Ps',d-1,vidx_allP,xk)
-                F[i,iPsip1] = -wsi/(2*dz)*Psip1
-                F[i,iPsi] = -(Bm1si+2*B2pi*Psi)*Psi
-                F[i,iPsim1] = wsi/(2*dz)*Psim1
-                F[i,iwsi] = -(Psip1-Psim1)/(2*dz)*wsi
-                F[i,iGhi] = np.exp(-(zml[d]-h)/(Lpi))*Ghi
-                F[i,iLpi] = (Ghi*(zml[d]-h))/(Lpi)*np.exp(-(zml[d]-h)/(Lpi))
-                f[i] = Ghi*np.exp(-(zml[d]-h)/(Lpi))+(Bm2i*Pli)-(Bm1si+B2pi*Psi)*Psi-wsi/(2*dz)*(Psip1-Psim1)
+                eq = Ghi*sym.exp(-(zml[d]-h)/(Lpi))+(Bm2i*Pli)-(Bm1si+B2pi*Psi)*Psi-wsi/(2*dz)*(Psip1-Psim1)
             else: #everywhere else
-                iPsim1,Psim1 = fidx2e('Ps',d-1,vidx_allP,xk)
-                iPsim2,Psim2 = fidx2e('Ps',d-2,vidx_allP,xk)
-                F[i,iPsi] = -((3*wsi)/(2*dz)+Bm1si+2*B2pi*Psi)*Psi
-                F[i,iPsim1] = 2*wsi/dz*Psim1
-                F[i,iPsim2] = -wsi/(2*dz)*Psim2
-                F[i,iwsi] = -(Psim2-4*Psim1+3*Psi)/(2*dz)*wsi
-                F[i,iGhi] = np.exp(-(zml[d]-h)/(Lpi))*Ghi
-                F[i,iLpi] = (Ghi*(zml[d]-h))/(Lpi)*np.exp(-(zml[d]-h)/(Lpi))
-                f[i] = Ghi*np.exp(-(zml[d]-h)/(Lpi))+(Bm2i*Pli)-(Bm1si+B2pi*Psi)*Psi-wsi/(2*dz)*(3*Psi-4*Psim1+Psim2)
+                eq = Ghi*sym.exp(-(zml[d]-h)/(Lpi))+(Bm2i*Pli)-(Bm1si+B2pi*Psi)*Psi-wsi/(2*dz)*(3*Psi-4*Psim1+Psim2)
         #POC, LSF
         elif t == 'Pl':
-            F[i,iPsi] = 2*B2pi*Psi**2
-            F[i,iBm2i], F[i,iBm1li] = -Pli*Bm2i, -Pli*Bm1li
-            F[i,iB2pi] = B2pi*Psi**2
             if d == 0:
-                F[i,iPli] = -(wli/h+Bm2i+Bm1li)*Pli
-                F[i,iwli] = -Pli/h*wli
-                f[i] = (B2pi*(Psi)**2)-(wli/h+Bm2i+Bm1li)*Pli      
+                eq = (B2pi*(Psi)**2)-(wli/h+Bm2i+Bm1li)*Pli
             elif (d == 1 or d == 2):
-                iPlip1,Plip1 = fidx2e('Pl',d+1,vidx_allP,xk)
-                iPlim1,Plim1 = fidx2e('Pl',d-1,vidx_allP,xk)
-                F[i,iPlip1] = -wli/(2*dz)*Plip1
-                F[i,iPli] = -(Bm2i+Bm1li)*Pli
-                F[i,iPlim1] = wli/(2*dz)*Plim1
-                F[i,iwli] = -(Plip1-Plim1)/(2*dz)*wli
-                f[i] = B2pi*Psi**2-(Bm2i+Bm1li)*Pli-wli/(2*dz)*(Plip1-Plim1)
+                eq = B2pi*Psi**2-(Bm2i+Bm1li)*Pli-wli/(2*dz)*(Plip1-Plim1)
             else:
-                iPlim1,Plim1 = fidx2e('Pl',d-1,vidx_allP,xk)
-                iPlim2,Plim2 = fidx2e('Pl',d-2,vidx_allP,xk)
-                F[i,iPli] = -((3*wli)/(2*dz)+Bm2i+Bm1li)*Pli
-                F[i,iPlim1] = 2*wli/dz*Plim1
-                F[i,iPlim2] = -wli/(2*dz)*Plim2
-                F[i,iwli] = -(Plim2-4*Plim1+3*Pli)/(2*dz)*wli
-                f[i] = B2pi*Psi**2-(Bm2i+Bm1li)*Pli-wli/(2*dz)*(3*Pli-4*Plim1+Plim2)
+                eq = B2pi*Psi**2-(Bm2i+Bm1li)*Pli-wli/(2*dz)*(3*Pli-4*Plim1+Plim2)
         #POC, Ps + Pl = Pt
-        else:
-            iPti,Pti = fidx2('Pt',d,vidxPt,cppt.Pt_hat)
-            F[i,iPsi] = Psi
-            F[i,iPli] = Pli
-            f[i] = Psi+Pli-Pti
+        else: #because this isn't a tracer in the state vector, doesn't play nice with our Fnf function
+            Pti = cppt.Pt_hat[vidxPt.index(f'Pt_{d}')] #value of Pt at gridpoint d
+            eq = Psi + Pli - Pti
+        Fnf(eq,i,d)
     FCoFT = np.matmul(np.matmul(F,Coln),F.T)
     FCoFT_cond = np.linalg.cond(FCoFT)
     FCFCinv = np.matmul(FCoFT,np.linalg.inv(FCoFT))
