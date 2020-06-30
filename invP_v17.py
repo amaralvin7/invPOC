@@ -388,7 +388,7 @@ def Fnf_helper(y,i,di):
 #given a mathmatical function for flux at particular depth, return flux and uncertainty
 #if err==True, considers uncertainties
 #if cov==True, considers covariances
-def symfunceval(y, err, cov):
+def symfunceval(y,err=True,cov=True):
     #print('stepped in')
     x = y.free_symbols #gets all (symbolic) variables in function
     nx = len(x) #number of variables
@@ -486,8 +486,8 @@ def iflxcalc(fluxes, deprngs):
                     iF += (pa*tr**ordr)*dzi
                     iI += tr*dzi
                     #print(i, di, zml[di], dzi)
-            intflx = symfunceval(iF,err=True,cov=True)
-            resT = symfunceval(iI/iF,err=False,cov=False) #doesn't return error prop (takes too long)
+            intflx = symfunceval(iF)
+            resT = symfunceval(iI/iF,err=False) #doesn't return error prop (takes too long)
             flxd[f][rstr]['iflx'], flxd[f][rstr]['tau'] = intflx, resT
             #return(intflx)
 
@@ -510,7 +510,7 @@ def inventory(deprngs):
                 tr = sym.symbols(f'{twi}') #make it a symbolic variable
                 I += tr*dzi
                 ir += td[t]['n'][di]*dzi #integrated residual
-            td[t]['inv'][rstr] = symfunceval(I,err=True,cov=True)
+            td[t]['inv'][rstr] = symfunceval(I)
             td[t]['ires'][rstr] = ir
             
 ####Pt estimates    
@@ -834,7 +834,7 @@ Pt_xh, Pt_xhe = np.zeros(n), np.zeros(n)
 for i in np.arange(0,n):
     pswi, plwi = "_".join(['Ps',str(i)]), "_".join(['Pl',str(i)])
     ps, pl = sym.symbols(f'{pswi} {plwi}')
-    Pt_xh[i], Pt_xhe = symfunceval(ps+pl,err=True,cov=True)
+    Pt_xh[i], Pt_xhe = symfunceval(ps+pl)
 
 #PDF and CDF calculations
 xg = np.linspace(-2,2,100)
@@ -1020,17 +1020,17 @@ for f in flxd.keys():
             w, Pi = sym.symbols(f'{pwi} {twi}')
             if i == 0: #mixed layer    
                 y = w*Pi/h
-                fxh[i], fxhe[i] = symfunceval(y,err=True,cov=True) 
+                fxh[i], fxhe[i] = symfunceval(y)
             elif (i == 1 or i == 2): #first two points below ML
                 twip1, twim1 = "_".join([t,str(i+1)]), "_".join([t,str(i-1)])
                 Pip1, Pim1 = sym.symbols(f'{twip1} {twim1}')
                 y = w*(Pip1-Pim1)/(2*dz) #calculate flux estimate
-                fxh[i], fxhe[i]  = symfunceval(y,err=True,cov=True) 
+                fxh[i], fxhe[i]  = symfunceval(y)
             else: #all other depths
                 twim1, twim2 = "_".join([t,str(i-1)]), "_".join([t,str(i-2)])
                 Pim1, Pim2 = sym.symbols(f'{twim1} {twim2}')
                 y = w*(3*Pi-4*Pim1+Pim2)/(2*dz) #calculate flux estimate
-                fxh[i], fxhe[i]  = symfunceval(y,err=True,cov=True)
+                fxh[i], fxhe[i]  = symfunceval(y)
     else: #all other terms that are not sinking flux divergence
         for i in np.arange(0,n):
             dzi = dz if i != 0 else h
@@ -1043,7 +1043,7 @@ for f in flxd.keys():
                 twi = "_".join([t,str(i)]) 
                 pa, tr = sym.symbols(f'{pwi} {twi}')
                 y = pa*tr**ordr 
-            fxh[i], fxhe[i] = symfunceval(y,err=True,cov=True)
+            fxh[i], fxhe[i] = symfunceval(y)
     flxd[f]['xh'], flxd[f]['xhe'] = fxh, fxhe 
 
 
