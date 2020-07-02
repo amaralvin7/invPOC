@@ -116,6 +116,9 @@ for p in pdi.keys():
         pdi[p]['o'] = p_o[p]
         pdi[p]['oe'] = p_oe[p]
 
+#some parameters for plotting later
+ms, lw, elw, cs = 3, 1, 0.5, 2
+
 """
 #SOME FUNCTIONS
 """
@@ -131,54 +134,12 @@ def addtovaridx(varidx,species):
         varidx = varidx + tvidx
     return varidx
 
-#find index of required variable
-#takes as input the species, depth, and variable index. Only returns a single index
-def fidx1(s, d, idx):
-    idxs = [x for x, st in enumerate(idx) if st == f'{s}_{d}']
-    return idxs
-
 #find index of required variable and corresponding value in the state vector
 #takes as input the species, depth, and variable index. Only returns the index and value in the state vector
 def fidx2(s, d, idx, sv):
     idx = [x for x, st in enumerate(idx) if st == f'{s}_{d}']
     val = sv[idx]
     return [idx,val]
-
-#find index of required variable and corresponding value in the state vector. Also the corresponding prior value
-#takes as input the species, depth, variable index, state vector, and prior vector. Returns idx #, and corresponding values in state and prior vectors
-def fidx3(s, d, idx, sv, pv):
-    idx = [x for x, st in enumerate(idx) if st == f'{s}_{d}']
-    val = sv[idx]
-    pri = pv[idx]
-    return [idx,val,pri]
-
-#like fidx3, but returns the exp of the state variable instead.
-def fidx3e(s, d, idx, sv, pv):
-    idx = [x for x, st in enumerate(idx) if st == f'{s}_{d}']
-    val = np.exp(sv[idx])
-    pri = pv[idx]
-    return [idx,val,pri]
-
-#like fidx2, but returns the exp of the state variable instead.
-def fidx2e(s, d, idx, sv):
-    idx = [x for x, st in enumerate(idx) if st == f'{s}_{d}']
-    val = np.exp(sv[idx])
-    return [idx,val]
-
-#LU decomposition. Takes matrix A and b as input, returns x, solution vector
-#Also returns bp,  to verify solution 
-def LUdecomp(A,b):
-    L, U = splinalg.lu(A, permute_l=True)
-    y = np.linalg.solve(L,b)
-    x = np.linalg.solve(U,y)
-    #make sure we can recover b, in this case bp
-    bp = np.matmul(A,x)
-    return [x,bp]
-
-#some parameters for plotting later
-ms, lw = 3, 1
-elw = 0.5
-cs = 2
 
 #given sampling depths, return indices at which those depths correspond to
 #INCLUDES MIXED LAYER, hence zml
@@ -226,18 +187,6 @@ def findp_dcp(pvec,vi,param):
     ip = vi.index(param)
     p = pvec[ip]
     return p
-
-#like findp_dvp, but also returns exponential of state variable
-def findp_dv(svec,vi,param,layer):
-    ip = vi.index('_'.join([param,layer]))
-    ps = np.exp(svec[ip])
-    return ip,ps
-
-#like findp_dvp, but also returns exponential of state variable
-def findp_dc(svec,vi,param):
-    ip = vi.index(param)
-    ps = np.exp(svec[ip])
-    return ip,ps
 
 #calculate model errors given a state vector
 def modresi(sv):
@@ -313,20 +262,6 @@ def lsqplotsf(model,x,y,z,tracer,logscale): #make a least squares fit and plot t
     #ax.set_title(f' c0 = {c[0]:.2f}, c1 = {c[1]:.2f}, R2 = {r2:.2f}')
     ax.set_title(f'$R^2$ = {r2:.2f}')
     return ax
-
-#calculate prediction intervals for a given (stats)model
-def p_int(model, alpha, xstar, x):
-    a = alpha #significance level
-    m = model
-    df = m.df_resid
-    t = sstats.t.ppf(1-a/2,df) #critical t-value
-    #print(t)
-    sdr = np.std(m.resid,ddof=2) #stdev of residuals, must be equal to k+1 where k is # of predictors
-    #sdr = np.sqrt(m.mse_resid) #equivalent to the statement above
-    n = m.nobs #number of observations
-    xbar = np.mean(x)
-    pint = t*sdr*np.sqrt(1+1/n+(xstar-xbar)**2/np.sum((x-xbar)**2))
-    return pint
 
 #autocorrelation function for a specific depth range
 def acdrange(drange):
@@ -527,6 +462,7 @@ cp_mdic = sio.loadmat(cwd+'/srcpdata.mat')
 
 #read in updated cp data (20200426) 
 cp_bycast = sio.loadmat(cwd+'/cp_bycast.mat')['cp_bycast']
+
 # add a row to the beginning so that row # is depth
 cp_bycast = np.vstack((np.ones(cp_bycast.shape[1])*-9999,cp_bycast))
 
@@ -558,7 +494,6 @@ zcst = combodf_s.ctd_cast.values
 ctd_casts = np.unique(zcst)
 model = smf.ols(formula='Pt ~ np.log(cp)', data=combodf_s).fit()
 model_lin = smf.ols(formula='Pt ~ cp', data=combodf_s).fit()
-#print(model.summary())
 ax_ls = lsqplotsf(model, x, y, zdep, '$P_T$', logscale=True)
 ax_ls_nonlog = lsqplotsf(model_lin, x, y, zdep, '$P_T$', logscale=False)
 
@@ -577,10 +512,6 @@ cppt['depth'] = zml
 cppt['meancp'] = meancp
 cppt['Pt_hat'] = Pt_hat
 
-#get prediction intervals on Pt ests
-alph = 1-0.68
-cppt['Pt_hat_pint'] = p_int(model,alph,meancp,x)
-
 #runs test
 runs_z, runs_p = smr.runstest_1samp(model.resid)
 #fig, ax = plt.subplots(1,1)
@@ -588,8 +519,7 @@ runs_z, runs_p = smr.runstest_1samp(model.resid)
 #ax.hlines(np.mean(model.resid),0,65,linestyles='dashed')
 #fig.suptitle(f'z = {runs_z:.4f}, p = {runs_p:.4f}')
 
-#make a matrix whose diagonals are square of prediction intervals
-#Cf_addPt = np.diag(cppt['Pt_hat_pint']**2)
+#make a matrix whose diagonals are MSE of residuals
 Cf_addPt = np.diag(np.ones(n)*model.mse_resid)
 
 kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A = acdrange((h,bnd-dz/2))
@@ -617,15 +547,9 @@ vidxSV = []
 gnums = np.arange(0,n)
 svis = [''.join(['_',str(i)]) for i in gnums]
 
-
-#create depth indices for state variables found at every grid point
-gnums = np.arange(0,n)
-svis = [''.join(['_',str(i)]) for i in gnums]
-
 #add variables to the index
 vidxP = addtovaridx(vidxP,('Ps','Pl'))
 vidxPt = addtovaridx(vidxPt,('Pt',)) #just Pt, comma indicates one-element tuple
-
 
 params_o, params_o_e = np.empty(0), np.empty(0) #group the rate parameters as (p1layA, p1layB, p2layA, p2layB, ...)
 p_toidx = [] #and put them in a list to be added to the variable index later
@@ -722,11 +646,7 @@ ColnColninv = np.matmul(Coln,np.linalg.inv(Coln))
 Coln_check = np.sum(ColnColninv-np.identity(N))
 
 #construct Cf
-#initialize model equation errors and matrix
-#for k in oi.keys(): oi[k]['n'] = np.zeros(n)
 Cf_noPt = np.zeros((P,P))
-#Ps_nvar_o, Pl_nvar_o = np.mean(oi['Ps']['n_o']**2)-(oi['Ps']['nm_o']**2), np.mean(oi['Pl']['n_o']**2)-(oi['Pl']['nm_o']**2)
-#Cfd = np.concatenate((np.ones(n)*Ps_nvar_o,np.ones(n)*Pl_nvar_o)) #Cf by variance of residuals
 Cfd_noPt = np.ones(2*n)*pdi['Gh']['o']**2 #Cf from particle production
 Cf_noPt = np.diag(Cfd_noPt)*gam
 Cf = splinalg.block_diag(Cf_noPt,Cf_addPt)
@@ -781,7 +701,6 @@ while True:
     FCoFT_cond = np.linalg.cond(FCoFT)
     FCFCinv = np.matmul(FCoFT,np.linalg.inv(FCoFT))
     FC_check = np.sum(FCFCinv-np.identity(M))
-    #print(FC_check)
     B = np.matmul(np.matmul(Coln,F.T),np.linalg.inv(FCoFT+Cf))
     xkp1 = xoln + np.matmul(B,np.matmul(F,xk-xoln)-f)
     #convergence criteria based on Murnane 94
@@ -804,6 +723,7 @@ Ckp1 = np.matmul(np.matmul(C,Coln),D)
 
 #expected value and variance of tracers AND params
 EyP, VyP = xkp1, np.diag(Ckp1)
+
 #recover dimensional values of median, mean, mode, standard deviation
 xhmed = np.exp(EyP)
 xhmod = np.exp(EyP-VyP)
@@ -963,7 +883,6 @@ ax3.errorbar(cppt.Pt_hat, zml, fmt='o', xerr=np.ones(n)*np.sqrt(model.mse_resid)
 ax3.scatter(Ps_mean+Pl_mean, zs, marker='^', c=green, s=ms*10, label='pump', zorder=2)
 ax3.legend()
 
-
 #extract posterior param estimates and errors
 params_ests = xhmean[-nparams:]
 params_errs = xhe[-nparams:]
@@ -975,10 +894,7 @@ for i,stri in enumerate(p_toidx):
     else: pdi[stri]['xh'], pdi[stri]['xhe'] = pest, perr
 
 #make a plot of parameter priors and posteriors
-elwp=1
-ec='k'
-msp = 9
-csp = 4
+elwp, msp, csp, ec = 1, 9, 4, 'k'
 fig, ([ax1,ax2,ax3,ax4],[ax5,ax6,ax7,ax8]) = plt.subplots(2,4)
 fig.subplots_adjust(wspace=0.8, hspace=0.4)
 axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax8]
@@ -1046,7 +962,6 @@ for f in flxd.keys():
             fxh[i], fxhe[i] = symfunceval(y)
     flxd[f]['xh'], flxd[f]['xhe'] = fxh, fxhe 
 
-
 #plot fluxes
 flxpairs = [('ws_Ps','wl_Pl'),('ws_Psdz','wl_Pldz'),('Bm1s_Ps','B2p_Ps2'),('Bm1l_Pl','Bm2_Pl'),('Psdot',)]
 for pr in flxpairs:
@@ -1066,69 +981,19 @@ for pr in flxpairs:
         
 #fluxes that we want to integrate
 iflxs = ['ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
-#iflxs = ['Psdot']
 
 depthranges = ((h,95),(95,500)) #For the these depth rangers,
 iflxcalc(iflxs,depthranges) #calculate integrated fluxes and timescales
 inventory(depthranges) #calculate tracer inventory and integrated residuals
 
-#check budgets that budget defecits equal integrated residuals (they do)
+#Print integrated fluxes and residuals for each depth range
 for dr in depthranges:
     rstr = "_".join([str(dr[0]),str(dr[1])])
     print(f'----Depth range: {dr}----')
-    Ps_bud = flxd['Psdot'][rstr]['iflx'][0]+flxd['Bm2_Pl'][rstr]['iflx'][0]-flxd['Bm1s_Ps'][rstr]['iflx'][0]-flxd['B2p_Ps2'][rstr]['iflx'][0]-flxd['ws_Psdz'][rstr]['iflx'][0]
-    Pl_bud = flxd['B2p_Ps2'][rstr]['iflx'][0]-flxd['Bm2_Pl'][rstr]['iflx'][0]-flxd['Bm1l_Pl'][rstr]['iflx'][0]-flxd['wl_Pldz'][rstr]['iflx'][0]
-    print(f'Ps Budget: {Ps_bud:.5f} \nPs IResiduals: {td["Ps"]["ires"][rstr]:.5f} \nPl Budget: {Pl_bud:.5f} \nPl IResiduals: {td["Pl"]["ires"][rstr]:.5f}')
-
-# # SOME OTHER LINES FOR TESTING
-# #one test for iflxcalc with two layers (WORKS!)
-# tid, tid1, pid, pid1 = vidxSV.index('Pl_16'), vidxSV.index('Pl_17'), vidxSV.index('Bm2_A'), vidxSV.index('Bm2_B')
-# tv, te = td['Pl']['xh'][16], td['Pl']['xhe'][16]
-# tv1, te1 = td['Pl']['xh'][17], td['Pl']['xhe'][17]
-# pv, pe = pdi['Bm2']['A']['xh'], pdi['Bm2']['A']['xhe']
-# pv1, pe1 = pdi['Bm2']['B']['xh'], pdi['Bm2']['B']['xhe']
-# print((pv*tv+pv1*tv1)*dz, np.sqrt((pv*dz*te)**2+(pv1*dz*te1)**2+(tv*dz*pe)**2+(tv1*dz*pe1)**2+
-#                             2*dz**2*(tv*tv1*CVM[pid,pid1]+pv*pv1*CVM[tid,tid1]+tv*pv*CVM[pid,tid]+
-#                             tv1*pv*CVM[pid1,tid]+tv*pv1*CVM[pid,tid1]+tv1*pv1*CVM[pid1,tid1])))
-# v1_st, v2_st, v3_st, v4_st = '_'.join(['Bm2','A']), '_'.join(['Bm2','B']), '_'.join(['Pl','16']), '_'.join(['Pl','17'])
-# v1, v2, v3, v4 = sym.symbols(f'{v1_st} {v2_st} {v3_st} {v4_st}')
-# y = (v1*v3+v2*v4)*dz
-# print(symfunceval(y,cov=True))
-# print(y)
-# print(iflxcalc(['Bm2_Pl'],((zml[16],zml[17]),)))
-
-# #check that residuals of fluxes match with previously calculated model residuals (looks good)
-# td['Ps']['FRes'] = flxd['Psdot']['xh']+flxd['Bm2_Pl']['xh']-flxd['Bm1s_Ps']['xh']-flxd['B2p_Ps2']['xh']-flxd['ws_Psdz']['xh']
-# td['Pl']['FRes'] = flxd['B2p_Ps2']['xh']-flxd['Bm2_Pl']['xh']-flxd['Bm1l_Pl']['xh']-flxd['wl_Pldz']['xh']
-# axA.scatter(td['Ps']['FRes'], zml, marker='o', s=10, label='FRes', facecolors='none', edgecolors=red)
-# axB.scatter(td['Pl']['FRes'], zml, marker='o', s=10, label='FRes', facecolors='none', edgecolors=red)
-# axA.legend(), axB.legend()
-
-# #checking calculation of timescales (LOOKS GOOD)       
-# invPs_A = np.sum(td['Ps']['xh'][1:17])*dz+td['Ps']['xh'][0]*h
-# invPl_A = np.sum(td['Pl']['xh'][1:17])*dz+td['Pl']['xh'][0]*h
-# invPs_B = np.sum(td['Ps']['xh'][17:])*dz
-# invPl_B = np.sum(td['Pl']['xh'][17:])*dz
-# for f in iflxs:
-#     if 'Ps' in f:
-#         print(flxd[f]['30_110']['iflx'][0]-invPs_A/flxd[f]['30_110']['tau'][0])
-#         print(flxd[f]['115_500']['iflx'][0]-invPs_B/flxd[f]['115_500']['tau'][0])
-#     else:
-#         print(flxd[f]['30_110']['iflx'][0]-invPl_A/flxd[f]['30_110']['tau'][0])
-#         print(flxd[f]['115_500']['iflx'][0]-invPl_B/flxd[f]['115_500']['tau'][0])  
-
-# #test that inventory calcs are accurate (looks good!)
-# for t in tracers:
-#     tflxs = [i for i in iflxs if t in i]
-#     for dr in depthranges:
-#         rstr = "_".join([str(dr[0]),str(dr[1])])
-#         print(f'----{t}, {dr}: {td[t]["inv"][rstr][0]:.3f}----')
-#         for tf in tflxs:
-#             flx = flxd[tf][rstr]['iflx']
-#             tau = flxd[tf][rstr]['tau']
-#             inv = flx[0]*tau
-#             print(f'{tf}: {flx}, {tau:.3f}, {inv:.3f}')
-            
+    for f in iflxs:
+        print(f"{f}: {flxd[f][rstr]['iflx'][0]:.3f} ± {flxd[f][rstr]['iflx'][1]:.3f}")
+    print(f'Ps Residuals: {td["Ps"]["ires"][rstr]:.3f} \nPl Residuals: {td["Pl"]["ires"][rstr]:.3f}')
+    
 print(f'--- {time.time() - start_time} seconds ---')
 
 plt.show()
