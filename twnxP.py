@@ -51,12 +51,13 @@ n = len(zml)
 mm = 12 #molar mass of C (12 g/mol)
 dpy = 365.24 #days per year
 
+#first order aggregation estimate from Murnane 1994
+B2 = 0.8/dpy
+
 #assign df colums to variables
 zs = df.Depth
-Ps_mean = df.SSF_mean/mm
 Ps_sd = df.SSF_sd/mm
 Ps_se = df.SSF_se/mm
-Pl_mean = df.LSF_mean/mm
 Pl_sd = df.LSF_sd/mm
 Pl_se = df.LSF_se/mm
 
@@ -64,6 +65,7 @@ gam = 0.01 #multiplier for weighting model errors
 
 #param info
 layers = ['A','B']
+tracers = ['Ps','Pl']
 params = ['ws', 'wl', 'B2p', 'Bm2', 'Bm1s', 'Bm1l', 'Gh', 'Lp']
 params_dv = ['ws', 'wl', 'B2p', 'Bm2', 'Bm1s', 'Bm1l'] #depth-varying params
 params_dc = ['Gh', 'Lp'] #depth-constant params
@@ -79,27 +81,36 @@ for k in pdi.keys():
 
 #typeset name
 p_tset = {'ws':'$w_s$', 'wl':'$w_l$', 'B2p':'$\\beta^,_2$', 'Bm2':'$\\beta_{-2}$', 
-               'Bm1s':'$\\beta_{-1,s}$', 'Bm1l':'$\\beta_{-1,l}$', 'Gh':'$\overline{\.P_s}$', 
-               'Lp':'$L_{p}$'}
+                'Bm1s':'$\\beta_{-1,s}$', 'Bm1l':'$\\beta_{-1,l}$', 'Gh':'$\overline{\.P_s}$', 
+                'Lp':'$L_{p}$'}
 
 #priors
 p_o = {'ws':2, #m/d
-       'wl':20, #m/d, reported from Murnane 1990.
-       'B2p':0.5*mm/dpy, #m3/(mmol*yr), arbritrary
-       'Bm2':400/dpy, #from Murnane 1994, converted to d
-       'Bm1s':36/dpy, #from Clegg surface value, converted to d
-       'Bm1l':0.15, #based on preliminary RESPIRE data from A Santoro
-       'Gh':0.28, #prior set to typical NPP shared data value (divided by h), error is 25% of that. mg/m2/d converted to mmol
-       'Lp':28} #from NPP data, m
+        'wl':20, #m/d, reported from Murnane 1990.
+        'B2p':0.5*mm/dpy, #m3/(mmol*yr), arbritrary
+        'Bm2':400/dpy, #from Murnane 1994, converted to d
+        'Bm1s':36/dpy, #from Clegg surface value, converted to d
+        'Bm1l':0.15, #based on preliminary RESPIRE data from A Santoro
+        'Gh':0.28, #prior set to typical NPP shared data value (divided by h), error is 25% of that. mg/m2/d converted to mmol
+        'Lp':28} #from NPP data, m
 #prior errors
 p_oe = {'ws':2, 
-       'wl':15, 
-       'B2p':0.5*mm/dpy, 
-       'Bm2':1000/dpy, 
-       'Bm1s':36/dpy, 
-       'Bm1l':0.15, 
-       'Gh':0.12, 
-       'Lp':28*0.5}
+        'wl':15, 
+        'B2p':0.5*mm/dpy, 
+        'Bm2':1000/dpy, 
+        'Bm1s':36/dpy, 
+        'Bm1l':0.15, 
+        'Gh':0.12, 
+        'Lp':28*0.5}
+#target values used to generate pseudo-data
+p_tgt = {'ws':{'A':1.8,'B':3.7}, 
+        'wl':{'A':12,'B':28}, 
+        'B2p':{'A':0.02,'B':0.032}, 
+        'Bm2':{'A':0.9,'B':0.03}, 
+        'Bm1s':{'A':0.12,'B':0.03}, 
+        'Bm1l':{'A':0.02,'B':0.2}, 
+        'Gh':0.38, 
+        'Lp':16}
 
 #have a single layer seperation
 bnd = 112.5
@@ -111,13 +122,18 @@ for p in pdi.keys():
             pdi[p][l]['tset'] = p_tset[p]
             pdi[p][l]['o'] = p_o[p]
             pdi[p][l]['oe'] = p_oe[p]
+            pdi[p][l]['t'] = p_tgt[p][l]
     else:
         pdi[p]['tset'] = p_tset[p]
         pdi[p]['o'] = p_o[p]
         pdi[p]['oe'] = p_oe[p]
+        pdi[p]['t'] = p_tgt[p]
 
 #some parameters for plotting later
 ms, lw, elw, cs = 3, 1, 0.5, 2
+
+#particle prouction
+Ghz = pdi['Gh']['t']*np.exp(-(zml-h)/pdi['Lp']['t'])
 
 """
 #SOME FUNCTIONS
@@ -147,6 +163,16 @@ def difind(zs):
     sorter = np.argsort(zml)
     zsi = sorter[np.searchsorted(zml, zs, sorter=sorter)]
     return zsi
+
+#LU decomposition. Takes matrix A and b as input, returns x, solution vector
+#Also returns bp,  to verify solution 
+def LUdecomp(A,b):
+    L, U = splinalg.lu(A, permute_l=True)
+    y = np.linalg.solve(L,b)
+    x = np.linalg.solve(U,y)
+    #make sure we can recover b, in this case bp
+    bp = np.matmul(A,x)
+    return [x,bp]
 
 #some matrices that will be copied
 def Rmatx(sampledepths,griddepths,lengthscale):
@@ -294,32 +320,6 @@ def cvmsli(cvm, vlist):
             cvms[i,j] = cvm[vi,vj]
     return cvms
 
-#given a depth index and function, evaluate the function and fill in corresponding jacobian values
-def Fnf(y,i,di):
-    f_x, f_xv, f_xi = Fnf_helper(y,i,di)
-    f[i] = sym.lambdify(f_x,y)(*f_xv)
-    for j, v in enumerate(f_x):
-        dy = y.diff(v)*v #multiplied by v becuase it's atually dy/d(lnv) = v*dy/dv
-        F_x, F_xv, F_xi = Fnf_helper(dy,i,di)
-        F[i,int(f_xi[j])] = sym.lambdify(F_x,dy)(*F_xv)
-
-def Fnf_helper(y,i,di):
-    x = y.free_symbols #gets all (symbolic) variables in function
-    nx = len(x) #number of variables
-    xv, xi = np.zeros(nx), np.zeros(nx) #numerical values of symbolic variables and their indices in vidxSV
-    for j,v in enumerate(x): #for each symbolic variable
-        if '_' in v.name: #if it's a tracer
-            t, rdi = v.name.split('_') #get tracer and relative (to di) depth index
-            adi = str(di+int(rdi)) #the absolute di for this tracer
-            iSV = vidxSV.index('_'.join([t,adi])) #index of the state variable
-        else: #it it's a parameter
-            if pdi[v.name]['dv'] == 1:
-                l = lmatch(di)
-                iSV = vidxSV.index('_'.join([v.name,l]))
-            else: iSV = vidxSV.index(v.name)
-        xv[j],xi[j] = np.exp(xk[iSV]), iSV
-    return x, xv, xi
-
 #given a mathmatical function for flux at particular depth, return flux and uncertainty
 #if err==True, considers uncertainties
 #if cov==True, considers covariances
@@ -359,95 +359,34 @@ def symfunceval(y,err=True,cov=True):
     #print('Returned!')
     return result
 
-#given a depth range, calculate integrated fluxes
-def iflxcalc(fluxes, deprngs):
-    for f in fluxes:
-        #print(f'-------{f}-------')
-        if '_' in f: #if not Psdot
-            p,t = f.split('_')[0], f.split('_')[1][:2]
-            ordr = flxd[f]['o'] #get order from the flx dict
-        for dr in deprngs:        
-            do, dn = dr #unpack start and end depths
-            doi, dni = zml.tolist().index(do), zml.tolist().index(dn)
-            rstr = "_".join([str(do),str(dn)])
-            flxd[f][rstr] = {} #create dict to store integrated flux and res time for this depthrange
-            dis = np.arange(doi,dni+1) 
-            iF, iI = 0, 0 #initialize variable to collect summation (integrals) of fluxes and inventory
-            if 'dz' in f: #if sinking flux divergence term, more complicated
-                for i,di in enumerate(dis):
-                    #if we're on the first or last gridpoint for a layer and it's not the MLD
-                    if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
-                    elif di == 0: dzi = h+dz/2 #if we're on the MLD
-                    else: dzi = dz #all other depths
-                    l = lmatch(di)
-                    pwi = "_".join([p,l])
-                    twi = "_".join([t,str(di)])
-                    w, Pi = sym.symbols(f'{pwi} {twi}')
-                    if di == 0: #mixed layer
-                        iF += w*Pi/h*dzi
-                        iI += Pi*dzi
-                    elif (di == 1 or di == 2): #first two points below ML
-                        twip1, twim1 = "_".join([t,str(di+1)]), "_".join([t,str(di-1)])
-                        Pip1, Pim1 = sym.symbols(f'{twip1} {twim1}')
-                        iF += w*(Pip1-Pim1)/(2*dz)*dzi #calculate flux estimate
-                        iI += Pi*dzi
-                    else: #all other depths
-                        twim1, twim2 = "_".join([t,str(di-1)]), "_".join([t,str(di-2)])
-                        Pim1, Pim2 = sym.symbols(f'{twim1} {twim2}')
-                        iF += w*(3*Pi-4*Pim1+Pim2)/(2*dz)*dzi #calculate flux estimate
-                        iI += Pi*dzi
-                    #print(i, di, zml[di], dzi)
-            elif f == 'Psdot': #if it's the production term
-                gh, lp = sym.symbols('Gh Lp')
-                for i,di in enumerate(dis):
-                    #if we're on the first or last gridpoint for a layer and it's not the MLD
-                    if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
-                    elif di == 0: dzi = h+dz/2 #if we're on the MLD
-                    else: dzi = dz #all other depths
-                    Pi = sym.symbols(f'Ps_{di}')
-                    iF += gh*sym.exp(-(zml[di]-h)/lp)*dzi
-                    iI += Pi*dzi
-                    #print(i, di, zml[di], dzi)
-            else: #all other terms that are not sinking or production
-                for i,di in enumerate(dis):
-                    #if we're on the first or last gridpoint for a layer and it's not the MLD
-                    if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
-                    elif di == 0: dzi = h+dz/2 #if we're on the MLD
-                    else: dzi = dz #all other depths
-                    l = lmatch(di)
-                    pwi = "_".join([p,l])
-                    twi = "_".join([t,str(di)])
-                    pa, tr = sym.symbols(f'{pwi} {twi}')
-                    iF += (pa*tr**ordr)*dzi
-                    iI += tr*dzi
-                    #print(i, di, zml[di], dzi)
-            intflx = symfunceval(iF)
-            resT = symfunceval(iI/iF,err=False) #doesn't return error prop (takes too long)
-            flxd[f][rstr]['iflx'], flxd[f][rstr]['tau'] = intflx, resT
-            #return(intflx)
+#given a depth index and function, evaluate the function and fill in corresponding jacobian values
+def Fnf(y,i,di,ln=True):
+    f_x, f_xv, f_xi = Fnf_helper(y,i,di,ln)
+    f[i] = sym.lambdify(f_x,y)(*f_xv)
+    for j, v in enumerate(f_x):
+        if ln == True: dy = y.diff(v)*v #multiplied by v becuase it's atually dy/d(lnv) = v*dy/dv
+        else: dy = y.diff(v)
+        F_x, F_xv, F_xi = Fnf_helper(dy,i,di,ln)
+        F[i,int(f_xi[j])] = sym.lambdify(F_x,dy)(*F_xv)
 
-#given a depth range, calculate (integrated) inventory and residuals
-def inventory(deprngs):
-    for t in tracers:
-        td[t]['inv'], td[t]['ires'] = {}, {} #initialize dicts to store inventories and integrated residuals for each depth range
-        for dr in deprngs:        
-            do, dn = dr #unpack start and end depths
-            doi, dni = zml.tolist().index(do), zml.tolist().index(dn)
-            rstr = "_".join([str(do),str(dn)])
-            dis = np.arange(doi,dni+1) 
-            I, ir = 0, 0 #initialize variable to collect summation (integrals) of inventory
-            for i,di in enumerate(dis):
-                #if we're on the first or last gridpoint for a layer and it's not the MLD
-                if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
-                elif di == 0: dzi = h+dz/2 #if we're on the MLD
-                else: dzi = dz #all other depths
-                twi = "_".join([t,str(di)]) #get the tracer at this depth index
-                tr = sym.symbols(f'{twi}') #make it a symbolic variable
-                I += tr*dzi
-                ir += td[t]['n'][di]*dzi #integrated residual
-            td[t]['inv'][rstr] = symfunceval(I)
-            td[t]['ires'][rstr] = ir
-            
+def Fnf_helper(y,i,di,ln):
+    x = y.free_symbols #gets all (symbolic) variables in function
+    nx = len(x) #number of variables
+    xv, xi = np.zeros(nx), np.zeros(nx) #numerical values of symbolic variables and their indices in vidxSV
+    for j,v in enumerate(x): #for each symbolic variable
+        if '_' in v.name: #if it's a tracer
+            t, rdi = v.name.split('_') #get tracer and relative (to di) depth index
+            adi = str(di+int(rdi)) #the absolute di for this tracer
+            iSV = vidxSV.index('_'.join([t,adi])) #index of the state variable
+        else: #it it's a parameter
+            if pdi[v.name]['dv'] == 1:
+                l = lmatch(di)
+                iSV = vidxSV.index('_'.join([v.name,l]))
+            else: iSV = vidxSV.index(v.name)
+        xv[j] = np.exp(xk[iSV]) if ln == True else xk[iSV]
+        xi[j] = iSV
+    return x, xv, xi
+         
 ####Pt estimates    
 #read in cast match data
 #cmdp = '/Users/vamaral/GoogleDrive/DOCS/Py/pyEXPORTS/misc/castmatch_v1.csv' #v1 has "exact" matches, but includes ctd cast 39 which has a bad values 
@@ -493,9 +432,7 @@ zdep = combodf_s.depth.values
 zcst = combodf_s.ctd_cast.values
 ctd_casts = np.unique(zcst)
 model = smf.ols(formula='Pt ~ np.log(cp)', data=combodf_s).fit()
-model_lin = smf.ols(formula='Pt ~ cp', data=combodf_s).fit()
 ax_ls = lsqplotsf(model, x, y, zdep, '$P_T$', logscale=True)
-ax_ls_nonlog = lsqplotsf(model_lin, x, y, zdep, '$P_T$', logscale=False)
 
 #make a dataframe of all cp profiles, where index is depth and col name is cast #
 allcp = pd.DataFrame(data=cp_bycast, columns=cp_mdic['srcast'][0])
@@ -512,32 +449,17 @@ cppt['depth'] = zml
 cppt['meancp'] = meancp
 cppt['Pt_hat'] = Pt_hat
 
-#runs test
-runs_z, runs_p = smr.runstest_1samp(model.resid)
-#fig, ax = plt.subplots(1,1)
-#ax.scatter(np.arange(0,len(model.resid)),model.resid)
-#ax.hlines(np.mean(model.resid),0,65,linestyles='dashed')
-#fig.suptitle(f'z = {runs_z:.4f}, p = {runs_p:.4f}')
-
 #make a matrix whose diagonals are MSE of residuals
-Cf_addPt = np.diag(np.ones(n)*model.mse_resid)
+MSE_fit = model.mse_resid
+Cf_addPt = np.diag(np.ones(n)*MSE_fit)
 
 kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A = acdrange((h,bnd-dz/2))
 kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B = acdrange((bnd+dz/2,zmax))
-fig, ax = plt.subplots(1,1)
-cA, cB = blue, green
-ax.scatter(kdz_A,np.log(ac_A),label='A (EZ)',marker='o',color=cA) 
-ax.scatter(kdz_B,np.log(ac_B),label='B (MZ)',marker='x',color=cB)
-ax.plot(kdz_A,lfit_A,'--',lw=lw,color=cA), ax.plot(kdz_B,lfit_B,'--',lw=lw,color=cB)
-ax.set_title(f'int_A = {l_int_A:.2f}, L_A = {L_A:.2f}, R2_A = {l_r2_A:.2f} \n int_B = {l_int_B:.2f}, L_B = {L_B:.2f}, R2_B = {l_r2_B:.2f}')
-ax.set_xlabel('lags (m)')
-ax.set_ylabel('ln($r_k$)')
-ax.legend()
-
 
 """
-#INVERSE METHOD (P)
+#LINEAR NUMERICAL SOLUTIONS (need to solve to get priors for nonlinear solutions)
 """
+
 #create variable indexes for three P size fractions, and for the state vector
 vidxP = []
 vidxPt = []
@@ -569,17 +491,146 @@ nparams = len(p_toidx) #number of total params (one in each layer for depth-vary
 vidx_allP = vidxP+vidxPt #includes everything in F and f
 vidxSV = vidxP+p_toidx #only state variables
 
+#some useful matrix dimensions
+N = len(vidxSV)
+P = N-len(params_o) #dimension of everything minus params (# of model equations)
+M = len(vidx_allP) #dimension that includes all three P size fractions (for F and f)
+
+#Construct A matrix and b vector
+A, b = np.zeros((P, P)), np.zeros(P)
+#loop through and edit rows of AP
+for i in np.arange(0,P):
+    #what tracer and depth are we on?
+    t,d = vidxP[i].split('_')
+    d = int(d)
+    l = lmatch(d) #what layer does this depth index correspond to?
+    iPsi = vidxP.index(f'Ps_{str(d)}')
+    iPli = vidxP.index(f'Pl_{str(d)}')
+    #pick up all values of rate parameters
+    wsi, wli, Bm2i, Bm1si, Bm1li, Ghi = pdi['ws'][l]['t'], pdi['wl'][l]['t'], \
+        pdi['Bm2'][l]['t'], pdi['Bm1s'][l]['t'], pdi['Bm1l'][l]['t'], Ghz[int(d)]
+    #POC, SSF
+    if t == 'Ps':
+        A[i,iPli] = -Bm2i
+        b[i] = Ghi
+        if d == 0: #ML
+            A[i,iPsi] = (wsi/h)+Bm1si+B2
+        elif (d == 1 or d == 2): #first or second grid point
+            iPsip1 = vidxP.index(f'Ps_{str(d+1)}')
+            iPsim1 = vidxP.index(f'Ps_{str(d-1)}')
+            A[i,iPsip1] = wsi/(2*dz)
+            A[i,iPsi] = Bm1si+B2
+            A[i,iPsim1] = -wsi/(2*dz)
+        else:
+            iPsim1 = vidxP.index(f'Ps_{str(d-1)}')
+            iPsim2 = vidxP.index(f'Ps_{str(d-2)}')
+            A[i,iPsi] = (3*wsi)/(2*dz)+Bm1si+B2
+            A[i,iPsim1] = (-2*wsi)/dz
+            A[i,iPsim2] =wsi/(2*dz)
+    #POC, LSF
+    else:       
+        A[i,iPsi] = -B2
+        if d == 0:
+            A[i,iPli] = (wli/h)+Bm1li+Bm2i
+        elif (d == 1 or d == 2): #first or second grid point
+            iPlip1 = vidxP.index(f'Pl_{str(d+1)}')
+            iPlim1 = vidxP.index(f'Pl_{str(d-1)}')
+            A[i,iPlip1] = wli/(2*dz)
+            A[i,iPli] = Bm2i+Bm1li
+            A[i,iPlim1] = -wli/(2*dz)
+        else:
+            iPlim1 = vidxP.index(f'Pl_{str(d-1)}')
+            iPlim2 = vidxP.index(f'Pl_{str(d-2)}')           
+            A[i,iPli] = (3*wli)/(2*dz)+Bm2i+Bm1li
+            A[i,iPlim1] = (-2*wli)/dz
+            A[i,iPlim2] = wli/(2*dz)
+
+#calculate the condition number for A
+A_cond = np.linalg.cond(A)
+#Find the solution x, and verify the solution looks ok be recovering b
+x_numlin, bp_numlin = LUdecomp(A, b)
+#assign numerical solutions to variables
+Ps_numlin, Pl_numlin = [vsli(x_numlin,vidxSV.index(f'{t}_0')) for t in tracers]
+
+"""
+#NONLINEAR NUMERICAL SOLUTIONS (need to solve to get priors for inverse method) 
+"""
+
+#initialize matrices and vectors in Fk*xkp1 = Fk*xk-fk+b
+F = np.zeros((P, P))
+b, f = np.zeros(P), np.zeros(P)
+xo = x_numlin
+xk = xo
+xkp1 = np.ones(P) #initialize this to some dummy value 
+k = 0 #keep a counter for how many steps it takes
+pdelt = 0.0001 #allowable percent change in each state element for convergence
+conv_ev = np.empty(0) # keep track of evolution of convergence
+
+#define all possible symbolic variables
+svarnames = 'Ps_0 Ps_1 Ps_-1 Ps_-2 \
+    Pl_0 Pl_1 Pl_-1 Pl_-2'
+Psi, Psip1, Psim1, Psim2, \
+    Pli, Plip1, Plim1, Plim2  = sym.symbols(svarnames)
+#iterative solution
+while True:
+    for i in np.arange(0,P):
+        #what tracer and depth are we on?
+        t,d = vidxP[i].split('_')
+        d = int(d)
+        #pick up all values of rate parameters
+        wsi, wli, Bm2i, B2pi, Bm1si, Bm1li, Ghi = pdi['ws'][l]['t'], pdi['wl'][l]['t'], \
+            pdi['Bm2'][l]['t'], pdi['B2p'][l]['t'], pdi['Bm1s'][l]['t'], pdi['Bm1l'][l]['t'], Ghz[int(d)]
+        #POC, SSF
+        if t == 'Ps':
+            b[i] = -Ghi
+            if d == 0: #mixed layer
+                eq = Bm2i*Pli-(wsi/h+Bm1si+B2pi*Psi)*Psi
+            elif (d == 1 or d == 2): #first or second grid point
+                eq = (Bm2i*Pli)-(Bm1si+B2pi*Psi)*Psi-wsi/(2*dz)*(Psip1-Psim1)
+            else: #everywhere else
+                eq = (Bm2i*Pli)-(Bm1si+B2pi*Psi)*Psi-wsi/(2*dz)*(3*Psi-4*Psim1+Psim2)
+        #POC, LSF
+        elif t == 'Pl':
+            if d == 0:
+                eq = (B2pi*(Psi)**2)-(wli/h+Bm2i+Bm1li)*Pli
+            elif (d == 1 or d == 2):
+                eq = B2pi*Psi**2-(Bm2i+Bm1li)*Pli-wli/(2*dz)*(Plip1-Plim1)
+            else:
+                eq = B2pi*Psi**2-(Bm2i+Bm1li)*Pli-wli/(2*dz)*(3*Pli-4*Plim1+Plim2)
+        Fnf(eq,i,d,ln=False)
+    xkp1 = np.linalg.solve(F,(np.matmul(F,xk)-f+b))
+    #convergence criteria based on Murnane 94
+    maxchange = np.max(np.abs((xkp1-xk)/xk))
+    if maxchange < pdelt or k > 2000: break
+    conv_ev = np.append(conv_ev,maxchange)    
+    k += 1
+    xk = xkp1
+#assign numerical solutions to variables
+Ps_numnl, Pl_numnl = [vsli(xkp1,vidxSV.index(f'{t}_0')) for t in tracers]
+#generate Pt pseudodata (with noise)
+Pt_numnl = np.random.normal(Ps_numnl+Pl_numnl,np.sqrt(MSE_fit))
+
+"""
+#INVERSE METHOD (P)
+"""
+#define sampling depths, and find indices that they occur at
+sorter = np.argsort(zml)
+zsi = sorter[np.searchsorted(zml, zs, sorter=sorter)]
+
+#assign observation vectors and data errors
+Ps_mean = Ps_numnl[zsi]
+Pl_mean = Pl_numnl[zsi]
+
 #make a dictionary for tracer params for each layer. could be more cleverly coded
 tracers = ['Ps','Pl']
 oi = {lay:{t:{} for t in tracers} for lay in layers}
-oi['A']['Ps']['y'],oi['B']['Ps']['y'] = Ps_mean[0:3].values,Ps_mean[3:].values #mean POC
-oi['A']['Pl']['y'],oi['B']['Pl']['y'] = Pl_mean[0:3].values,Pl_mean[3:].values
+oi['A']['Ps']['y'],oi['B']['Ps']['y'] = Ps_mean[0:3],Ps_mean[3:] #mean POC
+oi['A']['Pl']['y'],oi['B']['Pl']['y'] = Pl_mean[0:3],Pl_mean[3:]
 oi['A']['Pl']['sig_j'],oi['B']['Pl']['sig_j'] = Pl_sd[0:3].values,Pl_sd[3:].values #POC standard deviation
 oi['A']['Ps']['sig_j'],oi['B']['Ps']['sig_j'] = Ps_sd[0:3].values,Ps_sd[3:].values
 oi['A']['smpd'], oi['A']['grdd'] = zs[0:3].values, zml[difind(h):difind(bnd-dz/2)+1] #sample and grid depths, layer A
 oi['B']['smpd'], oi['B']['grdd'] = zs[3:].values, zml[difind(bnd+dz/2):] #sample and grid depths, layer B
 oi['A']['L'], oi['B']['L'] = L_A, L_B #interpolation length scales
-
 
 #calculate OI params
 for lay in oi.keys():
@@ -622,11 +673,6 @@ for tra in tracers:
 #combine xo's to form one xo, normalize xo and take the ln
 xo = np.concatenate((tpri,params_o))
 xoln = np.log(xo)
-
-#redefine some useful params
-N = len(xo)
-P = N-len(params_o) #dimension of everything minus params (# of model equations)
-M = len(vidx_allP) #dimension that includes all three P size fractions (for F and f)
 
 #construct Co as a (normalized) diagonal matrix, blocks for tracers and diagonals otherwise. Considers the ln()
 Co, Coln = np.zeros((N,N)), np.zeros((N,N))
@@ -692,9 +738,9 @@ while True:
                 eq = B2pi*Psi**2-(Bm2i+Bm1li)*Pli-wli/(2*dz)*(Plip1-Plim1)
             else:
                 eq = B2pi*Psi**2-(Bm2i+Bm1li)*Pli-wli/(2*dz)*(3*Pli-4*Plim1+Plim2)
-        #POC, Ps + Pl = Pt
-        else: #because this isn't a tracer in the state vector, doesn't play nice with our Fnf function
-            Pti = cppt.Pt_hat[vidxPt.index(f'Pt_{d}')] #value of Pt at gridpoint d
+        #Total POC
+        else:
+            Pti = Pt_numnl[vidxPt.index(f'Pt_{d}')] #value of Pt at gridpoint d
             eq = Psi + Pli - Pti
         Fnf(eq,i,d)
     FCoFT = np.matmul(np.matmul(F,Coln),F.T)
@@ -864,24 +910,11 @@ ax2.errorbar(Pl_mean, zs, fmt='^', xerr=Pl_se, ecolor=green, elinewidth=elw, c=g
 ax2.errorbar(td['Pl']['x'], zml, fmt='o', xerr=td['Pl']['xerr'], ecolor=blue, elinewidth=elw, c=blue, ms=ms/2, capsize=cs, lw=lw, label='OI')  
 ax2.legend()
 ax3.errorbar(Pt_xh, zml, fmt='o', xerr=Pt_xhe, ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='Inv', fillstyle='none')
-ax3.errorbar(cppt.Pt_hat, zml+1, fmt='o', xerr=np.ones(n)*np.sqrt(model.mse_resid), ecolor=green, elinewidth=elw, c=green, ms=ms, capsize=cs, lw=lw, label='Data', fillstyle='none')
+ax3.errorbar(Pt_numnl, zml+1, fmt='o', xerr=np.ones(n)*np.sqrt(MSE_fit), ecolor=green, elinewidth=elw, c=green, ms=ms, capsize=cs, lw=lw, label='Data', fillstyle='none')
 ax3.legend()
 ax1.axhline(bnd,c='k',ls='--',lw=lw/2)
 ax2.axhline(bnd,c='k',ls='--',lw=lw/2)
 ax3.axhline(bnd,c='k',ls='--',lw=lw/2)
-
-#just the pump data (for presentation)
-fig, [ax1,ax2,ax3] = plt.subplots(1,3) #P figures
-fig.subplots_adjust(wspace=0.3) 
-ax1.invert_yaxis(), ax2.invert_yaxis(), ax3.invert_yaxis()
-ax1.set_xlabel('$P_{S}$ ($mmol/m^3$)'), ax2.set_xlabel('$P_{L}$ ($mmol/m^3$)'), ax3.set_xlabel('$P_{T}$ ($mmol/m^3$)')
-ax1.set_ylabel('Depth (m)')
-ax1.set_ylim(top=0,bottom=zmax+2*dz), ax2.set_ylim(top=0,bottom=zmax+2*dz), ax3.set_ylim(top=0,bottom=zmax+2*dz)
-ax1.errorbar(Ps_mean, zs, fmt='^', xerr=Ps_se, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
-ax2.errorbar(Pl_mean, zs, fmt='^', xerr=Pl_se, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
-ax3.errorbar(cppt.Pt_hat, zml, fmt='o', xerr=np.ones(n)*np.sqrt(model.mse_resid), ecolor=blue, elinewidth=elw, c=blue, ms=ms, capsize=cs, lw=lw, label='from $c_P$', fillstyle='none', zorder=1)
-ax3.scatter(Ps_mean+Pl_mean, zs, marker='^', c=green, s=ms*10, label='pump', zorder=2)
-ax3.legend()
 
 #extract posterior param estimates and errors
 params_ests = xhmean[-nparams:]
@@ -903,96 +936,17 @@ for i, p in enumerate(pdi.keys()):
     if pdi[p]['dv'] == 1: #if param is depth-varying
         ax.set_title(pdi[p]['A']['tset'])
         ax.errorbar(1, pdi[p]['A']['o'], yerr=pdi[p]['A']['oe'],fmt='o',ms=msp,c=blue,label='$x_{o}$',elinewidth=elwp,ecolor=ec,capsize=csp) #priors with errors
-        ax.errorbar(2, pdi[p]['A']['xh'], yerr=pdi[p]['A']['xhe'], fmt='o', c=teal, ms=msp, label='$x^{A}_{k+1}$', elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
-        ax.errorbar(3, pdi[p]['B']['xh'], yerr=pdi[p]['B']['xhe'], fmt='o', c=navy, ms=msp, label='$x^{B}_{k+1}$', elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
+        ax.scatter(2, pdi[p]['A']['t'],marker='+',s=msp*10,c=teal,label='$x_{T}$') #target value
+        ax.errorbar(3, pdi[p]['A']['xh'], yerr=pdi[p]['A']['xhe'], fmt='o', c=teal, ms=msp, label='$x^{A}_{k+1}$', elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
+        ax.scatter(4, pdi[p]['B']['t'],marker='+',s=msp*10,c=navy,label='$x_{T}$') #target value
+        ax.errorbar(5, pdi[p]['B']['xh'], yerr=pdi[p]['B']['xhe'], fmt='o', c=navy, ms=msp, label='$x^{B}_{k+1}$', elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
     else: #if param is depth-constant
         ax.set_title(pdi[p]['tset'])
-        ax.errorbar(1, pdi[p]['o'], yerr=pdi[p]['oe'],fmt='o',ms=msp,c=blue,label='$x_{o}$',elinewidth=elwp,ecolor=ec,capsize=csp) #priors with errors
-        ax.errorbar(3, pdi[p]['xh'], yerr=pdi[p]['xhe'],fmt='o',c=cyan,ms=msp,label='$x_{k+1}$',elinewidth=elwp,ecolor=ec,capsize=csp) #posteriors with errors        
+        ax.errorbar(2, pdi[p]['o'], yerr=pdi[p]['oe'],fmt='o',ms=msp,c=blue,label='$x_{o}$',elinewidth=elwp,ecolor=ec,capsize=csp) #priors with errors
+        ax.scatter(3, pdi[p]['t'],marker='+',s=msp*10,c=cyan,label='$x_{T}$') #target value
+        ax.errorbar(4, pdi[p]['xh'], yerr=pdi[p]['xhe'],fmt='o',c=cyan,ms=msp,label='$x_{k+1}$',elinewidth=elwp,ecolor=ec,capsize=csp) #posteriors with errors        
     ax.tick_params(bottom=False, labelbottom=False)
-    ax.set_xticks(np.arange(0,5))
-  
-#calculate fluxes and errors
-flxs = ['ws_Ps','wl_Pl','ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
-flxnames = {'ws_Ps':'sinkS', 'wl_Pl':'sinkL', 'ws_Psdz':'sinkS_div', 'wl_Pldz':'sinkL_div',
-            'Bm1s_Ps':'SRemin', 'Bm1l_Pl':'LRemin', 'B2p_Ps2':'Agg', 'Bm2_Pl':'Disagg', 'Psdot':'Prod'}
-flxd = {f:{} for f in flxs}
-for f in flxd.keys():
-    flxd[f]['name'] = flxnames[f]
-    #get what parameter, tracer, and order each flux contains
-    if '_' in f: #if not Psdot
-        p,twordr = f.split('_')
-        if any(map(str.isdigit, twordr)): flxd[f]['o'] = int(twordr[-1]) #if tracer is not first order      
-        else: flxd[f]['o'] = 1
-        t = twordr[:2] #requres that tracer be designated by first 2 characters of twordr
-        ordr = flxd[f]['o']
-    fxh, fxhe = np.zeros(n), np.zeros(n) #calculate estimates and errors 
-    if 'dz' in f: #if sinking flux divergence term, more complicated
-        for i in np.arange(0,n):
-            dzi = dz if i != 0 else h
-            l = lmatch(i)
-            pwi = "_".join([p,l])
-            twi = "_".join([t,str(i)])
-            w, Pi = sym.symbols(f'{pwi} {twi}')
-            if i == 0: #mixed layer    
-                y = w*Pi/h
-                fxh[i], fxhe[i] = symfunceval(y)
-            elif (i == 1 or i == 2): #first two points below ML
-                twip1, twim1 = "_".join([t,str(i+1)]), "_".join([t,str(i-1)])
-                Pip1, Pim1 = sym.symbols(f'{twip1} {twim1}')
-                y = w*(Pip1-Pim1)/(2*dz) #calculate flux estimate
-                fxh[i], fxhe[i]  = symfunceval(y)
-            else: #all other depths
-                twim1, twim2 = "_".join([t,str(i-1)]), "_".join([t,str(i-2)])
-                Pim1, Pim2 = sym.symbols(f'{twim1} {twim2}')
-                y = w*(3*Pi-4*Pim1+Pim2)/(2*dz) #calculate flux estimate
-                fxh[i], fxhe[i]  = symfunceval(y)
-    else: #all other terms that are not sinking flux divergence
-        for i in np.arange(0,n):
-            dzi = dz if i != 0 else h
-            if f == 'Psdot': #special case
-                gh, lp = sym.symbols('Gh Lp')
-                y = gh*sym.exp(-(zml[i]-h)/lp)
-            else:
-                l = lmatch(i)                
-                pwi = "_".join([p,l])
-                twi = "_".join([t,str(i)]) 
-                pa, tr = sym.symbols(f'{pwi} {twi}')
-                y = pa*tr**ordr 
-            fxh[i], fxhe[i] = symfunceval(y)
-    flxd[f]['xh'], flxd[f]['xhe'] = fxh, fxhe 
-
-#plot fluxes
-flxpairs = [('ws_Ps','wl_Pl'),('ws_Psdz','wl_Pldz'),('Bm1s_Ps','B2p_Ps2'),('Bm1l_Pl','Bm2_Pl'),('Psdot',)]
-for pr in flxpairs:
-    fig, ax = plt.subplots(1,1) #P figures
-    ax.invert_yaxis()
-    if ('w' in pr[0]) and ('dz' not in pr[0]):
-        ax.set_xlabel('Flux $[mmol/(m^2 \cdot d)]$')
-    else: ax.set_xlabel('Vol. Flux $[mmol/(m^3 \cdot d)]$')
-    ax.set_ylabel('Depth (m)')
-    ax.set_ylim(top=0,bottom=zmax+dz)
-    c1, c2, c3, c4 = navy, teal, red, purple
-    ax.errorbar(flxd[pr[0]]['xh'], zml, fmt='o', xerr=flxd[pr[0]]['xhe'], ecolor=c1, elinewidth=elw, c=c1, ms=ms, capsize=cs, lw=lw, label=flxnames[pr[0]], fillstyle='none')
-    ax.axhline(bnd,c='k',ls='--',lw=lw/2)
-    if len(pr) > 1: #if it's actually a pair
-        ax.errorbar(flxd[pr[1]]['xh'], zml, fmt='o', xerr=flxd[pr[1]]['xhe'], ecolor=c2, elinewidth=elw, c=c2, ms=ms, capsize=cs, lw=lw, label=flxnames[pr[1]], fillstyle='none')
-    ax.legend()
-        
-#fluxes that we want to integrate
-iflxs = ['ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
-
-depthranges = ((h,95),(95,500)) #For the these depth rangers,
-iflxcalc(iflxs,depthranges) #calculate integrated fluxes and timescales
-inventory(depthranges) #calculate tracer inventory and integrated residuals
-
-#Print integrated fluxes and residuals for each depth range
-for dr in depthranges:
-    rstr = "_".join([str(dr[0]),str(dr[1])])
-    print(f'----Depth range: {dr}----')
-    for f in iflxs:
-        print(f"{f}: {flxd[f][rstr]['iflx'][0]:.3f} ± {flxd[f][rstr]['iflx'][1]:.3f}")
-    print(f'Ps Residuals: {td["Ps"]["ires"][rstr]:.3f} \nPl Residuals: {td["Pl"]["ires"][rstr]:.3f}')
+    ax.set_xticks(np.arange(0,7))
     
 print(f'--- {time.time() - start_time} seconds ---')
 
