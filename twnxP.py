@@ -14,7 +14,6 @@ import pandas as pd
 import scipy.io as sio
 import matplotlib as mpl
 import statsmodels.formula.api as smf
-import statsmodels.sandbox.stats.runs as smr
 import statsmodels.tsa.stattools as smt
 import sympy as sym
 import os
@@ -103,14 +102,14 @@ p_oe = {'ws':2,
         'Gh':0.12, 
         'Lp':28*0.5}
 #target values used to generate pseudo-data
-p_tgt = {'ws':{'A':1.8,'B':3.7}, 
-        'wl':{'A':12,'B':28}, 
-        'B2p':{'A':0.02,'B':0.032}, 
-        'Bm2':{'A':0.9,'B':0.03}, 
-        'Bm1s':{'A':0.12,'B':0.03}, 
-        'Bm1l':{'A':0.02,'B':0.2}, 
-        'Gh':0.38, 
-        'Lp':16}
+p_tgt = {'ws':{'A':1.495,'B':3.320}, 
+        'wl':{'A':19.655,'B':26.855}, 
+        'B2p':{'A':0.029,'B':0.030}, 
+        'Bm2':{'A':0.716,'B':0.167}, 
+        'Bm1s':{'A':0.088,'B':0.032}, 
+        'Bm1l':{'A':0.189,'B':0.099}, 
+        'Gh':0.27, 
+        'Lp':31.238}
 
 #have a single layer seperation
 bnd = 112.5
