@@ -289,7 +289,7 @@ ETEinv = np.linalg.inv(np.matmul(E.T,E))
 ETEinv_cond = np.linalg.cond(ETEinv)
 ETy = np.matmul(E.T,y)
 ETycond = np.linalg.cond(ETy)
-x = spopt.nnls(E,y.flatten())[0] #non-negative least squares
+x, sum_of_squares = spopt.nnls(E,y.flatten()) #non-negative least squares
 
 #store estimates for each layer in the dictionary
 for p in params:
