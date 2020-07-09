@@ -67,11 +67,8 @@ layers = ['A','B']
 params = ['ws', 'wl', 'B2p', 'Bm2', 'Bm1s', 'Bm1l', 'Gh', 'Lp']
 params_dv = ['ws', 'wl', 'B2p', 'Bm2', 'Bm1s', 'Bm1l'] #depth-varying params
 params_dc = ['Gh', 'Lp'] #depth-constant params
-pdik = ['tset','o','oe','xh','xhe']
 #make a dictionaries to store param info
-pdi_dv = {param:{lay:{k:{} for k in pdik} for lay in layers} for param in params_dv} 
-pdi_dc = {param:{k:{} for k in pdik} for param in params_dc}
-pdi = {**pdi_dv,**pdi_dc} #merge the two dictionaries
+pdi = {param:{} for param in params}
 #add a key for each parameter designating if it is depth-varying or constant
 for k in pdi.keys():
     if k in params_dv: pdi[k]['dv'] = 1
@@ -104,17 +101,13 @@ p_oe = {'ws':2,
 #have a single layer seperation
 bnd = 112.5
 
-#update entries in pd
+#update entries in pdi
 for p in pdi.keys():
-    if pdi[p]['dv'] == 1: #depth-varying params
-        for l in layers:
-            pdi[p][l]['tset'] = p_tset[p]
-            pdi[p][l]['o'] = p_o[p]
-            pdi[p][l]['oe'] = p_oe[p]
-    else:
-        pdi[p]['tset'] = p_tset[p]
-        pdi[p]['o'] = p_o[p]
-        pdi[p]['oe'] = p_oe[p]
+    pdi[p]['tset'] = p_tset[p]
+    pdi[p]['o'] = p_o[p]
+    pdi[p]['oe'] = p_oe[p]
+    for k in ['xh','xhe']:
+        pdi[p][k] = {} if not pdi[p]['dv'] else {l:{} for l in layers}
 
 #some parameters for plotting later
 ms, lw, elw, cs = 3, 1, 0.5, 2
@@ -254,13 +247,15 @@ def lsqplotsf(model,x,y,z,tracer,logscale): #make a least squares fit and plot t
     xp = np.arange(0.01,0.14,0.0001)
     c = model.params #extract coefficients, where c[0] is the intercept
     r2 = model.rsquared
-    if logscale==True: 
+    if logscale: 
         ax.set_yscale('log'), ax.set_xscale('log') 
         fit = [c[0] + c[1]*np.log(xi) for xi in xp]
     else: fit = [c[0] + c[1]*xi for xi in xp]
     ax.plot(xp, fit, '--', c = 'k', lw=lw)
     #ax.set_title(f' c0 = {c[0]:.2f}, c1 = {c[1]:.2f}, R2 = {r2:.2f}')
     ax.set_title(f'$R^2$ = {r2:.2f}')
+    plt.savefig(f'invP_cpptfit_log{logscale}.png')
+    plt.close()
     return ax
 
 #autocorrelation function for a specific depth range
@@ -333,7 +328,7 @@ def symfunceval(y,err=True,cov=True):
         if "_" in str(v): #if the variable varies with depth
             svar, di = str(v).split('_') #what kind of state variable (tracer or param?)
             if svar in td.keys(): xv[i] = td[svar]['xh'][int(di)]
-            else: xv[i] = pdi[svar][str(di)]['xh']
+            else: xv[i] = pdi[svar]['xh'][str(di)]
         else: xv[i] = pdi[str(v)]['xh'] #if it's a depth-constant variable
     if err == True: #if we are propagating errors
         #print('creating CVM')
@@ -533,6 +528,8 @@ ax.set_title(f'int_A = {l_int_A:.2f}, L_A = {L_A:.2f}, R2_A = {l_r2_A:.2f} \n in
 ax.set_xlabel('lags (m)')
 ax.set_ylabel('ln($r_k$)')
 ax.legend()
+plt.savefig(f'invP_autocor.png')
+plt.close()
 
 
 """
@@ -554,10 +551,10 @@ vidxPt = addtovaridx(vidxPt,('Pt',)) #just Pt, comma indicates one-element tuple
 params_o, params_o_e = np.empty(0), np.empty(0) #group the rate parameters as (p1layA, p1layB, p2layA, p2layB, ...)
 p_toidx = [] #and put them in a list to be added to the variable index later
 for p in pdi.keys():
-    if pdi[p]['dv'] == 1: #depth-varying params
+    if pdi[p]['dv']: #depth-varying params
         for l in layers:
-            params_o = np.append(params_o,pdi[p][l]['o'])
-            params_o_e = np.append(params_o_e,pdi[p][l]['oe'])
+            params_o = np.append(params_o,pdi[p]['o'])
+            params_o_e = np.append(params_o_e,pdi[p]['oe'])
             p_toidx.append('_'.join([p,l]))
     else:
         params_o = np.append(params_o,pdi[p]['o'])
@@ -790,6 +787,8 @@ ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
 
 #plot gaussians, show legend
 ax1.plot(xg,yg_pdf,c=red), ax2.plot(xg,yg_pdf,c=red)
+plt.savefig(f'invP_pdfs.png')
+plt.close()
 
 #CDFs
 fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
@@ -820,18 +819,22 @@ for i, v in enumerate(x1):
     ax1.scatter(x1[i],y1[i],s=marsize,marker=mar,facecolors=fc,edgecolors=ec)
 #plot posteriors model residuals
 ax2.scatter(x2,y2,s=ms,marker='.',facecolors=blue,edgecolors=blue)
+plt.savefig(f'invP_cdfs.png')
+plt.close()
         
 
 #model residual depth profiles (posteriors)
-fig1, [axA,axB] = plt.subplots(1,2)
-fig1.subplots_adjust(wspace=0.5)  
-axA.invert_yaxis(), axB.invert_yaxis()
-axA.set_xlabel('$n^{k+1}_{P_{S}}$ (mmol/m3/d)'), axB.set_xlabel('$n^{k+1}_{P_{L}}$ (mmol/m3/d)')
-axA.set_ylabel('Depth (m)')
-axA.set_ylim(top=0,bottom=zmax+dz), axB.set_ylim(top=0,bottom=zmax+dz)
-axA.scatter(td['Ps']['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
-axB.scatter(td['Pl']['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
-axA.legend(), axB.legend()
+fig, [ax1,ax2] = plt.subplots(1,2)
+fig.subplots_adjust(wspace=0.5)  
+ax1.invert_yaxis(), ax2.invert_yaxis()
+ax1.set_xlabel('$n^{k+1}_{P_{S}}$ (mmol/m3/d)'), ax2.set_xlabel('$n^{k+1}_{P_{L}}$ (mmol/m3/d)')
+ax1.set_ylabel('Depth (m)')
+ax1.set_ylim(top=0,bottom=zmax+dz), ax2.set_ylim(top=0,bottom=zmax+dz)
+ax1.scatter(td['Ps']['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
+ax2.scatter(td['Pl']['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
+ax1.legend(), ax2.legend()
+plt.savefig(f'invP_residprofs.png')
+plt.close()
 
 #plot evolution of convergence
 ms=3
@@ -840,6 +843,8 @@ ax.plot(np.arange(0, len(conv_ev)), conv_ev, marker='o',ms=ms)
 ax.set_yscale('log')
 ax.set_xlabel('k')
 ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',size=12)
+plt.savefig(f'invP_conv.png')
+plt.close()
 
 #plot evolution of cost function
 fig, ax = plt.subplots(1)
@@ -847,6 +852,8 @@ ax.plot(np.arange(0, len(cost_ev)),cost_ev,marker='o',ms=ms)
 ax.set_xlabel('k')
 ax.set_ylabel('j')
 ax.set_yscale('log')
+plt.savefig(f'invP_cost.png')
+plt.close()
 
 #comparison plots
 fig, [ax1,ax2,ax3] = plt.subplots(1,3) #P figures
@@ -869,19 +876,8 @@ ax3.legend()
 ax1.axhline(bnd,c='k',ls='--',lw=lw/2)
 ax2.axhline(bnd,c='k',ls='--',lw=lw/2)
 ax3.axhline(bnd,c='k',ls='--',lw=lw/2)
-
-#just the pump data (for presentation)
-fig, [ax1,ax2,ax3] = plt.subplots(1,3) #P figures
-fig.subplots_adjust(wspace=0.3) 
-ax1.invert_yaxis(), ax2.invert_yaxis(), ax3.invert_yaxis()
-ax1.set_xlabel('$P_{S}$ ($mmol/m^3$)'), ax2.set_xlabel('$P_{L}$ ($mmol/m^3$)'), ax3.set_xlabel('$P_{T}$ ($mmol/m^3$)')
-ax1.set_ylabel('Depth (m)')
-ax1.set_ylim(top=0,bottom=zmax+2*dz), ax2.set_ylim(top=0,bottom=zmax+2*dz), ax3.set_ylim(top=0,bottom=zmax+2*dz)
-ax1.errorbar(Ps_mean, zs, fmt='^', xerr=Ps_se, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
-ax2.errorbar(Pl_mean, zs, fmt='^', xerr=Pl_se, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
-ax3.errorbar(cppt.Pt_hat, zml, fmt='o', xerr=np.ones(n)*np.sqrt(model.mse_resid), ecolor=blue, elinewidth=elw, c=blue, ms=ms, capsize=cs, lw=lw, label='from $c_P$', fillstyle='none', zorder=1)
-ax3.scatter(Ps_mean+Pl_mean, zs, marker='^', c=green, s=ms*10, label='pump', zorder=2)
-ax3.legend()
+plt.savefig(f'invP_Pprofs.png')
+plt.close()
 
 #extract posterior param estimates and errors
 params_ests = xhmean[-nparams:]
@@ -890,7 +886,7 @@ for i,stri in enumerate(p_toidx):
     pest, perr = params_ests[i], params_errs[i]
     if '_' in stri: #depth-varying paramters
         p,l = stri.split('_')
-        pdi[p][l]['xh'], pdi[p][l]['xhe'] = pest, perr
+        pdi[p]['xh'][l], pdi[p]['xhe'][l] = pest, perr
     else: pdi[stri]['xh'], pdi[stri]['xhe'] = pest, perr
 
 #make a plot of parameter priors and posteriors
@@ -900,17 +896,18 @@ fig.subplots_adjust(wspace=0.8, hspace=0.4)
 axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax8]
 for i, p in enumerate(pdi.keys()):
     ax = axs[i]
-    if pdi[p]['dv'] == 1: #if param is depth-varying
-        ax.set_title(pdi[p]['A']['tset'])
-        ax.errorbar(1, pdi[p]['A']['o'], yerr=pdi[p]['A']['oe'],fmt='o',ms=msp,c=blue,label='$x_{o}$',elinewidth=elwp,ecolor=ec,capsize=csp) #priors with errors
-        ax.errorbar(2, pdi[p]['A']['xh'], yerr=pdi[p]['A']['xhe'], fmt='o', c=teal, ms=msp, label='$x^{A}_{k+1}$', elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
-        ax.errorbar(3, pdi[p]['B']['xh'], yerr=pdi[p]['B']['xhe'], fmt='o', c=navy, ms=msp, label='$x^{B}_{k+1}$', elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
+    ax.set_title(pdi[p]['tset'])
+    if pdi[p]['dv']: #if param is depth-varying
+        ax.errorbar(1, pdi[p]['o'], yerr=pdi[p]['oe'], fmt='o', ms=msp, c=blue, elinewidth=elwp, ecolor=ec, capsize=csp) #priors with errors
+        ax.errorbar(2, pdi[p]['xh']['A'], yerr=pdi[p]['xhe']['A'], fmt='o', c=teal, ms=msp, elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
+        ax.errorbar(3, pdi[p]['xh']['B'], yerr=pdi[p]['xhe']['B'], fmt='o', c=navy, ms=msp, elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
     else: #if param is depth-constant
-        ax.set_title(pdi[p]['tset'])
-        ax.errorbar(1, pdi[p]['o'], yerr=pdi[p]['oe'],fmt='o',ms=msp,c=blue,label='$x_{o}$',elinewidth=elwp,ecolor=ec,capsize=csp) #priors with errors
-        ax.errorbar(3, pdi[p]['xh'], yerr=pdi[p]['xhe'],fmt='o',c=cyan,ms=msp,label='$x_{k+1}$',elinewidth=elwp,ecolor=ec,capsize=csp) #posteriors with errors        
+        ax.errorbar(1, pdi[p]['o'], yerr=pdi[p]['oe'],fmt='o',ms=msp,c=blue,elinewidth=elwp,ecolor=ec,capsize=csp) #priors with errors
+        ax.errorbar(3, pdi[p]['xh'], yerr=pdi[p]['xhe'],fmt='o',c=cyan,ms=msp,elinewidth=elwp,ecolor=ec,capsize=csp) #posteriors with errors        
     ax.tick_params(bottom=False, labelbottom=False)
     ax.set_xticks(np.arange(0,5))
+plt.savefig(f'invP_params.png')
+plt.close()
   
 #calculate fluxes and errors
 flxs = ['ws_Ps','wl_Pl','ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
@@ -964,7 +961,7 @@ for f in flxd.keys():
 
 #plot fluxes
 flxpairs = [('ws_Ps','wl_Pl'),('ws_Psdz','wl_Pldz'),('Bm1s_Ps','B2p_Ps2'),('Bm1l_Pl','Bm2_Pl'),('Psdot',)]
-for pr in flxpairs:
+for i, pr in enumerate(flxpairs):
     fig, ax = plt.subplots(1,1) #P figures
     ax.invert_yaxis()
     if ('w' in pr[0]) and ('dz' not in pr[0]):
@@ -978,6 +975,8 @@ for pr in flxpairs:
     if len(pr) > 1: #if it's actually a pair
         ax.errorbar(flxd[pr[1]]['xh'], zml, fmt='o', xerr=flxd[pr[1]]['xhe'], ecolor=c2, elinewidth=elw, c=c2, ms=ms, capsize=cs, lw=lw, label=flxnames[pr[1]], fillstyle='none')
     ax.legend()
+    plt.savefig(f'invP_flux{i+1}.png')
+    plt.close()
         
 #fluxes that we want to integrate
 iflxs = ['ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
@@ -995,5 +994,3 @@ for dr in depthranges:
     print(f'Ps Residuals: {td["Ps"]["ires"][rstr]:.3f} \nPl Residuals: {td["Pl"]["ires"][rstr]:.3f}')
     
 print(f'--- {time.time() - start_time} seconds ---')
-
-plt.show()
