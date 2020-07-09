@@ -113,7 +113,7 @@ bnd = 112.5
 with open('targets.csv') as f:
     cr = csv.DictReader(f)
     tgt_dl = [row for row in cr]
-    
+
 #store target params
 ptargs = {}
 for row in tgt_dl:
@@ -123,7 +123,7 @@ for row in tgt_dl:
         p, l = p.split('_')
         ptargs[g][p][l] = v
     else: ptargs[g][p] = v
-        
+
 #update entries in pd
 for p in pdi.keys():
     if pdi[p]['dv'] == 1: #depth-varying params
@@ -467,20 +467,20 @@ for g in ptargs.keys():
     print(g)
     #particle prouction
     Ghz = ptargs[g]['Gh']*np.exp(-(zml-h)/ptargs[g]['Lp'])
-    
+
     #create variable indexes for three P size fractions, and for the state vector
     vidxP = []
     vidxPt = []
     vidxSV = []
-    
+
     #create depth indices for state variables found at every grid point
     gnums = np.arange(0,n)
     svis = [''.join(['_',str(i)]) for i in gnums]
-    
+
     #add variables to the index
     vidxP = addtovaridx(vidxP,('Ps','Pl'))
     vidxPt = addtovaridx(vidxPt,('Pt',)) #just Pt, comma indicates one-element tuple
-    
+
     params_o, params_o_e = np.empty(0), np.empty(0) #group the rate parameters as (p1layA, p1layB, p2layA, p2layB, ...)
     p_toidx = [] #and put them in a list to be added to the variable index later
     for p in pdi.keys():
@@ -494,16 +494,16 @@ for g in ptargs.keys():
             params_o_e = np.append(params_o_e,pdi[p]['oe'])
             p_toidx.append(f'{p}')
     nparams = len(p_toidx) #number of total params (one in each layer for depth-varying)
-            
+
     #add params to the vidx's
     vidx_allP = vidxP+vidxPt #includes everything in F and f
     vidxSV = vidxP+p_toidx #only state variables
-    
+
     #some useful matrix dimensions
     N = len(vidxSV)
     P = N-len(params_o) #dimension of everything minus params (# of model equations)
     M = len(vidx_allP) #dimension that includes all three P size fractions (for F and f)
-    
+
     #Construct A matrix and b vector
     A, b = np.zeros((P, P)), np.zeros(P)
     #loop through and edit rows of AP
@@ -552,18 +552,18 @@ for g in ptargs.keys():
                 A[i,iPli] = (3*wli)/(2*dz)+Bm2i+Bm1li
                 A[i,iPlim1] = (-2*wli)/dz
                 A[i,iPlim2] = wli/(2*dz)
-    
+
     #calculate the condition number for A
     A_cond = np.linalg.cond(A)
     #Find the solution x, and verify the solution looks ok be recovering b
     x_numlin, bp_numlin = LUdecomp(A, b)
     #assign numerical solutions to variables
     Ps_numlin, Pl_numlin = [vsli(x_numlin,vidxSV.index(f'{t}_0')) for t in tracers]
-    
+
     """
     #NONLINEAR NUMERICAL SOLUTIONS (need to solve to get priors for inverse method) 
     """
-    
+
     #initialize matrices and vectors in Fk*xkp1 = Fk*xk-fk+b
     F = np.zeros((P, P))
     b, f = np.zeros(P), np.zeros(P)
@@ -573,7 +573,7 @@ for g in ptargs.keys():
     k = 0 #keep a counter for how many steps it takes
     pdelt = 0.0001 #allowable percent change in each state element for convergence
     conv_ev = np.empty(0) # keep track of evolution of convergence
-    
+
     #define all possible symbolic variables
     svarnames = 'Ps_0 Ps_1 Ps_-1 Ps_-2 \
         Pl_0 Pl_1 Pl_-1 Pl_-2'
@@ -623,18 +623,18 @@ for g in ptargs.keys():
     #generate less noisy estimates of Pt
     #Pt_noisy = np.random.normal(Pt_numnl,Pt_numnl*0.05)
     Pt_noisy = Pt_numnl #noiseless
-    
+
     """
     #INVERSE METHOD (P)
     """
     #define sampling depths, and find indices that they occur at
     sorter = np.argsort(zml)
     zsi = sorter[np.searchsorted(zml, zs, sorter=sorter)]
-    
+
     #assign observation vectors and data errors
     Ps_mean = Ps_numnl[zsi]
     Pl_mean = Pl_numnl[zsi]
-    
+
     #make a dictionary for tracer params for each layer. could be more cleverly coded
     tracers = ['Ps','Pl']
     oi = {lay:{t:{} for t in tracers} for lay in layers}
@@ -645,7 +645,7 @@ for g in ptargs.keys():
     oi['A']['smpd'], oi['A']['grdd'] = zs[0:3].values, zml[difind(h):difind(bnd-dz/2)+1] #sample and grid depths, layer A
     oi['B']['smpd'], oi['B']['grdd'] = zs[3:].values, zml[difind(bnd+dz/2):] #sample and grid depths, layer B
     oi['A']['L'], oi['B']['L'] = L_A, L_B #interpolation length scales
-    
+
     #calculate OI params
     for lay in oi.keys():
         L = oi[lay]['L']
@@ -669,7 +669,7 @@ for g in ptargs.keys():
             oi[lay][tra]['x'] = oi[lay][tra]['xa'] + oi[lay][tra]['ym'] #interpolated estimates
             oi[lay][tra]['P'] = oi[lay][tra]['Rxxnn'] - np.matmul(np.matmul(oi[lay][tra]['Rxy'],oi[lay][tra]['Ryyi']),oi[lay][tra]['Rxy'].T)#covariance matrix
             oi[lay][tra]['xerr'] = np.sqrt(np.diagonal(oi[lay][tra]['P']))
-    
+
     #make an oi matrix with some values concatenated
     tpri = np.asarray([]) #initialize an array to collect priors of all tracers AFTER they've been concatenated by layer
     td_keys = ['si','x','xerr','y'] 
@@ -683,11 +683,11 @@ for g in ptargs.keys():
             td[tra][v] = np.concatenate((oi['A'][tra][v],oi['B'][tra][v]))
             #catch the prior estiamtes and collect them in tpri
             if v == 'x': tpri = np.concatenate((tpri,td[tra][v]))
-                  
+
     #combine xo's to form one xo, normalize xo and take the ln
     xo = np.concatenate((tpri,params_o))
     xoln = np.log(xo)
-    
+
     #construct Co as a (normalized) diagonal matrix, blocks for tracers and diagonals otherwise. Considers the ln()
     Co, Coln = np.zeros((N,N)), np.zeros((N,N))
     blocks = [oi[l][t]['P'] for t in tracers for l in layers] #tracers is outer loop, layers is inner
@@ -700,17 +700,17 @@ for g in ptargs.keys():
             Coln[i,j] = np.log(1+Co[i,j]/(xo[i]*xo[j]))
     Co_cond = np.linalg.cond(Co)
     Co_neg = (Co<0).any() #checks if any element of Co is negative
-    
+
     #check that the Co inversion is accurate
     ColnColninv = np.matmul(Coln,np.linalg.inv(Coln))
     Coln_check = np.sum(ColnColninv-np.identity(N))
-    
+
     #construct Cf
     Cf_noPt = np.zeros((P,P))
     Cfd_noPt = np.ones(2*n)*pdi['Gh']['o']**2 #Cf from particle production
     Cf_noPt = np.diag(Cfd_noPt)*gam
     Cf = splinalg.block_diag(Cf_noPt,Cf_addPt)
-    
+
     #initialize the iterative loop
     F = np.zeros((M, N))
     f = np.zeros(M)
@@ -721,7 +721,7 @@ for g in ptargs.keys():
     cost_ev = np.empty(0) #keep track of evolution of the cost function, j
     pdelt = 0.0001 #allowable percent change in each state element for convergence
     iterlimit = 70
-    
+
     #define all possible symbolic variables
     svarnames = 'Ps_0 Ps_1 Ps_-1 Ps_-2 \
         Pl_0 Pl_1 Pl_-1 Pl_-2 \
@@ -773,7 +773,7 @@ for g in ptargs.keys():
         if maxchange < pdelt or k > iterlimit: break
         k += 1
         xk = xkp1
-    
+
     #calculate posterior errors
     I = np.identity(Coln.shape[0])
     CoFT = np.matmul(Coln,F.T)
@@ -781,16 +781,16 @@ for g in ptargs.keys():
     C = I-np.matmul(np.matmul(CoFT,FCoFTpCfinv),F)
     D = I-np.matmul(np.matmul(np.matmul(F.T,FCoFTpCfinv),F),Coln)
     Ckp1 = np.matmul(np.matmul(C,Coln),D)
-    
+
     #expected value and variance of tracers AND params
     EyP, VyP = xkp1, np.diag(Ckp1)
-    
+
     #recover dimensional values of median, mean, mode, standard deviation
     xhmed = np.exp(EyP)
     xhmod = np.exp(EyP-VyP)
     xhmean = np.exp(EyP+VyP/2)
     xhe = np.sqrt(np.exp(2*EyP+VyP)*(np.exp(VyP)-1))
-    
+
     #calculate covariances of unlogged state variables
     CVM = np.zeros((N,N))
     for i, row in enumerate(CVM):
@@ -798,30 +798,30 @@ for g in ptargs.keys():
             mi, mj = EyP[i], EyP[j] #mu's (expected vals)
             vi, vj = VyP[i], VyP[j] #sig2's (variances)
             CVM[i,j] = np.exp(mi+mj)*np.exp((vi+vj)/2)*(np.exp(Ckp1[i,j])-1)
-    
+
     #check that sqrt of diagonals of CVM are equal to xhe
     CVM_xhe_check = np.sqrt(np.diag(CVM)) - xhe
-             
+
     #get estimates, errors, and residuals for tracers
     for t in td.keys():
         td[t]['xh'] = vsli(xhmean,td[t]['si'])
         td[t]['xhe'] = vsli(xhe,td[t]['si'])
-        
+
     #get model residuals from posterior estimates (from means)
     td['Ps']['n'], td['Ps']['nm'], td['Ps']['nma'], td['Pl']['n'], td['Pl']['nm'], td['Pl']['nma'] = modresi(xhmean) 
-    
+
     #propagating errors on Pt
     Pt_xh, Pt_xhe = np.zeros(n), np.zeros(n)
     for i in np.arange(0,n):
         pswi, plwi = "_".join(['Ps',str(i)]), "_".join(['Pl',str(i)])
         ps, pl = sym.symbols(f'{pswi} {plwi}')
         Pt_xh[i], Pt_xhe = symfunceval(ps+pl)
-    
+
     #PDF and CDF calculations
     xg = np.linspace(-2,2,100)
     yg_pdf = sstats.norm.pdf(xg,0,1)
     yg_cdf = sstats.norm.cdf(xg,0,1)
-    
+
     #comparison of estimates to priors (means don't include params, histogram does)
     xdiff = xhmean-xo
     x_osd = np.sqrt(np.diag(Co))
@@ -830,7 +830,7 @@ for g in ptargs.keys():
     pdfx_Pl_m = np.mean(vsli(pdfx,td['Pl']['si']))
     pdfx_Ps_ma = np.mean(np.absolute(vsli(pdfx,td['Ps']['si'])))
     pdfx_Pl_ma = np.mean(np.absolute(vsli(pdfx,td['Pl']['si'])))
-    
+
     #comparison of model residuals (posteriors)
     nP = np.concatenate((td['Ps']['n'],td['Pl']['n']))
     n_sd = np.sqrt(np.diag(Cf_noPt))
@@ -839,7 +839,7 @@ for g in ptargs.keys():
     pdfn_Pl_m = np.mean(vsli(pdfn,td['Pl']['si']))
     pdfn_Ps_ma = np.mean(np.absolute(vsli(pdfn,td['Ps']['si'])))
     pdfn_Pl_ma = np.mean(np.absolute(vsli(pdfn,td['Pl']['si'])))
-    
+
     #PDFs
     fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
     fig.subplots_adjust(wspace=0.5)
@@ -848,12 +848,12 @@ for g in ptargs.keys():
     ax1.hist(pdfx,density=True,bins=20,color=blue)
     ax2.hist(pdfn,density=True,bins=20,color=blue)
     ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
-    
+
     #plot gaussians, show legend
     ax1.plot(xg,yg_pdf,c=red), ax2.plot(xg,yg_pdf,c=red)
     plt.savefig(f'twnxP_ts_pdfs_g{g}')
     plt.close()
-    
+
     #CDFs
     fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
     fig.subplots_adjust(wspace=0.5)
@@ -885,7 +885,7 @@ for g in ptargs.keys():
     ax2.scatter(x2,y2,s=ms,marker='.',facecolors=blue,edgecolors=blue)
     plt.savefig(f'twnxP_ts_cdfs_g{g}')
     plt.close()      
-    
+
     #model residual depth profiles (posteriors)
     fig, [ax1,ax2] = plt.subplots(1,2)
     fig.subplots_adjust(wspace=0.5)  
@@ -898,7 +898,7 @@ for g in ptargs.keys():
     ax1.legend(), ax2.legend()
     plt.savefig(f'twnxP_ts_residprofs_g{g}')
     plt.close()
-    
+
     #plot evolution of convergence
     ms=3
     fig, ax = plt.subplots(1)
@@ -908,7 +908,7 @@ for g in ptargs.keys():
     ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',size=12)
     plt.savefig(f'twnxP_ts_conv_g{g}')
     plt.close()
-    
+
     #plot evolution of cost function
     fig, ax = plt.subplots(1)
     ax.plot(np.arange(0, len(cost_ev)),cost_ev,marker='o',ms=ms)
@@ -917,7 +917,7 @@ for g in ptargs.keys():
     ax.set_yscale('log')
     plt.savefig(f'twnxP_ts_cost_g{g}')
     plt.close()
-    
+
     #comparison plots
     fig, [ax1,ax2,ax3] = plt.subplots(1,3) #P figures
     fig.subplots_adjust(wspace=0.5)  
@@ -941,7 +941,7 @@ for g in ptargs.keys():
     ax3.axhline(bnd,c='k',ls='--',lw=lw/2)
     plt.savefig(f'twnxP_ts_Pprofs_g{g}')
     plt.close()
-    
+
     #extract posterior param estimates and errors
     params_ests = xhmean[-nparams:]
     params_errs = xhe[-nparams:]
@@ -951,7 +951,7 @@ for g in ptargs.keys():
             p,l = stri.split('_')
             pdi[p][l]['xh'], pdi[p][l]['xhe'] = pest, perr
         else: pdi[stri]['xh'], pdi[stri]['xhe'] = pest, perr
-    
+
     #make a plot of parameter priors and posteriors
     elwp, msp, csp, ec = 1, 9, 4, 'k'
     fig, ([ax1,ax2,ax3,ax4],[ax5,ax6,ax7,ax8]) = plt.subplots(2,4)
@@ -975,5 +975,5 @@ for g in ptargs.keys():
         ax.set_xticks(np.arange(0,7))
     plt.savefig(f'twnxP_ts_params_g{g}')
     plt.close()
-    
+
 print(f'--- {time.time() - start_time} seconds ---')

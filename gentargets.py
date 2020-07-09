@@ -23,6 +23,11 @@ def lognormsamp(mux, sigx):
     sigy = np.sqrt(np.log(1+sigx**2/mux**2))
     return np.random.lognormal(muy,sigy)
 
+def uniformsamp(mux, sigx):
+    lo = max(mux-sigx,0)
+    hi = mux+sigx
+    return np.random.uniform(lo,hi)
+
 #number of sets to generate
 ngroups = 10
 
@@ -74,12 +79,14 @@ with open('targets.csv', 'w') as file:
         for p in params:
             if pdi[p]['dv']:
                 for l in layers:
-                    val = lognormsamp(pdi[p]['o'], pdi[p]['oe'])
+                    #val = lognormsamp(pdi[p]['o'], pdi[p]['oe'])
+                    val = uniformsamp(pdi[p]['o'], pdi[p]['oe'])
                     fwriter.writerow({
                         'group':g, 'param':'_'.join([p,l]), 'val':val
                         })
             else:
-                val = lognormsamp(pdi[p]['o'], pdi[p]['oe'])
+                #val = lognormsamp(pdi[p]['o'], pdi[p]['oe'])
+                val = uniformsamp(pdi[p]['o'], pdi[p]['oe'])
                 fwriter.writerow({
                     'group':g, 'param':p, 'val':val
                     })            
