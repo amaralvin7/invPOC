@@ -5,6 +5,9 @@ Created on Jun 09 2020
 
 @author: vamaral
 
+
+Twin experiments. Noiseless total POC pseudodata. Uses posterior estimates
+from invP.py as target values
 """
 import numpy as np
 import scipy.linalg as splinalg
@@ -53,12 +56,15 @@ dpy = 365.24 #days per year
 #first order aggregation estimate from Murnane 1994
 B2 = 0.8/dpy
 
-#assign df colums to variables
+#assign df columns to variables
 zs = df.Depth
-Ps_sd = df.SSF_sd/mm
-Ps_se = df.SSF_se/mm
-Pl_sd = df.LSF_sd/mm
-Pl_se = df.LSF_se/mm
+Ps_mean_real = df.SSF_mean/mm
+Pl_mean_real = df.LSF_mean/mm
+Ps_sd_real = df.SSF_sd/mm
+Pl_sd_real = df.LSF_sd/mm
+#calculate relative errors
+Ps_re = Ps_sd_real/Ps_mean_real
+Pl_re = Pl_sd_real/Pl_mean_real
 
 gam = 0.01 #multiplier for weighting model errors
 
@@ -93,20 +99,20 @@ p_o = {'ws':2, #m/d
 p_oe = {'ws':2, 
         'wl':15, 
         'B2p':0.5*mm/dpy, 
-        'Bm2':1000/dpy, 
+        'Bm2':10000/dpy, 
         'Bm1s':36/dpy, 
         'Bm1l':0.15, 
         'Gh':0.12, 
         'Lp':28*0.5}
 #target values used to generate pseudo-data
-p_tgt = {'ws':{'A':1.495,'B':3.320}, 
-        'wl':{'A':19.655,'B':26.855}, 
-        'B2p':{'A':0.029,'B':0.030}, 
-        'Bm2':{'A':0.716,'B':0.167}, 
-        'Bm1s':{'A':0.088,'B':0.032}, 
-        'Bm1l':{'A':0.189,'B':0.099}, 
-        'Gh':0.27, 
-        'Lp':31.238}
+p_tgt = {'ws':{'A':1.524,'B':3.513}, 
+        'wl':{'A':18.878,'B':26.453}, 
+        'B2p':{'A':0.027,'B':0.026}, 
+        'Bm2':{'A':0.663,'B':0.135}, 
+        'Bm1s':{'A':0.087,'B':0.031}, 
+        'Bm1l':{'A':0.194,'B':0.105}, 
+        'Gh':0.267, 
+        'Lp':31.383}
 
 #have a single layer seperation
 bnd = 112.5
@@ -603,11 +609,12 @@ while True:
     xk = xkp1
 #assign numerical solutions to variables
 Ps_numnl, Pl_numnl = [vsli(xkp1,vidxSV.index(f'{t}_0')) for t in tracers]
-#generate estimates of Pt, assuming Pt_numnl is the mean from a lognormal dist (wikipedia page was helpful)
 Pt_numnl = Ps_numnl + Pl_numnl
-mu, sig = np.log(Pt_numnl**2/np.sqrt(Pt_numnl**2+MSE_fit)), np.sqrt(np.log(1+MSE_fit/Pt_numnl**2))
-#from documentation: the mean and standard deviation are not the values for the distribution itself, but of the underlying normal distribution it is derived from
-Pt_noisy = np.random.lognormal(mu,sig)
+# #generate noisy estimates of Pt, assuming Pt_numnl is the mean from a lognormal dist (wikipedia page was helpful)
+# #data might be too noisy, and not a good analog to real data inversion
+# mu, sig = np.log(Pt_numnl**2/np.sqrt(Pt_numnl**2+MSE_fit)), np.sqrt(np.log(1+MSE_fit/Pt_numnl**2))
+# #from documentation: the mean and standard deviation are not the values for the distribution itself, but of the underlying normal distribution it is derived from
+# Pt_noisy = np.random.lognormal(mu,sig)
 
 """
 #INVERSE METHOD (P)
@@ -619,6 +626,8 @@ zsi = sorter[np.searchsorted(zml, zs, sorter=sorter)]
 #assign observation vectors and data errors
 Ps_mean = Ps_numnl[zsi]
 Pl_mean = Pl_numnl[zsi]
+Ps_sd = Ps_re*Ps_mean
+Pl_sd = Pl_re*Pl_mean
 
 #make a dictionary for tracer params for each layer. could be more cleverly coded
 tracers = ['Ps','Pl']
@@ -739,7 +748,7 @@ while True:
                 eq = B2pi*Psi**2-(Bm2i+Bm1li)*Pli-wli/(2*dz)*(3*Pli-4*Plim1+Plim2)
         #Total POC
         else:
-            Pti = Pt_noisy[vidxPt.index(f'Pt_{d}')] #value of Pt at gridpoint d
+            Pti = Pt_numnl[vidxPt.index(f'Pt_{d}')] #value of Pt at gridpoint d
             eq = Psi + Pli - Pti
         Fnf(eq,i,d)
     FCoFT = np.matmul(np.matmul(F,Coln),F.T)
@@ -909,15 +918,15 @@ ax1.set_xlabel('$P_{S}$ ($mmol/m^3$)'), ax2.set_xlabel('$P_{L}$ ($mmol/m^3$)'), 
 ax1.set_ylabel('Depth (m)')
 ax1.set_ylim(top=0,bottom=zmax+2*dz), ax2.set_ylim(top=0,bottom=zmax+2*dz), ax3.set_ylim(top=0,bottom=zmax+2*dz)
 ax1.errorbar(td['Ps']['xh'], zml, fmt='o', xerr=td['Ps']['xhe'], ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='mean', fillstyle='none')
-ax1.errorbar(Ps_mean, zs, fmt='^', xerr=Ps_se, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
+ax1.errorbar(Ps_mean, zs, fmt='^', xerr=Ps_sd, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
 ax1.errorbar(td['Ps']['x'], zml, fmt='o', xerr=td['Ps']['xerr'], ecolor=blue, elinewidth=elw, c=blue, ms=ms/2, capsize=cs, lw=lw, label='OI')  
 ax1.legend()
 ax2.errorbar(td['Pl']['xh'], zml, fmt='o', xerr=td['Pl']['xhe'], ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='mean', fillstyle='none')
-ax2.errorbar(Pl_mean, zs, fmt='^', xerr=Pl_se, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
+ax2.errorbar(Pl_mean, zs, fmt='^', xerr=Pl_sd, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
 ax2.errorbar(td['Pl']['x'], zml, fmt='o', xerr=td['Pl']['xerr'], ecolor=blue, elinewidth=elw, c=blue, ms=ms/2, capsize=cs, lw=lw, label='OI')  
 ax2.legend()
 ax3.errorbar(Pt_xh, zml, fmt='o', xerr=Pt_xhe, ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='Inv', fillstyle='none')
-ax3.errorbar(Pt_noisy, zml+1, fmt='o', xerr=np.ones(n)*np.sqrt(MSE_fit), ecolor=green, elinewidth=elw, c=green, ms=ms, capsize=cs, lw=lw, label='Data', fillstyle='none')
+ax3.errorbar(Pt_numnl, zml+1, fmt='o', xerr=np.ones(n)*np.sqrt(MSE_fit), ecolor=green, elinewidth=elw, c=green, ms=ms, capsize=cs, lw=lw, label='Data', fillstyle='none')
 ax3.legend()
 ax1.axhline(bnd,c='k',ls='--',lw=lw/2)
 ax2.axhline(bnd,c='k',ls='--',lw=lw/2)
@@ -959,5 +968,3 @@ plt.savefig(f'twnxP_params.png')
 plt.close()
     
 print(f'--- {time.time() - start_time} seconds ---')
-
-plt.show()
