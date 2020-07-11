@@ -579,6 +579,7 @@ while True:
         #what tracer and depth are we on?
         t,d = vidxP[i].split('_')
         d = int(d)
+        l = lmatch(d)
         #pick up all values of rate parameters
         wsi, wli, Bm2i, B2pi, Bm1si, Bm1li, Ghi = pdi['ws']['t'][l], pdi['wl']['t'][l], \
             pdi['Bm2']['t'][l], pdi['B2p']['t'][l], pdi['Bm1s']['t'][l], pdi['Bm1l']['t'][l], Ghz[int(d)]

@@ -56,12 +56,15 @@ dpy = 365.24 #days per year
 #first order aggregation estimate from Murnane 1994
 B2 = 0.8/dpy
 
-#assign df colums to variables
+#assign df columns to variables
 zs = df.Depth
-Ps_sd = df.SSF_sd/mm
-Ps_se = df.SSF_se/mm
-Pl_sd = df.LSF_sd/mm
-Pl_se = df.LSF_se/mm
+Ps_mean_real = df.SSF_mean/mm
+Pl_mean_real = df.LSF_mean/mm
+Ps_sd_real = df.SSF_sd/mm
+Pl_sd_real = df.LSF_sd/mm
+#calculate relative errors
+Ps_re = Ps_sd_real/Ps_mean_real
+Pl_re = Pl_sd_real/Pl_mean_real
 
 gam = 0.01 #multiplier for weighting model errors
 
@@ -99,7 +102,7 @@ p_o = {'ws':2, #m/d
 p_oe = {'ws':2, 
         'wl':15, 
         'B2p':0.5*mm/dpy, 
-        'Bm2':1000/dpy, 
+        'Bm2':10000/dpy, 
         'Bm1s':36/dpy, 
         'Bm1l':0.15, 
         'Gh':0.12, 
@@ -461,6 +464,8 @@ kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A = acdrange((h,bnd-dz/2))
 kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B = acdrange((bnd+dz/2,zmax))
 
 for g in ptargs.keys():
+    #groups 7, 8, and 9 are the only ones that converge and produce reasonable POC profiles
+    if g < 7 or g > 9: continue
     """
     #LINEAR NUMERICAL SOLUTIONS (need to solve to get priors for nonlinear solutions)
     """
@@ -585,6 +590,7 @@ for g in ptargs.keys():
             #what tracer and depth are we on?
             t,d = vidxP[i].split('_')
             d = int(d)
+            l = lmatch(d)
             #pick up all values of rate parameters
             wsi, wli, Bm2i, B2pi, Bm1si, Bm1li, Ghi = ptargs[g]['ws'][l], ptargs[g]['wl'][l], \
                 ptargs[g]['Bm2'][l], ptargs[g]['B2p'][l], ptargs[g]['Bm1s'][l], ptargs[g]['Bm1l'][l], Ghz[int(d)]
@@ -622,7 +628,6 @@ for g in ptargs.keys():
     # Pt_noisy = np.random.lognormal(mu,sig)
     #generate less noisy estimates of Pt
     #Pt_noisy = np.random.normal(Pt_numnl,Pt_numnl*0.05)
-    Pt_noisy = Pt_numnl #noiseless
 
     """
     #INVERSE METHOD (P)
@@ -634,14 +639,16 @@ for g in ptargs.keys():
     #assign observation vectors and data errors
     Ps_mean = Ps_numnl[zsi]
     Pl_mean = Pl_numnl[zsi]
+    Ps_sd = Ps_re*Ps_mean
+    Pl_sd = Pl_re*Pl_mean
 
     #make a dictionary for tracer params for each layer. could be more cleverly coded
     tracers = ['Ps','Pl']
     oi = {lay:{t:{} for t in tracers} for lay in layers}
     oi['A']['Ps']['y'],oi['B']['Ps']['y'] = Ps_mean[0:3],Ps_mean[3:] #mean POC
     oi['A']['Pl']['y'],oi['B']['Pl']['y'] = Pl_mean[0:3],Pl_mean[3:]
-    oi['A']['Pl']['sig_j'],oi['B']['Pl']['sig_j'] = Pl_sd[0:3].values,Pl_sd[3:].values #POC standard deviation
-    oi['A']['Ps']['sig_j'],oi['B']['Ps']['sig_j'] = Ps_sd[0:3].values,Ps_sd[3:].values
+    oi['A']['Pl']['sig_j'],oi['B']['Pl']['sig_j'] = Pl_sd[0:3],Pl_sd[3:] #POC standard deviation
+    oi['A']['Ps']['sig_j'],oi['B']['Ps']['sig_j'] = Ps_sd[0:3],Ps_sd[3:]
     oi['A']['smpd'], oi['A']['grdd'] = zs[0:3].values, zml[difind(h):difind(bnd-dz/2)+1] #sample and grid depths, layer A
     oi['B']['smpd'], oi['B']['grdd'] = zs[3:].values, zml[difind(bnd+dz/2):] #sample and grid depths, layer B
     oi['A']['L'], oi['B']['L'] = L_A, L_B #interpolation length scales
@@ -755,7 +762,7 @@ for g in ptargs.keys():
                     eq = B2pi*Psi**2-(Bm2i+Bm1li)*Pli-wli/(2*dz)*(3*Pli-4*Plim1+Plim2)
             #Total POC
             else:
-                Pti = Pt_noisy[vidxPt.index(f'Pt_{d}')] #value of Pt at gridpoint d
+                Pti = Pt_numnl[vidxPt.index(f'Pt_{d}')] #value of Pt at gridpoint d
                 eq = Psi + Pli - Pti
             Fnf(eq,i,d)
         FCoFT = np.matmul(np.matmul(F,Coln),F.T)
@@ -926,15 +933,15 @@ for g in ptargs.keys():
     ax1.set_ylabel('Depth (m)')
     ax1.set_ylim(top=0,bottom=zmax+2*dz), ax2.set_ylim(top=0,bottom=zmax+2*dz), ax3.set_ylim(top=0,bottom=zmax+2*dz)
     ax1.errorbar(td['Ps']['xh'], zml, fmt='o', xerr=td['Ps']['xhe'], ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='mean', fillstyle='none')
-    ax1.errorbar(Ps_mean, zs, fmt='^', xerr=Ps_se, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
+    ax1.errorbar(Ps_mean, zs, fmt='^', xerr=Ps_sd, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
     ax1.errorbar(td['Ps']['x'], zml, fmt='o', xerr=td['Ps']['xerr'], ecolor=blue, elinewidth=elw, c=blue, ms=ms/2, capsize=cs, lw=lw, label='OI')  
     ax1.legend()
     ax2.errorbar(td['Pl']['xh'], zml, fmt='o', xerr=td['Pl']['xhe'], ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='mean', fillstyle='none')
-    ax2.errorbar(Pl_mean, zs, fmt='^', xerr=Pl_se, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
+    ax2.errorbar(Pl_mean, zs, fmt='^', xerr=Pl_sd, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
     ax2.errorbar(td['Pl']['x'], zml, fmt='o', xerr=td['Pl']['xerr'], ecolor=blue, elinewidth=elw, c=blue, ms=ms/2, capsize=cs, lw=lw, label='OI')  
     ax2.legend()
     ax3.errorbar(Pt_xh, zml, fmt='o', xerr=Pt_xhe, ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='Inv', fillstyle='none')
-    ax3.errorbar(Pt_noisy, zml+1, fmt='o', xerr=np.ones(n)*np.sqrt(MSE_fit), ecolor=green, elinewidth=elw, c=green, ms=ms, capsize=cs, lw=lw, label='Data', fillstyle='none')
+    ax3.errorbar(Pt_numnl, zml+1, fmt='o', xerr=np.ones(n)*np.sqrt(MSE_fit), ecolor=green, elinewidth=elw, c=green, ms=ms, capsize=cs, lw=lw, label='Data', fillstyle='none')
     ax3.legend()
     ax1.axhline(bnd,c='k',ls='--',lw=lw/2)
     ax2.axhline(bnd,c='k',ls='--',lw=lw/2)
