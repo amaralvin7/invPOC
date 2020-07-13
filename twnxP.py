@@ -117,7 +117,6 @@ p_tgt = {'ws':{'A':1.524,'B':3.513},
 #have a single layer seperation
 bnd = 112.5
 
-#update entries in pd
 #update entries in pdi
 for p in pdi.keys():
     dv = pdi[p]['dv']

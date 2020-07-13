@@ -74,11 +74,8 @@ tracers = ['Ps','Pl']
 params = ['ws', 'wl', 'B2p', 'Bm2', 'Bm1s', 'Bm1l', 'Gh', 'Lp']
 params_dv = ['ws', 'wl', 'B2p', 'Bm2', 'Bm1s', 'Bm1l'] #depth-varying params
 params_dc = ['Gh', 'Lp'] #depth-constant params
-pdik = ['tset','o','oe','xh','xhe']
 #make a dictionaries to store param info
-pdi_dv = {param:{lay:{k:{} for k in pdik} for lay in layers} for param in params_dv} 
-pdi_dc = {param:{k:{} for k in pdik} for param in params_dc}
-pdi = {**pdi_dv.copy(),**pdi_dc.copy()} #merge the two dictionaries
+pdi = {param:{} for param in params}
 #add a key for each parameter designating if it is depth-varying or constant
 for k in pdi.keys():
     if k in params_dv: pdi[k]['dv'] = 1
@@ -127,17 +124,13 @@ for row in tgt_dl:
         ptargs[g][p][l] = v
     else: ptargs[g][p] = v
 
-#update entries in pd
 for p in pdi.keys():
-    if pdi[p]['dv'] == 1: #depth-varying params
-        for l in layers:
-            pdi[p][l]['tset'] = p_tset[p]
-            pdi[p][l]['o'] = p_o[p]
-            pdi[p][l]['oe'] = p_oe[p]
-    else:
-        pdi[p]['tset'] = p_tset[p]
-        pdi[p]['o'] = p_o[p]
-        pdi[p]['oe'] = p_oe[p]
+    dv = pdi[p]['dv']
+    pdi[p]['tset'] = p_tset[p]
+    pdi[p]['o'] = p_o[p]
+    pdi[p]['oe'] = p_oe[p]
+    for k in ['xh','xhe']:
+        pdi[p][k] = {} if not dv else {l:{} for l in layers}
 
 #some parameters for plotting later
 ms, lw, elw, cs = 3, 1, 0.5, 2
@@ -340,7 +333,7 @@ def symfunceval(y,err=True,cov=True):
         if "_" in str(v): #if the variable varies with depth
             svar, di = str(v).split('_') #what kind of state variable (tracer or param?)
             if svar in td.keys(): xv[i] = td[svar]['xh'][int(di)]
-            else: xv[i] = pdi[svar][str(di)]['xh']
+            else: xv[i] = pdi[svar]['xh'][str(di)]
         else: xv[i] = pdi[str(v)]['xh'] #if it's a depth-constant variable
     if err == True: #if we are propagating errors
         #print('creating CVM')
@@ -386,7 +379,7 @@ def Fnf_helper(y,i,di,ln):
             adi = str(di+int(rdi)) #the absolute di for this tracer
             iSV = vidxSV.index('_'.join([t,adi])) #index of the state variable
         else: #it it's a parameter
-            if pdi[v.name]['dv'] == 1:
+            if pdi[v.name]['dv']:
                 l = lmatch(di)
                 iSV = vidxSV.index('_'.join([v.name,l]))
             else: iSV = vidxSV.index(v.name)
@@ -469,7 +462,6 @@ for g in ptargs.keys():
     """
     #LINEAR NUMERICAL SOLUTIONS (need to solve to get priors for nonlinear solutions)
     """
-    print(g)
     #particle prouction
     Ghz = ptargs[g]['Gh']*np.exp(-(zml-h)/ptargs[g]['Lp'])
 
@@ -489,10 +481,10 @@ for g in ptargs.keys():
     params_o, params_o_e = np.empty(0), np.empty(0) #group the rate parameters as (p1layA, p1layB, p2layA, p2layB, ...)
     p_toidx = [] #and put them in a list to be added to the variable index later
     for p in pdi.keys():
-        if pdi[p]['dv'] == 1: #depth-varying params
+        if pdi[p]['dv']: #depth-varying params
             for l in layers:
-                params_o = np.append(params_o,pdi[p][l]['o'])
-                params_o_e = np.append(params_o_e,pdi[p][l]['oe'])
+                params_o = np.append(params_o,pdi[p]['o'])
+                params_o_e = np.append(params_o_e,pdi[p]['oe'])
                 p_toidx.append('_'.join([p,l]))
         else:
             params_o = np.append(params_o,pdi[p]['o'])
@@ -956,7 +948,7 @@ for g in ptargs.keys():
         pest, perr = params_ests[i], params_errs[i]
         if '_' in stri: #depth-varying paramters
             p,l = stri.split('_')
-            pdi[p][l]['xh'], pdi[p][l]['xhe'] = pest, perr
+            pdi[p]['xh'][l], pdi[p]['xhe'][l] = pest, perr
         else: pdi[stri]['xh'], pdi[stri]['xhe'] = pest, perr
 
     #make a plot of parameter priors and posteriors
@@ -966,15 +958,14 @@ for g in ptargs.keys():
     axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax8]
     for i, p in enumerate(pdi.keys()):
         ax = axs[i]
-        if pdi[p]['dv'] == 1: #if param is depth-varying
-            ax.set_title(pdi[p]['A']['tset'])
-            ax.errorbar(1, pdi[p]['A']['o'], yerr=pdi[p]['A']['oe'],fmt='o',ms=msp,c=blue,label='$x_{o}$',elinewidth=elwp,ecolor=ec,capsize=csp) #priors with errors
+        ax.set_title(pdi[p]['tset'])
+        if pdi[p]['dv']: #if param is depth-varying
+            ax.errorbar(1, pdi[p]['o'], yerr=pdi[p]['oe'],fmt='o',ms=msp,c=blue,label='$x_{o}$',elinewidth=elwp,ecolor=ec,capsize=csp) #priors with errors
             ax.scatter(2, ptargs[g][p]['A'],marker='+',s=msp*10,c=teal,label='$x_{T}$') #target value
-            ax.errorbar(3, pdi[p]['A']['xh'], yerr=pdi[p]['A']['xhe'], fmt='o', c=teal, ms=msp, label='$x^{A}_{k+1}$', elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
+            ax.errorbar(3, pdi[p]['xh']['A'], yerr=pdi[p]['xhe']['A'], fmt='o', c=teal, ms=msp, label='$x^{A}_{k+1}$', elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
             ax.scatter(4, ptargs[g][p]['B'],marker='+',s=msp*10,c=navy,label='$x_{T}$') #target value
-            ax.errorbar(5, pdi[p]['B']['xh'], yerr=pdi[p]['B']['xhe'], fmt='o', c=navy, ms=msp, label='$x^{B}_{k+1}$', elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
+            ax.errorbar(5, pdi[p]['xh']['B'], yerr=pdi[p]['xhe']['B'], fmt='o', c=navy, ms=msp, label='$x^{B}_{k+1}$', elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
         else: #if param is depth-constant
-            ax.set_title(pdi[p]['tset'])
             ax.errorbar(2, pdi[p]['o'], yerr=pdi[p]['oe'],fmt='o',ms=msp,c=blue,label='$x_{o}$',elinewidth=elwp,ecolor=ec,capsize=csp) #priors with errors
             ax.scatter(3, ptargs[g][p],marker='+',s=msp*10,c=cyan,label='$x_{T}$') #target value
             ax.errorbar(4, pdi[p]['xh'], yerr=pdi[p]['xhe'],fmt='o',c=cyan,ms=msp,label='$x_{k+1}$',elinewidth=elwp,ecolor=ec,capsize=csp) #posteriors with errors        
@@ -982,5 +973,13 @@ for g in ptargs.keys():
         ax.set_xticks(np.arange(0,7))
     plt.savefig(f'twnxP_ts_params_g{g}')
     plt.close()
+
+    #print out param estiamtes and errors
+    print(f'----Group {g}----')
+    for p in params:
+        if pdi[p]['dv']:
+            for l in layers:
+               print(f"{p}_{l}: {pdi[p]['xh'][l]:.3f} ± {pdi[p]['xhe'][l]:.3f}")
+        else: print(f"{p}: {pdi[p]['xh']:.3f} ± {pdi[p]['xhe']:.3f}")
 
 print(f'--- {time.time() - start_time} seconds ---')
