@@ -380,11 +380,12 @@ Psi, Psip1, Psim1, Psim2, \
     Pli, Plip1, Plim1, Plim2  = sym.symbols(svarnames)
 #iterative solution
 #while True:
-while k < 5:
+while k < 10:
     for i in np.arange(0,N):
         #what tracer and depth are we on?
         t,d = vidxP[i].split('_')
         d = int(d)
+        l = lmatch(d)
         #pick up all values of rate parameters
         wsi, wli, Bm2i, B2pi, Bm1si, Bm1li = pdi['ws'][l], pdi['wl'][l], \
             pdi['Bm2'][l], pdi['B2p'][l], pdi['Bm1s'][l], pdi['Bm1l'][l]
