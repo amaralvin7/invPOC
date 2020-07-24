@@ -21,18 +21,13 @@ import sympy as sym
 import os
 import sys
 import time
+import pickle
 
 start_time = time.time()
 plt.close('all')
 
 #need for when running on remote server
 sys.setrecursionlimit(10000)
-
-"""
-SETUP FOR GENERATING PSEUDODATA
-"""
-
-plt.close('all')
 
 #colors
 red, green, blue, purple, cyan, orange, teal, navy, olive = '#e6194B', '#3cb44b', '#4363d8', '#911eb4', '#42d4f4', '#f58231', '#469990', '#000075', '#808000'
@@ -668,6 +663,9 @@ Co_neg = (Co<0).any() #checks if any element of Co is negative
 ColnColninv = np.matmul(Coln,np.linalg.inv(Coln))
 Coln_check = np.sum(ColnColninv-np.identity(N))
 
+pdelt = 0.0001 #allowable percent change in each state element for convergence
+maxiter = 50
+
 for g in gammas:
     Cf_noPt = np.zeros((P,P))
     Cfd_noPt = np.ones(2*n)*pdi['Gh']['o']**2 #Cf from particle production
@@ -682,7 +680,7 @@ for g in gammas:
     k = 0 #keep a counter for how many steps it takes
     conv_ev = np.empty(0) # keep track of evolution of convergence
     cost_ev = np.empty(0) #keep track of evolution of the cost function, j
-    pdelt = 0.0001 #allowable percent change in each state element for convergence
+    
     
     #define all possible symbolic variables
     svarnames = 'Ps_0 Ps_1 Ps_-1 Ps_-2 \
@@ -735,7 +733,7 @@ for g in gammas:
         cost = np.matmul(np.matmul((xk-xoln).T,np.linalg.inv(Coln)),(xk-xoln))+\
             np.matmul(np.matmul(f_cost.T,np.linalg.inv(Cf_cost)),f_cost)
         cost_ev = np.append(cost_ev,cost)
-        if maxchange < pdelt or k > 2000: break
+        if maxchange < pdelt or k > maxiter: break
         k += 1
         xk = xkp1
     
@@ -894,7 +892,7 @@ for g in gammas:
             ax1.scatter(x1[i],y1[i],s=marsize,marker=mar,facecolors=fc,edgecolors=ec)
         #plot posteriors model residuals
         plt.savefig(f'invP_gs_cdfs_gam{str(g).replace(".","")}.png')
-        plt.close()   
+        plt.close() 
     
     #model residual depth profiles (posteriors)
     fig, [ax1,ax2] = plt.subplots(1,2)
@@ -1055,5 +1053,65 @@ for g in gammas:
             for f in iflxs:
                 print(f"{f}: {flxd[f]['gammas'][g]['iflx'][rstr][0]:.3f} ± {flxd[f]['gammas'][g]['iflx'][rstr][1]:.3f}", file=file)
             print(f'Ps Residuals: {td["Ps"]["gammas"][g]["ires"][rstr]:.3f} \nPl Residuals: {td["Pl"]["gammas"][g]["ires"][rstr]:.3f}',file=file)
-        file.close()    
-print(f'--- {time.time() - start_time} seconds ---')
+        file.close()
+
+with open ('invP_gs_out.txt','a') as file:
+    print(f'--- {time.time() - start_time} seconds ---',file=file)
+    file.close()
+
+with open('invP_gs_savedvars.pkl', 'wb') as file:
+    pickle.dump((flxd, td, pdi),file)
+    file.close()
+
+#comparison of integrated fluxes and integrals
+bw = 0.15
+c1 = [red, green, blue, purple, cyan, orange]
+c2 = [red, green, blue, purple, cyan, orange, teal, navy]
+
+barsF = {i:{g:{x:{} for x in ['xh','xhe']} for g in gammas} for i in dr_str}
+barsR = {i:{g:{x:{} for x in ['xh','xhe']} for g in gammas} for i in dr_str}
+for iv in dr_str:
+    fig1, ax1 = plt.subplots(1,1)
+    fig2, ax2 = plt.subplots(1,1)
+    fig1.suptitle(iv), fig2.suptitle(iv)
+    for i, g in enumerate(gammas):
+        barsF[iv][g]['xh'] = [flxd[f]['gammas'][g]['iflx'][iv][0] for f in iflxs]
+        barsF[iv][g]['xhe'] = [flxd[f]['gammas'][g]['iflx'][iv][1] for f in iflxs]
+        barsR[iv][g]['xh'] = [td[t]['gammas'][g]['ires'][iv] for t in tracers]
+        if i == 0: 
+            r1 = np.arange(len(barsF[iv][g]['xh']))
+            r2 = np.arange(len(barsR[iv][g]['xh']))
+        ax1.bar(r1, barsF[iv][g]['xh'], width=bw, color=c1[i], edgecolor='k', yerr=barsF[iv][g]['xhe'], capsize=3, label=g)
+        ax2.bar(r2, barsR[iv][g]['xh'], width=bw, color=c1[i], edgecolor='k', label=g)
+        r1, r2 = [x + bw for x in r1], [x + bw for x in r2]
+    ax1.set_xticks(list(map(lambda n: n-bw*len(iflxs)/2,r1)))
+    ax1.set_xticklabels([flxd[f]['name'] for f in iflxs])
+    ax1.set_ylabel('Integrated Flux (mmol/m2/d)')
+    ax1.legend()
+    ax2.set_xticks(list(map(lambda n: n-bw*len(iflxs)/2,r2)))
+    ax2.set_xticklabels(tracers)
+    ax2.set_ylabel('Integrated Residuals (mmol/m2/d)')
+    ax2.legend()
+    for fig in (fig1,fig2):
+        plt.figure(fig.number)
+        suf = 'iflxs' if fig == fig1 else 'iresids'
+        plt.savefig(f'invP_gs_{suf}_{iv}.png')
+        plt.close(fig)
+
+#plots of relative precision of rate parameters as a function of gamma
+fig, ax = plt.subplots(1,1)
+for i,p in enumerate(params):
+    if pdi[p]['dv']:
+        for l in layers:
+            if l == 'A': m, ls = '^', '--'
+            else: m, ls = 'o', ':'
+            relativeprcsn = [pdi[p]['gammas'][g]['xh'][l]/pdi[p]['gammas'][g]['xhe'][l] for g in gammas]
+            ax.plot(gammas, relativeprcsn, m, c=c2[i], label=f'{p}_{l}', fillstyle='none', ls=ls)
+    else:
+        relativeprcsn = [pdi[p]['gammas'][g]['xh']/pdi[p]['gammas'][g]['xhe'] for g in gammas]
+        label = p
+        ax.plot(gammas, relativeprcsn, 'x', c=c2[i], label=p, ls='-.')
+ax.set_xticks(gammas)
+ax.legend(loc='lower center', bbox_to_anchor=(0.49, 0.95), ncol=6)
+plt.savefig(f'invP_gs_paramprecision.png')
+plt.close()
