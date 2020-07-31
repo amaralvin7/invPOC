@@ -5,6 +5,7 @@ Created on Jun 09 2020
 
 @author: vamaral
 
+Gamma sensitivity (_gs) studies on invP
 """
 import numpy as np
 import scipy.linalg as splinalg
@@ -20,18 +21,13 @@ import sympy as sym
 import os
 import sys
 import time
+import pickle
 
 start_time = time.time()
 plt.close('all')
 
 #need for when running on remote server
 sys.setrecursionlimit(10000)
-
-"""
-SETUP FOR GENERATING PSEUDODATA
-"""
-
-plt.close('all')
 
 #colors
 red, green, blue, purple, cyan, orange, teal, navy, olive = '#e6194B', '#3cb44b', '#4363d8', '#911eb4', '#42d4f4', '#f58231', '#469990', '#000075', '#808000'
@@ -60,43 +56,43 @@ Pl_mean = df.LSF_mean/mm
 Pl_sd = df.LSF_sd/mm
 Pl_se = df.LSF_se/mm
 
-gam = 0.01 #multiplier for weighting model errors
+gammas = [0, 0.01, 0.05, 0.1, 0.5, 1] #multiplier for weighting model errors
+
+depthranges = ((h,95),(95,500)) #for integration
+dr_str = tuple(map(lambda d: '_'.join((str(d[0]),str(d[1]))),depthranges))
 
 #param info
 layers = ['A','B']
 params = ['ws', 'wl', 'B2p', 'Bm2', 'Bm1s', 'Bm1l', 'Gh', 'Lp']
 params_dv = ['ws', 'wl', 'B2p', 'Bm2', 'Bm1s', 'Bm1l'] #depth-varying params
 params_dc = ['Gh', 'Lp'] #depth-constant params
+gkeys_pdi = ['xh', 'xhe'] #some keys for building dictionaries later
 #make a dictionaries to store param info
 pdi = {param:{} for param in params}
-#add a key for each parameter designating if it is depth-varying or constant
-for k in pdi.keys():
-    if k in params_dv: pdi[k]['dv'] = 1
-    else: pdi[k]['dv'] = 0
 
 #typeset name
 p_tset = {'ws':'$w_s$', 'wl':'$w_l$', 'B2p':'$\\beta^,_2$', 'Bm2':'$\\beta_{-2}$', 
-               'Bm1s':'$\\beta_{-1,s}$', 'Bm1l':'$\\beta_{-1,l}$', 'Gh':'$\overline{\.P_s}$', 
-               'Lp':'$L_{p}$'}
+                'Bm1s':'$\\beta_{-1,s}$', 'Bm1l':'$\\beta_{-1,l}$', 'Gh':'$\overline{\.P_s}$', 
+                'Lp':'$L_{p}$'}
 
 #priors
 p_o = {'ws':2, #m/d
-       'wl':20, #m/d, reported from Murnane 1990.
-       'B2p':0.5*mm/dpy, #m3/(mmol*yr), arbritrary
-       'Bm2':400/dpy, #from Murnane 1994, converted to d
-       'Bm1s':36/dpy, #from Clegg surface value, converted to d
-       'Bm1l':0.15, #based on preliminary RESPIRE data from A Santoro
-       'Gh':0.28, #prior set to typical NPP shared data value (divided by h), error is 25% of that. mg/m2/d converted to mmol
-       'Lp':28} #from NPP data, m
+        'wl':20, #m/d, reported from Murnane 1990.
+        'B2p':0.5*mm/dpy, #m3/(mmol*yr), arbritrary
+        'Bm2':400/dpy, #from Murnane 1994, converted to d
+        'Bm1s':36/dpy, #from Clegg surface value, converted to d
+        'Bm1l':0.15, #based on preliminary RESPIRE data from A Santoro
+        'Gh':0.28, #prior set to typical NPP shared data value (divided by h), error is 25% of that. mg/m2/d converted to mmol
+        'Lp':28} #from NPP data, m
 #prior errors
 p_oe = {'ws':2, 
-       'wl':15, 
-       'B2p':0.5*mm/dpy, 
-       'Bm2':10000/dpy, 
-       'Bm1s':36/dpy, 
-       'Bm1l':0.15, 
-       'Gh':0.12, 
-       'Lp':28*0.5}
+        'wl':15, 
+        'B2p':0.5*mm/dpy, 
+        'Bm2':10000/dpy, 
+        'Bm1s':36/dpy, 
+        'Bm1l':0.15, 
+        'Gh':0.12, 
+        'Lp':28*0.5}
 
 #have a single layer seperation
 bnd = 112.5
@@ -106,8 +102,40 @@ for p in pdi.keys():
     pdi[p]['tset'] = p_tset[p]
     pdi[p]['o'] = p_o[p]
     pdi[p]['oe'] = p_oe[p]
-    for k in ['xh','xhe']:
-        pdi[p][k] = {} if not pdi[p]['dv'] else {l:{} for l in layers}
+    pdi[p]['dv'] = 1 if p in params_dv else 0
+    pdi[p]['gammas'] = {g:({k:{l:{} for l in layers} for k in gkeys_pdi} 
+                            if pdi[p]['dv'] else {k:{} for k in gkeys_pdi})
+                        for g in gammas}
+
+#build tracer dictionary
+tracers = ['Ps','Pl']
+gkeys_td = ['xh', 'xhe', 'inv', 'ires', 'n', 'nm', 'nma'] #some keys
+tkeys_td = ['x', 'xerr', 'y', 'si', 'gammas']
+invkeys = ['inv','ires']
+td = {t:{k:({g:{gk:({dr:{} for dr in dr_str} if gk in invkeys else {}) 
+                for gk in gkeys_td} for g in gammas} if k == 'gammas' 
+            else {}) for k in tkeys_td} for t in tracers}
+    
+#build flux dictionary
+flxs = ['ws_Ps','wl_Pl','ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
+flxnames = {'ws_Ps':'sinkS', 'wl_Pl':'sinkL', 'ws_Psdz':'sinkS_div', 'wl_Pldz':'sinkL_div',
+            'Bm1s_Ps':'SRemin', 'Bm1l_Pl':'LRemin', 'B2p_Ps2':'Agg', 'Bm2_Pl':'Disagg', 'Psdot':'Prod'}
+flxpairs = [('ws_Ps','wl_Pl'),('ws_Psdz','wl_Pldz'),('Bm1s_Ps','B2p_Ps2'),('Bm1l_Pl','Bm2_Pl'),('Psdot',)]
+#fluxes that we want to integrate
+iflxs = ['ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
+flxd = {f:{} for f in flxs}
+gkeys_flxd = ['xh','xhe','iflx','tau']
+intkeys = ['iflx','tau']
+for f in flxs:
+    flxd[f]['name'] = flxnames[f]
+    #assign order
+    if f == 'Psdot': flxd[f]['order'] = 0   
+    elif f == 'B2p_Ps2': flxd[f]['order'] = 2
+    else: flxd[f]['order'] = 1
+    if f in iflxs:
+        flxd[f]['gammas'] = {g:{k:({dr:{} for dr in dr_str} if k in intkeys 
+                                   else {}) for k in gkeys_flxd} for g in gammas}
+    else: flxd[f]['gammas'] = {g:{k:{} for k in gkeys_pdi} for g in gammas}
 
 #some parameters for plotting later
 ms, lw, elw, cs = 3, 1, 0.5, 2
@@ -254,7 +282,7 @@ def lsqplotsf(model,x,y,z,tracer,logscale): #make a least squares fit and plot t
     ax.plot(xp, fit, '--', c = 'k', lw=lw)
     #ax.set_title(f' c0 = {c[0]:.2f}, c1 = {c[1]:.2f}, R2 = {r2:.2f}')
     ax.set_title(f'$R^2$ = {r2:.2f}')
-    plt.savefig(f'invP_cpptfit_log{logscale}.png')
+    plt.savefig(f'invP_gs_cpptfit_log{logscale}.png')
     plt.close()
     return ax
 
@@ -327,9 +355,10 @@ def symfunceval(y,err=True,cov=True):
     for i,v in enumerate(x): #for each symbolic variable, get numerical value
         if "_" in str(v): #if the variable varies with depth
             svar, di = str(v).split('_') #what kind of state variable (tracer or param?)
-            if svar in td.keys(): xv[i] = td[svar]['xh'][int(di)]
-            else: xv[i] = pdi[svar]['xh'][str(di)]
-        else: xv[i] = pdi[str(v)]['xh'] #if it's a depth-constant variable
+            if svar in td.keys(): xv[i] = td[svar]['gammas'][g]['xh'][int(di)]
+            else:
+                xv[i] = pdi[svar]['gammas'][g]['xh'][str(di)]
+        else: xv[i] = pdi[str(v)]['gammas'][g]['xh'] #if it's a depth-constant variable
     if err == True: #if we are propagating errors
         #print('creating CVM')
         dy = [None]*nx #empty list to store derivatives
@@ -360,12 +389,11 @@ def iflxcalc(fluxes, deprngs):
         #print(f'-------{f}-------')
         if '_' in f: #if not Psdot
             p,t = f.split('_')[0], f.split('_')[1][:2]
-            ordr = flxd[f]['o'] #get order from the flx dict
+            ordr = flxd[f]['order'] #get order from the flx dict
         for dr in deprngs:        
             do, dn = dr #unpack start and end depths
             doi, dni = zml.tolist().index(do), zml.tolist().index(dn)
             rstr = "_".join([str(do),str(dn)])
-            flxd[f][rstr] = {} #create dict to store integrated flux and res time for this depthrange
             dis = np.arange(doi,dni+1) 
             iF, iI = 0, 0 #initialize variable to collect summation (integrals) of fluxes and inventory
             if 'dz' in f: #if sinking flux divergence term, more complicated
@@ -418,13 +446,11 @@ def iflxcalc(fluxes, deprngs):
                     #print(i, di, zml[di], dzi)
             intflx = symfunceval(iF)
             resT = symfunceval(iI/iF,err=False) #doesn't return error prop (takes too long)
-            flxd[f][rstr]['iflx'], flxd[f][rstr]['tau'] = intflx, resT
-            #return(intflx)
+            flxd[f]['gammas'][g]['iflx'][rstr], flxd[f]['gammas'][g]['tau'][rstr] = intflx, resT
 
 #given a depth range, calculate (integrated) inventory and residuals
 def inventory(deprngs):
     for t in tracers:
-        td[t]['inv'], td[t]['ires'] = {}, {} #initialize dicts to store inventories and integrated residuals for each depth range
         for dr in deprngs:        
             do, dn = dr #unpack start and end depths
             doi, dni = zml.tolist().index(do), zml.tolist().index(dn)
@@ -439,9 +465,9 @@ def inventory(deprngs):
                 twi = "_".join([t,str(di)]) #get the tracer at this depth index
                 tr = sym.symbols(f'{twi}') #make it a symbolic variable
                 I += tr*dzi
-                ir += td[t]['n'][di]*dzi #integrated residual
-            td[t]['inv'][rstr] = symfunceval(I)
-            td[t]['ires'][rstr] = ir
+                ir += td[t]['gammas'][g]['n'][di]*dzi #integrated residual
+            td[t]['gammas'][g]['inv'][rstr] = symfunceval(I)
+            td[t]['gammas'][g]['ires'][rstr] = ir
             
 ####Pt estimates    
 #read in cast match data
@@ -528,7 +554,7 @@ ax.set_title(f'int_A = {l_int_A:.2f}, L_A = {L_A:.2f}, R2_A = {l_r2_A:.2f} \n in
 ax.set_xlabel('lags (m)')
 ax.set_ylabel('ln($r_k$)')
 ax.legend()
-plt.savefig(f'invP_autocor.png')
+plt.savefig(f'invP_gs_autocor.png')
 plt.close()
 
 
@@ -567,7 +593,6 @@ vidx_allP = vidxP+vidxPt #includes everything in F and f
 vidxSV = vidxP+p_toidx #only state variables
 
 #make a dictionary for tracer params for each layer. could be more cleverly coded
-tracers = ['Ps','Pl']
 oi = {lay:{t:{} for t in tracers} for lay in layers}
 oi['A']['Ps']['y'],oi['B']['Ps']['y'] = Ps_mean[0:3].values,Ps_mean[3:].values #mean POC
 oi['A']['Pl']['y'],oi['B']['Pl']['y'] = Pl_mean[0:3].values,Pl_mean[3:].values
@@ -604,18 +629,14 @@ for lay in oi.keys():
 
 #make an oi matrix with some values concatenated
 tpri = np.asarray([]) #initialize an array to collect priors of all tracers AFTER they've been concatenated by layer
-td_keys = ['si','x','xerr','y'] 
-td = {t:dict.fromkeys(td_keys) for t in tracers}
-for tra in tracers:
-    for v in td[tra].keys():
-        if v == 'si': #what index in vidxSV does each tracer start at?
-            td[tra]['si'] = vidxSV.index(tra+'_0') 
+for t in tracers:
+    for k in ['si','x','xerr']:
+        if k == 'si': 
+            td[t][k] = vidx_allP.index(f'{t}_0')
             continue
-        #all values that need to be concatenated between layers
-        td[tra][v] = np.concatenate((oi['A'][tra][v],oi['B'][tra][v]))
-        #catch the prior estiamtes and collect them in tpri
-        if v == 'x': tpri = np.concatenate((tpri,td[tra][v]))
-              
+        td[t][k] = np.concatenate((oi['A'][t][k],oi['B'][t][k]))
+        if k == 'x': tpri = np.concatenate((tpri,td[t][k]))
+                      
 #combine xo's to form one xo, normalize xo and take the ln
 xo = np.concatenate((tpri,params_o))
 xoln = np.log(xo)
@@ -642,355 +663,455 @@ Co_neg = (Co<0).any() #checks if any element of Co is negative
 ColnColninv = np.matmul(Coln,np.linalg.inv(Coln))
 Coln_check = np.sum(ColnColninv-np.identity(N))
 
-#construct Cf
-Cf_noPt = np.zeros((P,P))
-Cfd_noPt = np.ones(2*n)*pdi['Gh']['o']**2 #Cf from particle production
-Cf_noPt = np.diag(Cfd_noPt)*gam
-Cf = splinalg.block_diag(Cf_noPt,Cf_addPt)
-
-#initialize the iterative loop
-F = np.zeros((M, N))
-f = np.zeros(M)
-xk = xoln
-xkp1 = np.ones(N) #initialize this to some dummy value 
-k = 0 #keep a counter for how many steps it takes
-conv_ev = np.empty(0) # keep track of evolution of convergence
-cost_ev = np.empty(0) #keep track of evolution of the cost function, j
 pdelt = 0.0001 #allowable percent change in each state element for convergence
+maxiter = 50
 
-#define all possible symbolic variables
-svarnames = 'Ps_0 Ps_1 Ps_-1 Ps_-2 \
-    Pl_0 Pl_1 Pl_-1 Pl_-2 \
-        Bm2 B2p Bm1s Bm1l \
-            Gh Lp ws wl'
-Psi, Psip1, Psim1, Psim2, \
-    Pli, Plip1, Plim1, Plim2, \
-        Bm2i, B2pi, Bm1si, Bm1li, \
-            Ghi, Lpi, wsi, wli = sym.symbols(svarnames)
-#ATI
-while True:
-    for i in np.arange(0,M):
-        #what tracer and depth are we on?
-        t,d = vidx_allP[i].split('_')
-        d = int(d)
-        #POC, SSF
-        if t == 'Ps':
-            if d == 0: #mixed layer
-                eq = Ghi+Bm2i*Pli-(wsi/h+Bm1si+B2pi*Psi)*Psi
-            elif (d == 1 or d == 2): #first or second grid point
-                eq = Ghi*sym.exp(-(zml[d]-h)/(Lpi))+(Bm2i*Pli)-(Bm1si+B2pi*Psi)*Psi-wsi/(2*dz)*(Psip1-Psim1)
-            else: #everywhere else
-                eq = Ghi*sym.exp(-(zml[d]-h)/(Lpi))+(Bm2i*Pli)-(Bm1si+B2pi*Psi)*Psi-wsi/(2*dz)*(3*Psi-4*Psim1+Psim2)
-        #POC, LSF
-        elif t == 'Pl':
-            if d == 0:
-                eq = (B2pi*(Psi)**2)-(wli/h+Bm2i+Bm1li)*Pli
-            elif (d == 1 or d == 2):
-                eq = B2pi*Psi**2-(Bm2i+Bm1li)*Pli-wli/(2*dz)*(Plip1-Plim1)
-            else:
-                eq = B2pi*Psi**2-(Bm2i+Bm1li)*Pli-wli/(2*dz)*(3*Pli-4*Plim1+Plim2)
-        #POC, Ps + Pl = Pt
-        else: #because this isn't a tracer in the state vector, doesn't play nice with our Fnf function
-            Pti = cppt.Pt_hat[vidxPt.index(f'Pt_{d}')] #value of Pt at gridpoint d
-            eq = Psi + Pli - Pti
-        Fnf(eq,i,d)
-    FCoFT = np.matmul(np.matmul(F,Coln),F.T)
-    FCoFT_cond = np.linalg.cond(FCoFT)
-    FCFCinv = np.matmul(FCoFT,np.linalg.inv(FCoFT))
-    FC_check = np.sum(FCFCinv-np.identity(M))
-    B = np.matmul(np.matmul(Coln,F.T),np.linalg.inv(FCoFT+Cf))
-    xkp1 = xoln + np.matmul(B,np.matmul(F,xk-xoln)-f)
-    #convergence criteria based on Murnane 94
-    maxchange = np.max(np.abs((xkp1-xk)/xk))
-    conv_ev = np.append(conv_ev,maxchange)
-    if gam == 0: cost = np.matmul(np.matmul((xk-xoln).T,np.linalg.inv(Coln)),(xk-xoln))
-    else: cost = np.matmul(np.matmul((xk-xoln).T,np.linalg.inv(Coln)),(xk-xoln))+np.matmul(np.matmul(f.T,np.linalg.inv(Cf)),f)
-    cost_ev = np.append(cost_ev,cost)
-    if maxchange < pdelt or k > 2000: break
-    k += 1
-    xk = xkp1
-
-#calculate posterior errors
-I = np.identity(Coln.shape[0])
-CoFT = np.matmul(Coln,F.T)
-FCoFTpCfinv = np.linalg.inv(FCoFT+Cf)
-C = I-np.matmul(np.matmul(CoFT,FCoFTpCfinv),F)
-D = I-np.matmul(np.matmul(np.matmul(F.T,FCoFTpCfinv),F),Coln)
-Ckp1 = np.matmul(np.matmul(C,Coln),D)
-
-#expected value and variance of tracers AND params
-EyP, VyP = xkp1, np.diag(Ckp1)
-
-#recover dimensional values of median, mean, mode, standard deviation
-xhmed = np.exp(EyP)
-xhmod = np.exp(EyP-VyP)
-xhmean = np.exp(EyP+VyP/2)
-xhe = np.sqrt(np.exp(2*EyP+VyP)*(np.exp(VyP)-1))
-
-#calculate covariances of unlogged state variables
-CVM = np.zeros((N,N))
-for i, row in enumerate(CVM):
-    for j, unu in enumerate(row):
-        mi, mj = EyP[i], EyP[j] #mu's (expected vals)
-        vi, vj = VyP[i], VyP[j] #sig2's (variances)
-        CVM[i,j] = np.exp(mi+mj)*np.exp((vi+vj)/2)*(np.exp(Ckp1[i,j])-1)
-
-#check that sqrt of diagonals of CVM are equal to xhe
-CVM_xhe_check = np.sqrt(np.diag(CVM)) - xhe
-         
-#get estimates, errors, and residuals for tracers
-for t in td.keys():
-    td[t]['xh'] = vsli(xhmean,td[t]['si'])
-    td[t]['xhe'] = vsli(xhe,td[t]['si'])
+for g in gammas:
+    Cf_noPt = np.zeros((P,P))
+    Cfd_noPt = np.ones(2*n)*pdi['Gh']['o']**2 #Cf from particle production
+    Cf_noPt = np.diag(Cfd_noPt)*g
+    Cf = splinalg.block_diag(Cf_noPt,Cf_addPt)
     
-#get model residuals from posterior estimates (from means)
-td['Ps']['n'], td['Ps']['nm'], td['Ps']['nma'], td['Pl']['n'], td['Pl']['nm'], td['Pl']['nma'] = modresi(xhmean) 
-
-#propagating errors on Pt
-Pt_xh, Pt_xhe = np.zeros(n), np.zeros(n)
-for i in np.arange(0,n):
-    pswi, plwi = "_".join(['Ps',str(i)]), "_".join(['Pl',str(i)])
-    ps, pl = sym.symbols(f'{pswi} {plwi}')
-    Pt_xh[i], Pt_xhe = symfunceval(ps+pl)
-
-#PDF and CDF calculations
-xg = np.linspace(-2,2,100)
-yg_pdf = sstats.norm.pdf(xg,0,1)
-yg_cdf = sstats.norm.cdf(xg,0,1)
-
-#comparison of estimates to priors (means don't include params, histogram does)
-xdiff = xhmean-xo
-x_osd = np.sqrt(np.diag(Co))
-pdfx = xdiff/x_osd
-pdfx_Ps_m = np.mean(vsli(pdfx,td['Ps']['si']))
-pdfx_Pl_m = np.mean(vsli(pdfx,td['Pl']['si']))
-pdfx_Ps_ma = np.mean(np.absolute(vsli(pdfx,td['Ps']['si'])))
-pdfx_Pl_ma = np.mean(np.absolute(vsli(pdfx,td['Pl']['si'])))
-
-#comparison of model residuals (posteriors)
-nP = np.concatenate((td['Ps']['n'],td['Pl']['n']))
-n_sd = np.sqrt(np.diag(Cf_noPt))
-pdfn = nP/n_sd
-pdfn_Ps_m = np.mean(vsli(pdfn,td['Ps']['si']))
-pdfn_Pl_m = np.mean(vsli(pdfn,td['Pl']['si']))
-pdfn_Ps_ma = np.mean(np.absolute(vsli(pdfn,td['Ps']['si'])))
-pdfn_Pl_ma = np.mean(np.absolute(vsli(pdfn,td['Pl']['si'])))
-
-#PDFs
-fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
-fig.subplots_adjust(wspace=0.5)
-ax1.set_ylabel('P',size=16)
-ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16)
-ax1.hist(pdfx,density=True,bins=20,color=blue)
-ax2.hist(pdfn,density=True,bins=20,color=blue)
-ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
-
-#plot gaussians, show legend
-ax1.plot(xg,yg_pdf,c=red), ax2.plot(xg,yg_pdf,c=red)
-plt.savefig(f'invP_pdfs.png')
-plt.close()
-
-#CDFs
-fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
-fig.subplots_adjust(wspace=0.5)
-ax1.set_ylabel('P',size=16)
-ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16), ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
-ax1.plot(xg,yg_cdf,c=red), ax2.plot(xg,yg_cdf,c=red) #plot gaussians
-cdf_dfx, cdf_dfn = pd.DataFrame(), pd.DataFrame()
-cdf_dfx['var_name'], cdf_dfn['var_name'] = vidxSV.copy(), vidxP.copy()
-cdf_dfx['val'], cdf_dfn['val'] = pdfx.copy(), pdfn.copy() #add values that correspond to those
-cdf_dfx['o_idx'], cdf_dfn['o_idx'] = cdf_dfx.index, cdf_dfn.index #copy original indices
-cdf_dfxs, cdf_dfns = cdf_dfx.sort_values('val').copy(), cdf_dfn.sort_values('val').copy()
-cdf_dfxs.reset_index(inplace=True), cdf_dfns.reset_index(inplace=True) #reset indices
-x1,x2 = cdf_dfxs.val, cdf_dfns.val 
-y1,y2 = np.arange(1,len(x1)+1)/len(x1), np.arange(1,len(x2)+1)/len(x2)
-#plot estimate residuals, params as orange circles
-for i, v in enumerate(x1):
-    if 'P' not in cdf_dfxs.var_name[i]:
-        marsize = 8
-        ec = orange
-        mar = 'o'
-        fc = 'none'
+    #initialize the iterative loop
+    F = np.zeros((M, N))
+    f = np.zeros(M)
+    xk = xoln
+    xkp1 = np.ones(N) #initialize this to some dummy value 
+    k = 0 #keep a counter for how many steps it takes
+    conv_ev = np.empty(0) # keep track of evolution of convergence
+    cost_ev = np.empty(0) #keep track of evolution of the cost function, j
+    
+    
+    #define all possible symbolic variables
+    svarnames = 'Ps_0 Ps_1 Ps_-1 Ps_-2 \
+        Pl_0 Pl_1 Pl_-1 Pl_-2 \
+            Bm2 B2p Bm1s Bm1l \
+                Gh Lp ws wl'
+    Psi, Psip1, Psim1, Psim2, \
+        Pli, Plip1, Plim1, Plim2, \
+            Bm2i, B2pi, Bm1si, Bm1li, \
+                Ghi, Lpi, wsi, wli = sym.symbols(svarnames)
+    #ATI
+    while True:
+        for i in np.arange(0,M):
+            #what tracer and depth are we on?
+            t,d = vidx_allP[i].split('_')
+            d = int(d)
+            #POC, SSF
+            if t == 'Ps':
+                if d == 0: #mixed layer
+                    eq = Ghi+Bm2i*Pli-(wsi/h+Bm1si+B2pi*Psi)*Psi
+                elif (d == 1 or d == 2): #first or second grid point
+                    eq = Ghi*sym.exp(-(zml[d]-h)/(Lpi))+(Bm2i*Pli)-(Bm1si+B2pi*Psi)*Psi-wsi/(2*dz)*(Psip1-Psim1)
+                else: #everywhere else
+                    eq = Ghi*sym.exp(-(zml[d]-h)/(Lpi))+(Bm2i*Pli)-(Bm1si+B2pi*Psi)*Psi-wsi/(2*dz)*(3*Psi-4*Psim1+Psim2)
+            #POC, LSF
+            elif t == 'Pl':
+                if d == 0:
+                    eq = (B2pi*(Psi)**2)-(wli/h+Bm2i+Bm1li)*Pli
+                elif (d == 1 or d == 2):
+                    eq = B2pi*Psi**2-(Bm2i+Bm1li)*Pli-wli/(2*dz)*(Plip1-Plim1)
+                else:
+                    eq = B2pi*Psi**2-(Bm2i+Bm1li)*Pli-wli/(2*dz)*(3*Pli-4*Plim1+Plim2)
+            #POC, Ps + Pl = Pt
+            else: #because this isn't a tracer in the state vector, doesn't play nice with our Fnf function
+                Pti = cppt.Pt_hat[vidxPt.index(f'Pt_{d}')] #value of Pt at gridpoint d
+                eq = Psi + Pli - Pti
+            Fnf(eq,i,d)
+        FCoFT = np.matmul(np.matmul(F,Coln),F.T)
+        FCoFT_cond = np.linalg.cond(FCoFT)
+        FCFCinv = np.matmul(FCoFT,np.linalg.inv(FCoFT))
+        FC_check = np.sum(FCFCinv-np.identity(M))
+        B = np.matmul(np.matmul(Coln,F.T),np.linalg.inv(FCoFT+Cf))
+        xkp1 = xoln + np.matmul(B,np.matmul(F,xk-xoln)-f)
+        #convergence criteria based on Murnane 94
+        maxchange = np.max(np.abs((xkp1-xk)/xk))
+        conv_ev = np.append(conv_ev,maxchange)
+        #if g = 0, only use equations corresponding to Pt equations for the cost function
+        if not g: f_cost, Cf_cost = f[-n:], Cf_addPt
+        else: f_cost, Cf_cost = f, Cf
+        cost = np.matmul(np.matmul((xk-xoln).T,np.linalg.inv(Coln)),(xk-xoln))+\
+            np.matmul(np.matmul(f_cost.T,np.linalg.inv(Cf_cost)),f_cost)
+        cost_ev = np.append(cost_ev,cost)
+        if maxchange < pdelt or k > maxiter: break
+        k += 1
+        xk = xkp1
+    
+    #calculate posterior errors
+    I = np.identity(Coln.shape[0])
+    CoFT = np.matmul(Coln,F.T)
+    FCoFTpCfinv = np.linalg.inv(FCoFT+Cf)
+    C = I-np.matmul(np.matmul(CoFT,FCoFTpCfinv),F)
+    D = I-np.matmul(np.matmul(np.matmul(F.T,FCoFTpCfinv),F),Coln)
+    Ckp1 = np.matmul(np.matmul(C,Coln),D)
+    
+    #expected value and variance of tracers AND params
+    EyP, VyP = xkp1, np.diag(Ckp1)
+    
+    #recover dimensional values of median, mean, mode, standard deviation
+    xhmed = np.exp(EyP)
+    xhmod = np.exp(EyP-VyP)
+    xhmean = np.exp(EyP+VyP/2)
+    xhe = np.sqrt(np.exp(2*EyP+VyP)*(np.exp(VyP)-1))
+    
+    #calculate covariances of unlogged state variables
+    CVM = np.zeros((N,N))
+    for i, row in enumerate(CVM):
+        for j, unu in enumerate(row):
+            mi, mj = EyP[i], EyP[j] #mu's (expected vals)
+            vi, vj = VyP[i], VyP[j] #sig2's (variances)
+            CVM[i,j] = np.exp(mi+mj)*np.exp((vi+vj)/2)*(np.exp(Ckp1[i,j])-1)
+    
+    #check that sqrt of diagonals of CVM are equal to xhe
+    CVM_xhe_check = np.sqrt(np.diag(CVM)) - xhe
+             
+    #get estimates, errors, and residuals for tracers
+    for t in tracers:
+        td[t]['gammas'][g]['xh'] = vsli(xhmean,td[t]['si'])
+        td[t]['gammas'][g]['xhe'] = vsli(xhe,td[t]['si'])
+        
+    #get model residuals from posterior estimates (from means)
+    td['Ps']['gammas'][g]['n'], td['Ps']['gammas'][g]['nm'], \
+        td['Ps']['gammas'][g]['nma'], td['Pl']['gammas'][g]['n'], \
+            td['Pl']['gammas'][g]['nm'], td['Pl']['gammas'][g]['nma'] \
+                = modresi(xhmean) 
+    
+    #propagating errors on Pt
+    Pt_xh, Pt_xhe = np.zeros(n), np.zeros(n)
+    for i in np.arange(0,n):
+        pswi, plwi = "_".join(['Ps',str(i)]), "_".join(['Pl',str(i)])
+        ps, pl = sym.symbols(f'{pswi} {plwi}')
+        Pt_xh[i], Pt_xhe = symfunceval(ps+pl)
+    
+    #PDF and CDF calculations
+    xg = np.linspace(-2,2,100)
+    yg_pdf = sstats.norm.pdf(xg,0,1)
+    yg_cdf = sstats.norm.cdf(xg,0,1)
+    
+    #comparison of estimates to priors (means don't include params, histogram does)
+    xdiff = xhmean-xo
+    x_osd = np.sqrt(np.diag(Co))
+    pdfx = xdiff/x_osd
+    pdfx_Ps_m = np.mean(vsli(pdfx,td['Ps']['si']))
+    pdfx_Pl_m = np.mean(vsli(pdfx,td['Pl']['si']))
+    pdfx_Ps_ma = np.mean(np.absolute(vsli(pdfx,td['Ps']['si'])))
+    pdfx_Pl_ma = np.mean(np.absolute(vsli(pdfx,td['Pl']['si'])))
+    
+    if g:
+        #comparison of model residuals (posteriors)
+        nP = np.concatenate((td['Ps']['gammas'][g]['n'],td['Pl']['gammas'][g]['n']))
+        n_sd = np.sqrt(np.diag(Cf_noPt))
+        pdfn = nP/n_sd
+        pdfn_Ps_m = np.mean(vsli(pdfn,td['Ps']['si']))
+        pdfn_Pl_m = np.mean(vsli(pdfn,td['Pl']['si']))
+        pdfn_Ps_ma = np.mean(np.absolute(vsli(pdfn,td['Ps']['si'])))
+        pdfn_Pl_ma = np.mean(np.absolute(vsli(pdfn,td['Pl']['si'])))
+        
+        #PDFs
+        fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
+        fig.subplots_adjust(wspace=0.5)
+        ax1.set_ylabel('P',size=16)
+        ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16)
+        ax1.hist(pdfx,density=True,bins=20,color=blue)
+        ax2.hist(pdfn,density=True,bins=20,color=blue)
+        ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
+        
+        #plot gaussians, show legend
+        ax1.plot(xg,yg_pdf,c=red), ax2.plot(xg,yg_pdf,c=red)
+        plt.savefig(f'invP_gs_pdfs_gam{str(g).replace(".","")}.png')
+        plt.close()
+        
+        #CDFs
+        fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
+        fig.subplots_adjust(wspace=0.5)
+        ax1.set_ylabel('P',size=16)
+        ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16), ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
+        ax1.plot(xg,yg_cdf,c=red), ax2.plot(xg,yg_cdf,c=red) #plot gaussians
+        cdf_dfx, cdf_dfn = pd.DataFrame(), pd.DataFrame()
+        cdf_dfx['var_name'], cdf_dfn['var_name'] = vidxSV.copy(), vidxP.copy()
+        cdf_dfx['val'], cdf_dfn['val'] = pdfx.copy(), pdfn.copy() #add values that correspond to those
+        cdf_dfx['o_idx'], cdf_dfn['o_idx'] = cdf_dfx.index, cdf_dfn.index #copy original indices
+        cdf_dfxs, cdf_dfns = cdf_dfx.sort_values('val').copy(), cdf_dfn.sort_values('val').copy()
+        cdf_dfxs.reset_index(inplace=True), cdf_dfns.reset_index(inplace=True) #reset indices
+        x1,x2 = cdf_dfxs.val, cdf_dfns.val 
+        y1,y2 = np.arange(1,len(x1)+1)/len(x1), np.arange(1,len(x2)+1)/len(x2)
+        #plot estimate residuals, params as orange circles
+        for i, v in enumerate(x1):
+            if 'P' not in cdf_dfxs.var_name[i]:
+                marsize = 8
+                ec = orange
+                mar = 'o'
+                fc = 'none'
+            else:
+                marsize = 4
+                ec = blue
+                mar = '.'
+                fc = ec
+            ax1.scatter(x1[i],y1[i],s=marsize,marker=mar,facecolors=fc,edgecolors=ec)
+        #plot posteriors model residuals
+        ax2.scatter(x2,y2,s=ms,marker='.',facecolors=blue,edgecolors=blue)
+        plt.savefig(f'invP_gs_cdfs_gam{str(g).replace(".","")}.png')
+        plt.close()
     else:
-        marsize = 4
-        ec = blue
-        mar = '.'
-        fc = ec
-    ax1.scatter(x1[i],y1[i],s=marsize,marker=mar,facecolors=fc,edgecolors=ec)
-#plot posteriors model residuals
-ax2.scatter(x2,y2,s=ms,marker='.',facecolors=blue,edgecolors=blue)
-plt.savefig(f'invP_cdfs.png')
-plt.close()
+        #PDFs
+        fig, ax1 = plt.subplots(1,1,tight_layout=True)
+        ax1.set_ylabel('P',size=16)
+        ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16)
+        ax1.hist(pdfx,density=True,bins=20,color=blue)
         
-
-#model residual depth profiles (posteriors)
-fig, [ax1,ax2] = plt.subplots(1,2)
-fig.subplots_adjust(wspace=0.5)  
-ax1.invert_yaxis(), ax2.invert_yaxis()
-ax1.set_xlabel('$n^{k+1}_{P_{S}}$ (mmol/m3/d)'), ax2.set_xlabel('$n^{k+1}_{P_{L}}$ (mmol/m3/d)')
-ax1.set_ylabel('Depth (m)')
-ax1.set_ylim(top=0,bottom=zmax+dz), ax2.set_ylim(top=0,bottom=zmax+dz)
-ax1.scatter(td['Ps']['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
-ax2.scatter(td['Pl']['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
-ax1.legend(), ax2.legend()
-plt.savefig(f'invP_residprofs.png')
-plt.close()
-
-#plot evolution of convergence
-ms=3
-fig, ax = plt.subplots(1)
-ax.plot(np.arange(0, len(conv_ev)), conv_ev, marker='o',ms=ms)
-ax.set_yscale('log')
-ax.set_xlabel('k')
-ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',size=12)
-plt.savefig(f'invP_conv.png')
-plt.close()
-
-#plot evolution of cost function
-fig, ax = plt.subplots(1)
-ax.plot(np.arange(0, len(cost_ev)),cost_ev,marker='o',ms=ms)
-ax.set_xlabel('k')
-ax.set_ylabel('j')
-ax.set_yscale('log')
-plt.savefig(f'invP_cost.png')
-plt.close()
-
-#comparison plots
-fig, [ax1,ax2,ax3] = plt.subplots(1,3) #P figures
-fig.subplots_adjust(wspace=0.5)  
-ax1.invert_yaxis(), ax2.invert_yaxis(), ax3.invert_yaxis()
-ax1.set_xlabel('$P_{S}$ ($mmol/m^3$)'), ax2.set_xlabel('$P_{L}$ ($mmol/m^3$)'), ax3.set_xlabel('$P_{T}$ ($mmol/m^3$)')
-ax1.set_ylabel('Depth (m)')
-ax1.set_ylim(top=0,bottom=zmax+2*dz), ax2.set_ylim(top=0,bottom=zmax+2*dz), ax3.set_ylim(top=0,bottom=zmax+2*dz)
-ax1.errorbar(td['Ps']['xh'], zml, fmt='o', xerr=td['Ps']['xhe'], ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='mean', fillstyle='none')
-ax1.errorbar(Ps_mean, zs, fmt='^', xerr=Ps_se, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
-ax1.errorbar(td['Ps']['x'], zml, fmt='o', xerr=td['Ps']['xerr'], ecolor=blue, elinewidth=elw, c=blue, ms=ms/2, capsize=cs, lw=lw, label='OI')  
-ax1.legend()
-ax2.errorbar(td['Pl']['xh'], zml, fmt='o', xerr=td['Pl']['xhe'], ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='mean', fillstyle='none')
-ax2.errorbar(Pl_mean, zs, fmt='^', xerr=Pl_se, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
-ax2.errorbar(td['Pl']['x'], zml, fmt='o', xerr=td['Pl']['xerr'], ecolor=blue, elinewidth=elw, c=blue, ms=ms/2, capsize=cs, lw=lw, label='OI')  
-ax2.legend()
-ax3.errorbar(Pt_xh, zml, fmt='o', xerr=Pt_xhe, ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='Inv', fillstyle='none')
-ax3.errorbar(cppt.Pt_hat, zml+1, fmt='o', xerr=np.ones(n)*np.sqrt(model.mse_resid), ecolor=green, elinewidth=elw, c=green, ms=ms, capsize=cs, lw=lw, label='Data', fillstyle='none')
-ax3.legend()
-ax1.axhline(bnd,c='k',ls='--',lw=lw/2)
-ax2.axhline(bnd,c='k',ls='--',lw=lw/2)
-ax3.axhline(bnd,c='k',ls='--',lw=lw/2)
-plt.savefig(f'invP_Pprofs.png')
-plt.close()
-
-#extract posterior param estimates and errors
-params_ests = xhmean[-nparams:]
-params_errs = xhe[-nparams:]
-for i,stri in enumerate(p_toidx):
-    pest, perr = params_ests[i], params_errs[i]
-    if '_' in stri: #depth-varying paramters
-        p,l = stri.split('_')
-        pdi[p]['xh'][l], pdi[p]['xhe'][l] = pest, perr
-    else: pdi[stri]['xh'], pdi[stri]['xhe'] = pest, perr
-
-#make a plot of parameter priors and posteriors
-elwp, msp, csp, ec = 1, 9, 4, 'k'
-fig, ([ax1,ax2,ax3,ax4],[ax5,ax6,ax7,ax8]) = plt.subplots(2,4)
-fig.subplots_adjust(wspace=0.8, hspace=0.4)
-axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax8]
-for i, p in enumerate(pdi.keys()):
-    ax = axs[i]
-    ax.set_title(pdi[p]['tset'])
-    if pdi[p]['dv']: #if param is depth-varying
-        ax.errorbar(1, pdi[p]['o'], yerr=pdi[p]['oe'], fmt='o', ms=msp, c=blue, elinewidth=elwp, ecolor=ec, capsize=csp) #priors with errors
-        ax.errorbar(2, pdi[p]['xh']['A'], yerr=pdi[p]['xhe']['A'], fmt='o', c=teal, ms=msp, elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
-        ax.errorbar(3, pdi[p]['xh']['B'], yerr=pdi[p]['xhe']['B'], fmt='o', c=navy, ms=msp, elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
-    else: #if param is depth-constant
-        ax.errorbar(1, pdi[p]['o'], yerr=pdi[p]['oe'],fmt='o',ms=msp,c=blue,elinewidth=elwp,ecolor=ec,capsize=csp) #priors with errors
-        ax.errorbar(3, pdi[p]['xh'], yerr=pdi[p]['xhe'],fmt='o',c=cyan,ms=msp,elinewidth=elwp,ecolor=ec,capsize=csp) #posteriors with errors        
-    ax.tick_params(bottom=False, labelbottom=False)
-    ax.set_xticks(np.arange(0,5))
-plt.savefig(f'invP_params.png')
-plt.close()
-  
-#calculate fluxes and errors
-flxs = ['ws_Ps','wl_Pl','ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
-flxnames = {'ws_Ps':'sinkS', 'wl_Pl':'sinkL', 'ws_Psdz':'sinkS_div', 'wl_Pldz':'sinkL_div',
-            'Bm1s_Ps':'SRemin', 'Bm1l_Pl':'LRemin', 'B2p_Ps2':'Agg', 'Bm2_Pl':'Disagg', 'Psdot':'Prod'}
-flxd = {f:{} for f in flxs}
-for f in flxd.keys():
-    flxd[f]['name'] = flxnames[f]
-    #get what parameter, tracer, and order each flux contains
-    if '_' in f: #if not Psdot
-        p,twordr = f.split('_')
-        if any(map(str.isdigit, twordr)): flxd[f]['o'] = int(twordr[-1]) #if tracer is not first order      
-        else: flxd[f]['o'] = 1
-        t = twordr[:2] #requres that tracer be designated by first 2 characters of twordr
-        ordr = flxd[f]['o']
-    fxh, fxhe = np.zeros(n), np.zeros(n) #calculate estimates and errors 
-    if 'dz' in f: #if sinking flux divergence term, more complicated
-        for i in np.arange(0,n):
-            dzi = dz if i != 0 else h
-            l = lmatch(i)
-            pwi = "_".join([p,l])
-            twi = "_".join([t,str(i)])
-            w, Pi = sym.symbols(f'{pwi} {twi}')
-            if i == 0: #mixed layer    
-                y = w*Pi/h
-                fxh[i], fxhe[i] = symfunceval(y)
-            elif (i == 1 or i == 2): #first two points below ML
-                twip1, twim1 = "_".join([t,str(i+1)]), "_".join([t,str(i-1)])
-                Pip1, Pim1 = sym.symbols(f'{twip1} {twim1}')
-                y = w*(Pip1-Pim1)/(2*dz) #calculate flux estimate
-                fxh[i], fxhe[i]  = symfunceval(y)
-            else: #all other depths
-                twim1, twim2 = "_".join([t,str(i-1)]), "_".join([t,str(i-2)])
-                Pim1, Pim2 = sym.symbols(f'{twim1} {twim2}')
-                y = w*(3*Pi-4*Pim1+Pim2)/(2*dz) #calculate flux estimate
-                fxh[i], fxhe[i]  = symfunceval(y)
-    else: #all other terms that are not sinking flux divergence
-        for i in np.arange(0,n):
-            dzi = dz if i != 0 else h
-            if f == 'Psdot': #special case
-                gh, lp = sym.symbols('Gh Lp')
-                y = gh*sym.exp(-(zml[i]-h)/lp)
+        #plot gaussians, show legend
+        ax1.plot(xg,yg_pdf,c=red)
+        plt.savefig(f'invP_gs_pdfs_gam{str(g).replace(".","")}.png')
+        plt.close()
+        
+        #CDFs
+        fig, ax1 = plt.subplots(1,1,tight_layout=True)
+        ax1.set_ylabel('P',size=16)
+        ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16)
+        ax1.plot(xg,yg_cdf,c=red) #plot gaussians
+        cdf_dfx = pd.DataFrame()
+        cdf_dfx['var_name'] = vidxSV.copy()
+        cdf_dfx['val'] = pdfx.copy() #add values that correspond to those
+        cdf_dfx['o_idx'] = cdf_dfx.index #copy original indices
+        cdf_dfxs = cdf_dfx.sort_values('val').copy()
+        cdf_dfxs.reset_index(inplace=True) #reset indices
+        x1 = cdf_dfxs.val 
+        y1 = np.arange(1,len(x1)+1)/len(x1)
+        #plot estimate residuals, params as orange circles
+        for i, v in enumerate(x1):
+            if 'P' not in cdf_dfxs.var_name[i]:
+                marsize = 8
+                ec = orange
+                mar = 'o'
+                fc = 'none'
             else:
-                l = lmatch(i)                
-                pwi = "_".join([p,l])
-                twi = "_".join([t,str(i)]) 
-                pa, tr = sym.symbols(f'{pwi} {twi}')
-                y = pa*tr**ordr 
-            fxh[i], fxhe[i] = symfunceval(y)
-    flxd[f]['xh'], flxd[f]['xhe'] = fxh, fxhe 
-
-#plot fluxes
-flxpairs = [('ws_Ps','wl_Pl'),('ws_Psdz','wl_Pldz'),('Bm1s_Ps','B2p_Ps2'),('Bm1l_Pl','Bm2_Pl'),('Psdot',)]
-for i, pr in enumerate(flxpairs):
-    fig, ax = plt.subplots(1,1) #P figures
-    ax.invert_yaxis()
-    if ('w' in pr[0]) and ('dz' not in pr[0]):
-        ax.set_xlabel('Flux $[mmol/(m^2 \cdot d)]$')
-    else: ax.set_xlabel('Vol. Flux $[mmol/(m^3 \cdot d)]$')
-    ax.set_ylabel('Depth (m)')
-    ax.set_ylim(top=0,bottom=zmax+dz)
-    c1, c2, c3, c4 = navy, teal, red, purple
-    ax.errorbar(flxd[pr[0]]['xh'], zml, fmt='o', xerr=flxd[pr[0]]['xhe'], ecolor=c1, elinewidth=elw, c=c1, ms=ms, capsize=cs, lw=lw, label=flxnames[pr[0]], fillstyle='none')
-    ax.axhline(bnd,c='k',ls='--',lw=lw/2)
-    if len(pr) > 1: #if it's actually a pair
-        ax.errorbar(flxd[pr[1]]['xh'], zml, fmt='o', xerr=flxd[pr[1]]['xhe'], ecolor=c2, elinewidth=elw, c=c2, ms=ms, capsize=cs, lw=lw, label=flxnames[pr[1]], fillstyle='none')
-    ax.legend()
-    plt.savefig(f'invP_flux{i+1}.png')
-    plt.close()
-        
-#fluxes that we want to integrate
-iflxs = ['ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
-
-depthranges = ((h,95),(95,500)) #For the these depth rangers,
-iflxcalc(iflxs,depthranges) #calculate integrated fluxes and timescales
-inventory(depthranges) #calculate tracer inventory and integrated residuals
-
-#Print integrated fluxes and residuals for each depth range
-for dr in depthranges:
-    rstr = "_".join([str(dr[0]),str(dr[1])])
-    print(f'----Depth range: {dr}----')
-    for f in iflxs:
-        print(f"{f}: {flxd[f][rstr]['iflx'][0]:.3f} ± {flxd[f][rstr]['iflx'][1]:.3f}")
-    print(f'Ps Residuals: {td["Ps"]["ires"][rstr]:.3f} \nPl Residuals: {td["Pl"]["ires"][rstr]:.3f}')
+                marsize = 4
+                ec = blue
+                mar = '.'
+                fc = ec
+            ax1.scatter(x1[i],y1[i],s=marsize,marker=mar,facecolors=fc,edgecolors=ec)
+        #plot posteriors model residuals
+        plt.savefig(f'invP_gs_cdfs_gam{str(g).replace(".","")}.png')
+        plt.close() 
     
-print(f'--- {time.time() - start_time} seconds ---')
+    #model residual depth profiles (posteriors)
+    fig, [ax1,ax2] = plt.subplots(1,2)
+    fig.subplots_adjust(wspace=0.5)  
+    ax1.invert_yaxis(), ax2.invert_yaxis()
+    ax1.set_xlabel('$n^{k+1}_{P_{S}}$ (mmol/m3/d)'), ax2.set_xlabel('$n^{k+1}_{P_{L}}$ (mmol/m3/d)')
+    ax1.set_ylabel('Depth (m)')
+    ax1.set_ylim(top=0,bottom=zmax+dz), ax2.set_ylim(top=0,bottom=zmax+dz)
+    ax1.scatter(td['Ps']['gammas'][g]['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
+    ax2.scatter(td['Pl']['gammas'][g]['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
+    ax1.legend(), ax2.legend()
+    plt.savefig(f'invP_gs_residprofs_gam{str(g).replace(".","")}.png')
+    plt.close()
+    
+    #plot evolution of convergence
+    ms=3
+    fig, ax = plt.subplots(1)
+    ax.plot(np.arange(0, len(conv_ev)), conv_ev, marker='o',ms=ms)
+    ax.set_yscale('log')
+    ax.set_xlabel('k')
+    ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',size=12)
+    plt.savefig(f'invP_gs_conv_gam{str(g).replace(".","")}.png')
+    plt.close()
+    
+    #plot evolution of cost function
+    fig, ax = plt.subplots(1)
+    ax.plot(np.arange(0, len(cost_ev)),cost_ev,marker='o',ms=ms)
+    ax.set_xlabel('k')
+    ax.set_ylabel('j')
+    ax.set_yscale('log')
+    plt.savefig(f'invP_gs_cost_gam{str(g).replace(".","")}.png')
+    plt.close()
+    
+    #comparison plots
+    fig, [ax1,ax2,ax3] = plt.subplots(1,3) #P figures
+    fig.subplots_adjust(wspace=0.5)  
+    ax1.invert_yaxis(), ax2.invert_yaxis(), ax3.invert_yaxis()
+    ax1.set_xlabel('$P_{S}$ ($mmol/m^3$)'), ax2.set_xlabel('$P_{L}$ ($mmol/m^3$)'), ax3.set_xlabel('$P_{T}$ ($mmol/m^3$)')
+    ax1.set_ylabel('Depth (m)')
+    ax1.set_ylim(top=0,bottom=zmax+2*dz), ax2.set_ylim(top=0,bottom=zmax+2*dz), ax3.set_ylim(top=0,bottom=zmax+2*dz)
+    ax1.errorbar(td['Ps']['gammas'][g]['xh'], zml, fmt='o', xerr=td['Ps']['gammas'][g]['xhe'], ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='mean', fillstyle='none')
+    ax1.errorbar(Ps_mean, zs, fmt='^', xerr=Ps_se, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
+    ax1.errorbar(td['Ps']['x'], zml, fmt='o', xerr=td['Ps']['xerr'], ecolor=blue, elinewidth=elw, c=blue, ms=ms/2, capsize=cs, lw=lw, label='OI')  
+    ax1.legend()
+    ax2.errorbar(td['Pl']['gammas'][g]['xh'], zml, fmt='o', xerr=td['Pl']['gammas'][g]['xhe'], ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='mean', fillstyle='none')
+    ax2.errorbar(Pl_mean, zs, fmt='^', xerr=Pl_se, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
+    ax2.errorbar(td['Pl']['x'], zml, fmt='o', xerr=td['Pl']['xerr'], ecolor=blue, elinewidth=elw, c=blue, ms=ms/2, capsize=cs, lw=lw, label='OI')  
+    ax2.legend()
+    ax3.errorbar(Pt_xh, zml, fmt='o', xerr=Pt_xhe, ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='Inv', fillstyle='none')
+    ax3.errorbar(cppt.Pt_hat, zml+1, fmt='o', xerr=np.ones(n)*np.sqrt(model.mse_resid), ecolor=green, elinewidth=elw, c=green, ms=ms, capsize=cs, lw=lw, label='Data', fillstyle='none')
+    ax3.legend()
+    ax1.axhline(bnd,c='k',ls='--',lw=lw/2)
+    ax2.axhline(bnd,c='k',ls='--',lw=lw/2)
+    ax3.axhline(bnd,c='k',ls='--',lw=lw/2)
+    plt.savefig(f'invP_gs_Pprofs_gam{str(g).replace(".","")}.png')
+    plt.close()
+    
+    #extract posterior param estimates and errors
+    params_ests = xhmean[-nparams:]
+    params_errs = xhe[-nparams:]
+    for i,stri in enumerate(p_toidx):
+        pest, perr = params_ests[i], params_errs[i]
+        if '_' in stri: #depth-varying paramters
+            p,l = stri.split('_')
+            pdi[p]['gammas'][g]['xh'][l], pdi[p]['gammas'][g]['xhe'][l] = pest, perr
+        else: pdi[stri]['gammas'][g]['xh'], pdi[stri]['gammas'][g]['xhe'] = pest, perr
+    
+    #make a plot of parameter priors and posteriors
+    elwp, msp, csp, ec = 1, 9, 4, 'k'
+    fig, ([ax1,ax2,ax3,ax4],[ax5,ax6,ax7,ax8]) = plt.subplots(2,4)
+    fig.subplots_adjust(wspace=0.8, hspace=0.4)
+    axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax8]
+    for i, p in enumerate(pdi.keys()):
+        ax = axs[i]
+        ax.set_title(pdi[p]['tset'])
+        if pdi[p]['dv']: #if param is depth-varying
+            ax.errorbar(1, pdi[p]['o'], yerr=pdi[p]['oe'], fmt='o', ms=msp, c=blue, elinewidth=elwp, ecolor=ec, capsize=csp) #priors with errors
+            ax.errorbar(2, pdi[p]['gammas'][g]['xh']['A'], yerr=pdi[p]['gammas'][g]['xhe']['A'], fmt='o', c=teal, ms=msp, elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
+            ax.errorbar(3, pdi[p]['gammas'][g]['xh']['B'], yerr=pdi[p]['gammas'][g]['xhe']['B'], fmt='o', c=navy, ms=msp, elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
+        else: #if param is depth-constant
+            ax.errorbar(1, pdi[p]['o'], yerr=pdi[p]['oe'],fmt='o',ms=msp,c=blue,elinewidth=elwp,ecolor=ec,capsize=csp) #priors with errors
+            ax.errorbar(3, pdi[p]['gammas'][g]['xh'], yerr=pdi[p]['gammas'][g]['xhe'],fmt='o',c=cyan,ms=msp,elinewidth=elwp,ecolor=ec,capsize=csp) #posteriors with errors        
+        ax.tick_params(bottom=False, labelbottom=False)
+        ax.set_xticks(np.arange(0,5))
+    plt.savefig(f'invP_gs_params_gam{str(g).replace(".","")}.png')
+    plt.close()
+      
+    #calculate fluxes and errors
+    for f in flxd.keys():
+        #get what parameter, tracer, and order each flux contains
+        if '_' in f: #if not Psdot
+            p,twordr = f.split('_')
+            t = twordr[:2] #requres that tracer be designated by first 2 characters of twordr
+            ordr = flxd[f]['order']
+        fxh, fxhe = np.zeros(n), np.zeros(n) #calculate estimates and errors 
+        if 'dz' in f: #if sinking flux divergence term, more complicated
+            for i in np.arange(0,n):
+                dzi = dz if i != 0 else h
+                l = lmatch(i)
+                pwi = "_".join([p,l])
+                twi = "_".join([t,str(i)])
+                w, Pi = sym.symbols(f'{pwi} {twi}')
+                if i == 0: #mixed layer    
+                    y = w*Pi/h
+                    fxh[i], fxhe[i] = symfunceval(y)
+                elif (i == 1 or i == 2): #first two points below ML
+                    twip1, twim1 = "_".join([t,str(i+1)]), "_".join([t,str(i-1)])
+                    Pip1, Pim1 = sym.symbols(f'{twip1} {twim1}')
+                    y = w*(Pip1-Pim1)/(2*dz) #calculate flux estimate
+                    fxh[i], fxhe[i]  = symfunceval(y)
+                else: #all other depths
+                    twim1, twim2 = "_".join([t,str(i-1)]), "_".join([t,str(i-2)])
+                    Pim1, Pim2 = sym.symbols(f'{twim1} {twim2}')
+                    y = w*(3*Pi-4*Pim1+Pim2)/(2*dz) #calculate flux estimate
+                    fxh[i], fxhe[i]  = symfunceval(y)
+        else: #all other terms that are not sinking flux divergence
+            for i in np.arange(0,n):
+                dzi = dz if i != 0 else h
+                if f == 'Psdot': #special case
+                    gh, lp = sym.symbols('Gh Lp')
+                    y = gh*sym.exp(-(zml[i]-h)/lp)
+                else:
+                    l = lmatch(i)                
+                    pwi = "_".join([p,l])
+                    twi = "_".join([t,str(i)]) 
+                    pa, tr = sym.symbols(f'{pwi} {twi}')
+                    y = pa*tr**ordr 
+                fxh[i], fxhe[i] = symfunceval(y)
+        flxd[f]['gammas'][g]['xh'], flxd[f]['gammas'][g]['xhe'] = fxh, fxhe 
+    
+    #plot fluxes
+    for i, pr in enumerate(flxpairs):
+        fig, ax = plt.subplots(1,1) #P figures
+        ax.invert_yaxis()
+        if ('w' in pr[0]) and ('dz' not in pr[0]):
+            ax.set_xlabel('Flux $[mmol/(m^2 \cdot d)]$')
+        else: ax.set_xlabel('Vol. Flux $[mmol/(m^3 \cdot d)]$')
+        ax.set_ylabel('Depth (m)')
+        ax.set_ylim(top=0,bottom=zmax+dz)
+        c1, c2, c3, c4 = navy, teal, red, purple
+        ax.errorbar(flxd[pr[0]]['gammas'][g]['xh'], zml, fmt='o', xerr=flxd[pr[0]]['gammas'][g]['xhe'], ecolor=c1, elinewidth=elw, c=c1, ms=ms, capsize=cs, lw=lw, label=flxnames[pr[0]], fillstyle='none')
+        ax.axhline(bnd,c='k',ls='--',lw=lw/2)
+        if len(pr) > 1: #if it's actually a pair
+            ax.errorbar(flxd[pr[1]]['gammas'][g]['xh'], zml, fmt='o', xerr=flxd[pr[1]]['gammas'][g]['xhe'], ecolor=c2, elinewidth=elw, c=c2, ms=ms, capsize=cs, lw=lw, label=flxnames[pr[1]], fillstyle='none')
+        ax.legend()
+        plt.savefig(f'invP_gs_flux{i+1}_gam{str(g).replace(".","")}.png')
+        plt.close()
+    
+    iflxcalc(iflxs,depthranges) #calculate integrated fluxes and timescales
+    inventory(depthranges) #calculate tracer inventory and integrated residuals
+
+    #Print integrated fluxes and residuals for each depth range
+    with open ('invP_gs_out.txt','a') as file:
+        print(f'---------- Gamma = {g} ----------', file=file)
+        for dr in depthranges:
+            rstr = "_".join([str(dr[0]),str(dr[1])])
+            print(f'--- Depth range: {dr} ---', file=file)
+            for f in iflxs:
+                print(f"{f}: {flxd[f]['gammas'][g]['iflx'][rstr][0]:.3f} ± {flxd[f]['gammas'][g]['iflx'][rstr][1]:.3f}", file=file)
+            print(f'Ps Residuals: {td["Ps"]["gammas"][g]["ires"][rstr]:.3f} \nPl Residuals: {td["Pl"]["gammas"][g]["ires"][rstr]:.3f}',file=file)
+        file.close()
+
+with open ('invP_gs_out.txt','a') as file:
+    print(f'--- {time.time() - start_time} seconds ---',file=file)
+    file.close()
+
+with open('invP_gs_savedvars.pkl', 'wb') as file:
+    pickle.dump((flxd, td, pdi),file)
+    file.close()
+
+#comparison of integrated fluxes and integrals
+bw = 0.15
+c1 = [red, green, blue, purple, cyan, orange]
+c2 = [red, green, blue, purple, cyan, orange, teal, navy]
+
+barsF = {i:{g:{x:{} for x in ['xh','xhe']} for g in gammas} for i in dr_str}
+barsR = {i:{g:{x:{} for x in ['xh','xhe']} for g in gammas} for i in dr_str}
+for iv in dr_str:
+    fig1, ax1 = plt.subplots(1,1)
+    fig2, ax2 = plt.subplots(1,1)
+    fig1.suptitle(iv), fig2.suptitle(iv)
+    for i, g in enumerate(gammas):
+        barsF[iv][g]['xh'] = [flxd[f]['gammas'][g]['iflx'][iv][0] for f in iflxs]
+        barsF[iv][g]['xhe'] = [flxd[f]['gammas'][g]['iflx'][iv][1] for f in iflxs]
+        barsR[iv][g]['xh'] = [td[t]['gammas'][g]['ires'][iv] for t in tracers]
+        if i == 0: 
+            r1 = np.arange(len(barsF[iv][g]['xh']))
+            r2 = np.arange(len(barsR[iv][g]['xh']))
+        ax1.bar(r1, barsF[iv][g]['xh'], width=bw, color=c1[i], edgecolor='k', yerr=barsF[iv][g]['xhe'], capsize=3, label=g)
+        ax2.bar(r2, barsR[iv][g]['xh'], width=bw, color=c1[i], edgecolor='k', label=g)
+        r1, r2 = [x + bw for x in r1], [x + bw for x in r2]
+    ax1.set_xticks(list(map(lambda n: n-bw*len(iflxs)/2,r1)))
+    ax1.set_xticklabels([flxd[f]['name'] for f in iflxs])
+    ax1.set_ylabel('Integrated Flux (mmol/m2/d)')
+    ax1.legend()
+    ax2.set_xticks(list(map(lambda n: n-bw*len(iflxs)/2,r2)))
+    ax2.set_xticklabels(tracers)
+    ax2.set_ylabel('Integrated Residuals (mmol/m2/d)')
+    ax2.legend()
+    for fig in (fig1,fig2):
+        plt.figure(fig.number)
+        suf = 'iflxs' if fig == fig1 else 'iresids'
+        plt.savefig(f'invP_gs_{suf}_{iv}.png')
+        plt.close(fig)
+
+#plots of relative precision of rate parameters as a function of gamma
+fig, ax = plt.subplots(1,1)
+for i,p in enumerate(params):
+    if pdi[p]['dv']:
+        for l in layers:
+            if l == 'A': m, ls = '^', '--'
+            else: m, ls = 'o', ':'
+            relativeprcsn = [pdi[p]['gammas'][g]['xh'][l]/pdi[p]['gammas'][g]['xhe'][l] for g in gammas]
+            ax.plot(gammas, relativeprcsn, m, c=c2[i], label=f'{p}_{l}', fillstyle='none', ls=ls)
+    else:
+        relativeprcsn = [pdi[p]['gammas'][g]['xh']/pdi[p]['gammas'][g]['xhe'] for g in gammas]
+        label = p
+        ax.plot(gammas, relativeprcsn, 'x', c=c2[i], label=p, ls='-.')
+ax.set_xticks(gammas)
+ax.legend(loc='lower center', bbox_to_anchor=(0.49, 0.95), ncol=6)
+plt.savefig(f'invP_gs_paramprecision.png')
+plt.close()
