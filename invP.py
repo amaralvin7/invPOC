@@ -57,7 +57,6 @@ Pl_sd = df.LSF_sd/mm
 Pl_se = df.LSF_se/mm
 
 gammas = [0, 0.01, 0.05, 0.1, 0.5, 1] #multiplier for weighting model errors
-gammas = [0.01]
 
 depthranges = ((h,95),(95,500)) #for integration
 dr_str = tuple(map(lambda d: '_'.join((str(d[0]),str(d[1]))),depthranges))
@@ -283,7 +282,7 @@ def lsqplotsf(model,x,y,z,tracer,logscale): #make a least squares fit and plot t
     ax.plot(xp, fit, '--', c = 'k', lw=lw)
     #ax.set_title(f' c0 = {c[0]:.2f}, c1 = {c[1]:.2f}, R2 = {r2:.2f}')
     ax.set_title(f'$R^2$ = {r2:.2f}')
-    plt.savefig(f'invP_gs_cpptfit_log{logscale}.png')
+    plt.savefig(f'invP_cpptfit_log{logscale}.png')
     plt.close()
     return ax
 
@@ -555,7 +554,7 @@ ax.set_title(f'int_A = {l_int_A:.2f}, L_A = {L_A:.2f}, R2_A = {l_r2_A:.2f} \n in
 ax.set_xlabel('lags (m)')
 ax.set_ylabel('ln($r_k$)')
 ax.legend()
-plt.savefig(f'invP_gs_autocor.png')
+plt.savefig(f'invP_autocor.png')
 plt.close()
 
 
@@ -766,16 +765,19 @@ for g in gammas:
     #check that sqrt of diagonals of CVM are equal to xhe
     CVM_xhe_check = np.sqrt(np.diag(CVM)) - xhe
              
-    #get estimates, errors, and residuals for tracers
+    #get errors and estimates for tracers
     for t in tracers:
         td[t]['gammas'][g]['xh'] = vsli(xhmean,td[t]['si'])
         td[t]['gammas'][g]['xhe'] = vsli(xhe,td[t]['si'])
         
-    #get model residuals from posterior estimates (from means)
+    #get model residuals from posterior estimates for tracers
     td['Ps']['gammas'][g]['n'], td['Ps']['gammas'][g]['nm'], \
         td['Ps']['gammas'][g]['nma'], td['Pl']['gammas'][g]['n'], \
             td['Pl']['gammas'][g]['nm'], td['Pl']['gammas'][g]['nma'] \
-                = modresi(xhmean) 
+                = modresi(xhmean)
+    
+    #get residuals for PT equations
+    Pt_resids = Pt_hat - (td['Ps']['gammas'][g]['xh']+td['Pl']['gammas'][g]['xh'])
     
     #propagating errors on Pt
     Pt_xh, Pt_xhe = np.zeros(n), np.zeros(n)
@@ -793,119 +795,84 @@ for g in gammas:
     xdiff = xhmean-xo
     x_osd = np.sqrt(np.diag(Co))
     pdfx = xdiff/x_osd
-    pdfx_Ps_m = np.mean(vsli(pdfx,td['Ps']['si']))
-    pdfx_Pl_m = np.mean(vsli(pdfx,td['Pl']['si']))
-    pdfx_Ps_ma = np.mean(np.absolute(vsli(pdfx,td['Ps']['si'])))
-    pdfx_Pl_ma = np.mean(np.absolute(vsli(pdfx,td['Pl']['si'])))
+    # pdfx_Ps_m = np.mean(vsli(pdfx,td['Ps']['si']))
+    # pdfx_Pl_m = np.mean(vsli(pdfx,td['Pl']['si']))
+    # pdfx_Ps_ma = np.mean(np.absolute(vsli(pdfx,td['Ps']['si'])))
+    # pdfx_Pl_ma = np.mean(np.absolute(vsli(pdfx,td['Pl']['si'])))
     
+    #comparison of model residuals (posteriors)
     if g:
-        #comparison of model residuals (posteriors)
-        nP = np.concatenate((td['Ps']['gammas'][g]['n'],td['Pl']['gammas'][g]['n']))
-        n_sd = np.sqrt(np.diag(Cf_noPt))
-        pdfn = nP/n_sd
-        pdfn_Ps_m = np.mean(vsli(pdfn,td['Ps']['si']))
-        pdfn_Pl_m = np.mean(vsli(pdfn,td['Pl']['si']))
-        pdfn_Ps_ma = np.mean(np.absolute(vsli(pdfn,td['Ps']['si'])))
-        pdfn_Pl_ma = np.mean(np.absolute(vsli(pdfn,td['Pl']['si'])))
-        
-        #PDFs
-        fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
-        fig.subplots_adjust(wspace=0.5)
-        ax1.set_ylabel('P',size=16)
-        ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16)
-        ax1.hist(pdfx,density=True,bins=20,color=blue)
-        ax2.hist(pdfn,density=True,bins=20,color=blue)
-        ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
-        
-        #plot gaussians, show legend
-        ax1.plot(xg,yg_pdf,c=red), ax2.plot(xg,yg_pdf,c=red)
-        plt.savefig(f'invP_gs_pdfs_gam{str(g).replace(".","")}.png')
-        plt.close()
-        
-        #CDFs
-        fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
-        fig.subplots_adjust(wspace=0.5)
-        ax1.set_ylabel('P',size=16)
-        ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16), ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
-        ax1.plot(xg,yg_cdf,c=red), ax2.plot(xg,yg_cdf,c=red) #plot gaussians
-        cdf_dfx, cdf_dfn = pd.DataFrame(), pd.DataFrame()
-        cdf_dfx['var_name'], cdf_dfn['var_name'] = vidxSV.copy(), vidxP.copy()
-        cdf_dfx['val'], cdf_dfn['val'] = pdfx.copy(), pdfn.copy() #add values that correspond to those
-        cdf_dfx['o_idx'], cdf_dfn['o_idx'] = cdf_dfx.index, cdf_dfn.index #copy original indices
-        cdf_dfxs, cdf_dfns = cdf_dfx.sort_values('val').copy(), cdf_dfn.sort_values('val').copy()
-        cdf_dfxs.reset_index(inplace=True), cdf_dfns.reset_index(inplace=True) #reset indices
-        x1,x2 = cdf_dfxs.val, cdf_dfns.val 
-        y1,y2 = np.arange(1,len(x1)+1)/len(x1), np.arange(1,len(x2)+1)/len(x2)
-        #plot estimate residuals, params as orange circles
-        for i, v in enumerate(x1):
-            if 'P' not in cdf_dfxs.var_name[i]:
-                marsize = 8
-                ec = orange
-                mar = 'o'
-                fc = 'none'
-            else:
-                marsize = 4
-                ec = blue
-                mar = '.'
-                fc = ec
-            ax1.scatter(x1[i],y1[i],s=marsize,marker=mar,facecolors=fc,edgecolors=ec)
-        #plot posteriors model residuals
-        ax2.scatter(x2,y2,s=ms,marker='.',facecolors=blue,edgecolors=blue)
-        plt.savefig(f'invP_gs_cdfs_gam{str(g).replace(".","")}.png')
-        plt.close()
+        nP = np.concatenate((td['Ps']['gammas'][g]['n'],td['Pl']['gammas'][g]['n'],Pt_resids))
+        n_sd = np.sqrt(np.diag(Cf))
     else:
-        #PDFs
-        fig, ax1 = plt.subplots(1,1,tight_layout=True)
-        ax1.set_ylabel('P',size=16)
-        ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16)
-        ax1.hist(pdfx,density=True,bins=20,color=blue)
-        
-        #plot gaussians, show legend
-        ax1.plot(xg,yg_pdf,c=red)
-        plt.savefig(f'invP_gs_pdfs_gam{str(g).replace(".","")}.png')
-        plt.close()
-        
-        #CDFs
-        fig, ax1 = plt.subplots(1,1,tight_layout=True)
-        ax1.set_ylabel('P',size=16)
-        ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16)
-        ax1.plot(xg,yg_cdf,c=red) #plot gaussians
-        cdf_dfx = pd.DataFrame()
-        cdf_dfx['var_name'] = vidxSV.copy()
-        cdf_dfx['val'] = pdfx.copy() #add values that correspond to those
-        cdf_dfx['o_idx'] = cdf_dfx.index #copy original indices
-        cdf_dfxs = cdf_dfx.sort_values('val').copy()
-        cdf_dfxs.reset_index(inplace=True) #reset indices
-        x1 = cdf_dfxs.val 
-        y1 = np.arange(1,len(x1)+1)/len(x1)
-        #plot estimate residuals, params as orange circles
-        for i, v in enumerate(x1):
-            if 'P' not in cdf_dfxs.var_name[i]:
-                marsize = 8
-                ec = orange
-                mar = 'o'
-                fc = 'none'
-            else:
-                marsize = 4
-                ec = blue
-                mar = '.'
-                fc = ec
-            ax1.scatter(x1[i],y1[i],s=marsize,marker=mar,facecolors=fc,edgecolors=ec)
-        #plot posteriors model residuals
-        plt.savefig(f'invP_gs_cdfs_gam{str(g).replace(".","")}.png')
-        plt.close() 
+        nP = Pt_resids
+        n_sd = np.sqrt(np.diag(Cf_addPt)) 
+    pdfn = nP/n_sd
+    # pdfn_Ps_m = np.mean(vsli(pdfn,td['Ps']['si']))
+    # pdfn_Pl_m = np.mean(vsli(pdfn,td['Pl']['si']))
+    # pdfn_Ps_ma = np.mean(np.absolute(vsli(pdfn,td['Ps']['si'])))
+    # pdfn_Pl_ma = np.mean(np.absolute(vsli(pdfn,td['Pl']['si'])))
+    
+    #PDFs
+    fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
+    fig.subplots_adjust(wspace=0.5)
+    ax1.set_ylabel('P',size=16)
+    ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16)
+    ax1.hist(pdfx,density=True,bins=20,color=blue)
+    ax2.hist(pdfn,density=True,bins=20,color=blue)
+    ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
+    
+    #plot gaussians, show legend
+    ax1.plot(xg,yg_pdf,c=red), ax2.plot(xg,yg_pdf,c=red)
+    plt.savefig(f'invP_pdfs_gam{str(g).replace(".","")}.png')
+    plt.close()
+    
+    #CDFs
+    fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
+    fig.subplots_adjust(wspace=0.5)
+    ax1.set_ylabel('P',size=16)
+    ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16), ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
+    ax1.plot(xg,yg_cdf,c=red), ax2.plot(xg,yg_cdf,c=red) #plot gaussians
+    cdf_dfx, cdf_dfn = pd.DataFrame(), pd.DataFrame()
+    cdf_dfx['var_name'] = vidxSV.copy()
+    cdf_dfn['var_name'] = vidx_allP.copy() if g else vidxPt.copy()
+    cdf_dfx['val'], cdf_dfn['val'] = pdfx.copy(), pdfn.copy() #add values that correspond to those
+    cdf_dfx['o_idx'], cdf_dfn['o_idx'] = cdf_dfx.index, cdf_dfn.index #copy original indices
+    cdf_dfxs, cdf_dfns = cdf_dfx.sort_values('val').copy(), cdf_dfn.sort_values('val').copy()
+    cdf_dfxs.reset_index(inplace=True), cdf_dfns.reset_index(inplace=True) #reset indices
+    x1,x2 = cdf_dfxs.val, cdf_dfns.val 
+    y1,y2 = np.arange(1,len(x1)+1)/len(x1), np.arange(1,len(x2)+1)/len(x2)
+    #Plot params in orange, Ps navy, Pl in green, Pt in teal
+    marsize = 16
+    mar = 'o'
+    fc = 'none'       
+    for i, v in enumerate(x1):
+        if 'Ps' in cdf_dfxs.var_name[i]: ec = blue
+        elif 'Pl' in cdf_dfxs.var_name[i]: ec = green
+        else: ec = orange #params
+        ax1.scatter(x1[i],y1[i],s=marsize,marker=mar,facecolors=fc,edgecolors=ec)
+    #plot posteriors model residuals
+    for i, v in enumerate(x2):
+        if 'Ps' in cdf_dfns.var_name[i]: ec = blue
+        elif 'Pl' in cdf_dfns.var_name[i]: ec = green
+        else: ec = teal #Pt
+        ax2.scatter(x2[i],y2[i],s=marsize,marker=mar,facecolors=fc,edgecolors=ec)
+    plt.savefig(f'invP_cdfs_gam{str(g).replace(".","")}.png')
+    plt.close() 
     
     #model residual depth profiles (posteriors)
-    fig, [ax1,ax2] = plt.subplots(1,2)
+    fig, [ax1,ax2,ax3] = plt.subplots(1,3)
     fig.subplots_adjust(wspace=0.5)  
-    ax1.invert_yaxis(), ax2.invert_yaxis()
-    ax1.set_xlabel('$n^{k+1}_{P_{S}}$ (mmol/m3/d)'), ax2.set_xlabel('$n^{k+1}_{P_{L}}$ (mmol/m3/d)')
+    ax1.invert_yaxis(), ax2.invert_yaxis(), ax3.invert_yaxis()
+    ax1.set_xlabel('$n^{k+1}_{P_{S}}$ (mmol/m3/d)')
+    ax2.set_xlabel('$n^{k+1}_{P_{L}}$ (mmol/m3/d)')
+    ax3.set_xlabel('$n^{k+1}_{P_{T}}$ (mmol/m3)')
     ax1.set_ylabel('Depth (m)')
-    ax1.set_ylim(top=0,bottom=zmax+dz), ax2.set_ylim(top=0,bottom=zmax+dz)
-    ax1.scatter(td['Ps']['gammas'][g]['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
-    ax2.scatter(td['Pl']['gammas'][g]['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
-    ax1.legend(), ax2.legend()
-    plt.savefig(f'invP_gs_residprofs_gam{str(g).replace(".","")}.png')
+    ax1.set_ylim(top=0,bottom=zmax+dz), ax2.set_ylim(top=0,bottom=zmax+dz), ax3.set_ylim(top=0,bottom=zmax+dz)
+    ax1.scatter(td['Ps']['gammas'][g]['n'], zml, marker='o', c=blue, s=ms/2)
+    ax2.scatter(td['Pl']['gammas'][g]['n'], zml, marker='o', c=blue, s=ms/2)
+    ax3.scatter(Pt_resids, zml, marker='o', c=blue, s=ms/2)
+    plt.savefig(f'invP_residprofs_gam{str(g).replace(".","")}.png')
     plt.close()
     
     #plot evolution of convergence
@@ -915,7 +882,7 @@ for g in gammas:
     ax.set_yscale('log')
     ax.set_xlabel('k')
     ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',size=12)
-    plt.savefig(f'invP_gs_conv_gam{str(g).replace(".","")}.png')
+    plt.savefig(f'invP_conv_gam{str(g).replace(".","")}.png')
     plt.close()
     
     #plot evolution of cost function
@@ -924,7 +891,7 @@ for g in gammas:
     ax.set_xlabel('k')
     ax.set_ylabel('j')
     ax.set_yscale('log')
-    plt.savefig(f'invP_gs_cost_gam{str(g).replace(".","")}.png')
+    plt.savefig(f'invP_cost_gam{str(g).replace(".","")}.png')
     plt.close()
     
     #comparison plots
@@ -948,7 +915,7 @@ for g in gammas:
     ax1.axhline(bnd,c='k',ls='--',lw=lw/2)
     ax2.axhline(bnd,c='k',ls='--',lw=lw/2)
     ax3.axhline(bnd,c='k',ls='--',lw=lw/2)
-    plt.savefig(f'invP_gs_Pprofs_gam{str(g).replace(".","")}.png')
+    plt.savefig(f'invP_Pprofs_gam{str(g).replace(".","")}.png')
     plt.close()
     
     #extract posterior param estimates and errors
@@ -978,7 +945,7 @@ for g in gammas:
             ax.errorbar(3, pdi[p]['gammas'][g]['xh'], yerr=pdi[p]['gammas'][g]['xhe'],fmt='o',c=cyan,ms=msp,elinewidth=elwp,ecolor=ec,capsize=csp) #posteriors with errors        
         ax.tick_params(bottom=False, labelbottom=False)
         ax.set_xticks(np.arange(0,5))
-    plt.savefig(f'invP_gs_params_gam{str(g).replace(".","")}.png')
+    plt.savefig(f'invP_params_gam{str(g).replace(".","")}.png')
     plt.close()
       
     #calculate fluxes and errors
@@ -1039,14 +1006,14 @@ for g in gammas:
         if len(pr) > 1: #if it's actually a pair
             ax.errorbar(flxd[pr[1]]['gammas'][g]['xh'], zml, fmt='o', xerr=flxd[pr[1]]['gammas'][g]['xhe'], ecolor=c2, elinewidth=elw, c=c2, ms=ms, capsize=cs, lw=lw, label=flxnames[pr[1]], fillstyle='none')
         ax.legend()
-        plt.savefig(f'invP_gs_flux{i+1}_gam{str(g).replace(".","")}.png')
+        plt.savefig(f'invP_flux{i+1}_gam{str(g).replace(".","")}.png')
         plt.close()
     
     iflxcalc(iflxs,depthranges) #calculate integrated fluxes and timescales
     inventory(depthranges) #calculate tracer inventory and integrated residuals
 
     #Print integrated fluxes and residuals for each depth range
-    with open ('invP_gs_out.txt','a') as file:
+    with open ('invP_out.txt','a') as file:
         print(f'---------- Gamma = {g} ----------', file=file)
         for dr in depthranges:
             rstr = "_".join([str(dr[0]),str(dr[1])])
@@ -1056,11 +1023,11 @@ for g in gammas:
             print(f'Ps Residuals: {td["Ps"]["gammas"][g]["ires"][rstr]:.3f} \nPl Residuals: {td["Pl"]["gammas"][g]["ires"][rstr]:.3f}',file=file)
         file.close()
 
-with open ('invP_gs_out.txt','a') as file:
+with open ('invP_out.txt','a') as file:
     print(f'--- {time.time() - start_time} seconds ---',file=file)
     file.close()
 
-with open('invP_gs_savedvars.pkl', 'wb') as file:
+with open('invP_savedvars.pkl', 'wb') as file:
     pickle.dump((flxd, td, pdi),file)
     file.close()
 
@@ -1096,7 +1063,7 @@ for iv in dr_str:
     for fig in (fig1,fig2):
         plt.figure(fig.number)
         suf = 'iflxs' if fig == fig1 else 'iresids'
-        plt.savefig(f'invP_gs_{suf}_{iv}.png')
+        plt.savefig(f'invP_{suf}_{iv}.png')
         plt.close(fig)
 
 #plots of relative error of rate parameters as a function of gamma
@@ -1116,5 +1083,5 @@ ax.set_xscale('symlog', linthreshx=0.01)
 ax.set_xticks(gammas)
 ax.get_xaxis().set_major_formatter(mpl.ticker.ScalarFormatter())
 ax.legend(loc='lower center', bbox_to_anchor=(0.49, 0.95), ncol=6)
-plt.savefig(f'invP_gs_paramrelerror.png')
+plt.savefig(f'invP_paramrelerror.png')
 plt.close()
