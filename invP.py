@@ -57,6 +57,7 @@ Pl_sd = df.LSF_sd/mm
 Pl_se = df.LSF_se/mm
 
 gammas = [0, 0.01, 0.05, 0.1, 0.5, 1] #multiplier for weighting model errors
+gammas = [0.01]
 
 depthranges = ((h,95),(95,500)) #for integration
 dr_str = tuple(map(lambda d: '_'.join((str(d[0]),str(d[1]))),depthranges))
@@ -1098,20 +1099,22 @@ for iv in dr_str:
         plt.savefig(f'invP_gs_{suf}_{iv}.png')
         plt.close(fig)
 
-#plots of relative precision of rate parameters as a function of gamma
+#plots of relative error of rate parameters as a function of gamma
 fig, ax = plt.subplots(1,1)
 for i,p in enumerate(params):
     if pdi[p]['dv']:
         for l in layers:
             if l == 'A': m, ls = '^', '--'
             else: m, ls = 'o', ':'
-            relativeprcsn = [pdi[p]['gammas'][g]['xh'][l]/pdi[p]['gammas'][g]['xhe'][l] for g in gammas]
-            ax.plot(gammas, relativeprcsn, m, c=c2[i], label=f'{p}_{l}', fillstyle='none', ls=ls)
+            relativeerror = [pdi[p]['gammas'][g]['xhe'][l]/pdi[p]['gammas'][g]['xh'][l] for g in gammas]
+            ax.plot(gammas, relativeerror, m, c=c2[i], label=f'{p}_{l}', fillstyle='none', ls=ls)
     else:
-        relativeprcsn = [pdi[p]['gammas'][g]['xh']/pdi[p]['gammas'][g]['xhe'] for g in gammas]
+        relativeprcsn = [pdi[p]['gammas'][g]['xhe']/pdi[p]['gammas'][g]['xh'] for g in gammas]
         label = p
         ax.plot(gammas, relativeprcsn, 'x', c=c2[i], label=p, ls='-.')
+ax.set_xscale('symlog', linthreshx=0.01)
 ax.set_xticks(gammas)
+ax.get_xaxis().set_major_formatter(mpl.ticker.ScalarFormatter())
 ax.legend(loc='lower center', bbox_to_anchor=(0.49, 0.95), ncol=6)
-plt.savefig(f'invP_gs_paramprecision.png')
+plt.savefig(f'invP_gs_paramrelerror.png')
 plt.close()
