@@ -58,7 +58,8 @@ Pl_se = df.LSF_se/mm
 
 gammas = [0, 0.01, 0.05, 0.1, 0.5, 1] #multiplier for weighting model errors
 
-depthranges = ((h,95),(95,500)) #for integration
+bnd = 112.5 #boundary that separates EZ from UMZ
+depthranges = ((h,bnd),(bnd,zmax)) #for integration
 dr_str = tuple(map(lambda d: '_'.join((str(d[0]),str(d[1]))),depthranges))
 
 #param info
@@ -93,9 +94,6 @@ p_oe = {'ws':2,
         'Bm1l':0.15, 
         'Gh':0.12, 
         'Lp':28*0.5}
-
-#have a single layer seperation
-bnd = 112.5
 
 #update entries in pdi
 for p in pdi.keys():
@@ -392,15 +390,26 @@ def iflxcalc(fluxes, deprngs):
             ordr = flxd[f]['order'] #get order from the flx dict
         for dr in deprngs:        
             do, dn = dr #unpack start and end depths
-            doi, dni = zml.tolist().index(do), zml.tolist().index(dn)
             rstr = "_".join([str(do),str(dn)])
+            #assign value of dz for first depth
+            if do == h:
+                dz_b = h+dz/2
+            elif do == bnd:
+                do += dz/2
+                dz_b = dz
+            else: dz_b = dz/2
+            #assign value of dz for last depth
+            if dn == bnd:
+                dn -= dz/2
+                dz_e = dz
+            else: dz_e = dz/2
+            doi, dni = zml.tolist().index(do), zml.tolist().index(dn)
             dis = np.arange(doi,dni+1) 
             iF, iI = 0, 0 #initialize variable to collect summation (integrals) of fluxes and inventory
             if 'dz' in f: #if sinking flux divergence term, more complicated
                 for i,di in enumerate(dis):
-                    #if we're on the first or last gridpoint for a layer and it's not the MLD
-                    if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
-                    elif di == 0: dzi = h+dz/2 #if we're on the MLD
+                    if i == 0: dzi = dz_b #first depth in range
+                    elif i == len(dis)-1: dzi = dz_e #last depth in range
                     else: dzi = dz #all other depths
                     l = lmatch(di)
                     pwi = "_".join([p,l])
@@ -423,9 +432,8 @@ def iflxcalc(fluxes, deprngs):
             elif f == 'Psdot': #if it's the production term
                 gh, lp = sym.symbols('Gh Lp')
                 for i,di in enumerate(dis):
-                    #if we're on the first or last gridpoint for a layer and it's not the MLD
-                    if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
-                    elif di == 0: dzi = h+dz/2 #if we're on the MLD
+                    if i == 0: dzi = dz_b #first depth in range
+                    elif i == len(dis)-1: dzi = dz_e #last depth in range
                     else: dzi = dz #all other depths
                     Pi = sym.symbols(f'Ps_{di}')
                     iF += gh*sym.exp(-(zml[di]-h)/lp)*dzi
@@ -433,9 +441,8 @@ def iflxcalc(fluxes, deprngs):
                     #print(i, di, zml[di], dzi)
             else: #all other terms that are not sinking or production
                 for i,di in enumerate(dis):
-                    #if we're on the first or last gridpoint for a layer and it's not the MLD
-                    if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
-                    elif di == 0: dzi = h+dz/2 #if we're on the MLD
+                    if i == 0: dzi = dz_b #first depth in range
+                    elif i == len(dis)-1: dzi = dz_e #last depth in range
                     else: dzi = dz #all other depths
                     l = lmatch(di)
                     pwi = "_".join([p,l])
@@ -453,14 +460,25 @@ def inventory(deprngs):
     for t in tracers:
         for dr in deprngs:        
             do, dn = dr #unpack start and end depths
-            doi, dni = zml.tolist().index(do), zml.tolist().index(dn)
             rstr = "_".join([str(do),str(dn)])
+            #assign value of dz for first depth
+            if do == h:
+                dz_b = h+dz/2
+            elif do == bnd:
+                do += dz/2
+                dz_b = dz
+            else: dz_b = dz/2
+            #assign value of dz for last depth
+            if dn == bnd:
+                dn -= dz/2
+                dz_e = dz
+            else: dz_e = dz/2
+            doi, dni = zml.tolist().index(do), zml.tolist().index(dn)
             dis = np.arange(doi,dni+1) 
             I, ir = 0, 0 #initialize variable to collect summation (integrals) of inventory
             for i,di in enumerate(dis):
-                #if we're on the first or last gridpoint for a layer and it's not the MLD
-                if (i == 0 or i == (len(dis)-1)) and di != 0: dzi = dz/2
-                elif di == 0: dzi = h+dz/2 #if we're on the MLD
+                if i == 0: dzi = dz_b #first depth in range
+                elif i == len(dis)-1: dzi = dz_e #last depth in range
                 else: dzi = dz #all other depths
                 twi = "_".join([t,str(di)]) #get the tracer at this depth index
                 tr = sym.symbols(f'{twi}') #make it a symbolic variable
@@ -1021,15 +1039,12 @@ for g in gammas:
             for f in iflxs:
                 print(f"{f}: {flxd[f]['gammas'][g]['iflx'][rstr][0]:.3f} ± {flxd[f]['gammas'][g]['iflx'][rstr][1]:.3f}", file=file)
             print(f'Ps Residuals: {td["Ps"]["gammas"][g]["ires"][rstr]:.3f} \nPl Residuals: {td["Pl"]["gammas"][g]["ires"][rstr]:.3f}',file=file)
-        file.close()
 
 with open ('invP_out.txt','a') as file:
     print(f'--- {time.time() - start_time} seconds ---',file=file)
-    file.close()
 
 with open('invP_savedvars.pkl', 'wb') as file:
     pickle.dump((flxd, td, pdi),file)
-    file.close()
 
 #comparison of integrated fluxes and integrals
 bw = 0.15
@@ -1063,7 +1078,8 @@ for iv in dr_str:
     for fig in (fig1,fig2):
         plt.figure(fig.number)
         suf = 'iflxs' if fig == fig1 else 'iresids'
-        plt.savefig(f'invP_{suf}_{iv}.png')
+        ivlabel = iv.replace('.','p')
+        plt.savefig(f'invP_{suf}_{ivlabel}.png')
         plt.close(fig)
 
 #plots of relative error of rate parameters as a function of gamma
