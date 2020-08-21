@@ -56,7 +56,7 @@ Pl_mean = df.LSF_mean/mm
 Pl_sd = df.LSF_sd/mm
 Pl_se = df.LSF_se/mm
 
-gammas = [0, 0.01, 0.05, 0.1, 0.5, 1] #multiplier for weighting model errors
+gammas = [0.01, 0.05, 0.1, 0.5, 1] #multiplier for weighting model errors
 
 bnd = 112.5 #boundary that separates EZ from UMZ
 depthranges = ((h,bnd),(bnd,zmax)) #for integration
@@ -572,7 +572,7 @@ ax.set_title(f'int_A = {l_int_A:.2f}, L_A = {L_A:.2f}, R2_A = {l_r2_A:.2f} \n in
 ax.set_xlabel('lags (m)')
 ax.set_ylabel('ln($r_k$)')
 ax.legend()
-plt.savefig(f'invP_autocor.png')
+plt.savefig('invP_autocor.png')
 plt.close()
 
 
@@ -681,7 +681,7 @@ Co_neg = (Co<0).any() #checks if any element of Co is negative
 ColnColninv = np.matmul(Coln,np.linalg.inv(Coln))
 Coln_check = np.sum(ColnColninv-np.identity(N))
 
-pdelt = 0.0001 #allowable percent change in each state element for convergence
+pdelt = 0.01 #allowable percent change in each state element for convergence
 maxiter = 50
 
 for g in gammas:
@@ -743,7 +743,7 @@ for g in gammas:
         B = np.matmul(np.matmul(Coln,F.T),np.linalg.inv(FCoFT+Cf))
         xkp1 = xoln + np.matmul(B,np.matmul(F,xk-xoln)-f)
         #convergence criteria based on Murnane 94
-        maxchange = np.max(np.abs((xkp1-xk)/xk))
+        maxchange = np.max(np.abs((np.exp(xkp1)-np.exp(xk))/np.exp(xk)))
         conv_ev = np.append(conv_ev,maxchange)
         #if g = 0, only use equations corresponding to Pt equations for the cost function
         if not g: f_cost, Cf_cost = f[-n:], Cf_addPt
@@ -1048,7 +1048,7 @@ with open('invP_savedvars.pkl', 'wb') as file:
 
 #comparison of integrated fluxes and integrals
 bw = 0.15
-c1 = [red, green, blue, purple, cyan, orange]
+c1 = [red, green, blue, purple, cyan]
 c2 = [red, green, blue, purple, cyan, orange, teal, navy]
 
 barsF = {i:{g:{x:{} for x in ['xh','xhe']} for g in gammas} for i in dr_str}
@@ -1095,9 +1095,10 @@ for i,p in enumerate(params):
         relativeprcsn = [pdi[p]['gammas'][g]['xhe']/pdi[p]['gammas'][g]['xh'] for g in gammas]
         label = p
         ax.plot(gammas, relativeprcsn, 'x', c=c2[i], label=p, ls='-.')
-ax.set_xscale('symlog', linthreshx=0.01)
+#ax.set_xscale('symlog', linthreshx=0.01)
+ax.set_xscale('log')
 ax.set_xticks(gammas)
 ax.get_xaxis().set_major_formatter(mpl.ticker.ScalarFormatter())
 ax.legend(loc='lower center', bbox_to_anchor=(0.49, 0.95), ncol=6)
-plt.savefig(f'invP_paramrelerror.png')
+plt.savefig('invP_paramrelerror.png')
 plt.close()

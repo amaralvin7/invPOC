@@ -564,7 +564,7 @@ xo = x_numlin
 xk = xo
 xkp1 = np.ones(P) #initialize this to some dummy value 
 k = 0 #keep a counter for how many steps it takes
-pdelt = 0.0001 #allowable percent change in each state element for convergence
+pdelt = 0.01 #allowable percent change in each state element for convergence
 conv_ev = np.empty(0) # keep track of evolution of convergence
 
 #define all possible symbolic variables
@@ -713,7 +713,6 @@ xkp1 = np.ones(N) #initialize this to some dummy value
 k = 0 #keep a counter for how many steps it takes
 conv_ev = np.empty(0) # keep track of evolution of convergence
 cost_ev = np.empty(0) #keep track of evolution of the cost function, j
-pdelt = 0.0001 #allowable percent change in each state element for convergence
 
 #define all possible symbolic variables
 svarnames = 'Ps_0 Ps_1 Ps_-1 Ps_-2 \
@@ -758,7 +757,7 @@ while True:
     B = np.matmul(np.matmul(Coln,F.T),np.linalg.inv(FCoFT+Cf))
     xkp1 = xoln + np.matmul(B,np.matmul(F,xk-xoln)-f)
     #convergence criteria based on Murnane 94
-    maxchange = np.max(np.abs((xkp1-xk)/xk))
+    maxchange = np.max(np.abs((np.exp(xkp1)-np.exp(xk))/np.exp(xk)))
     conv_ev = np.append(conv_ev,maxchange)
     if gam == 0: cost = np.matmul(np.matmul((xk-xoln).T,np.linalg.inv(Coln)),(xk-xoln))
     else: cost = np.matmul(np.matmul((xk-xoln).T,np.linalg.inv(Coln)),(xk-xoln))+np.matmul(np.matmul(f.T,np.linalg.inv(Cf)),f)
@@ -843,7 +842,7 @@ ax2.hist(pdfn,density=True,bins=20,color=blue)
 ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
 #plot gaussians, show legend
 ax1.plot(xg,yg_pdf,c=red), ax2.plot(xg,yg_pdf,c=red)
-plt.savefig(f'twnxP_pdfs.png')
+plt.savefig('twnxP_pdfs.png')
 plt.close()
 
 #CDFs
@@ -875,7 +874,7 @@ for i, v in enumerate(x1):
     ax1.scatter(x1[i],y1[i],s=marsize,marker=mar,facecolors=fc,edgecolors=ec)
 #plot posteriors model residuals
 ax2.scatter(x2,y2,s=ms,marker='.',facecolors=blue,edgecolors=blue)
-plt.savefig(f'twnxP_cdfs.png')
+plt.savefig('twnxP_cdfs.png')
 plt.close()     
 
 #model residual depth profiles (posteriors)
@@ -888,7 +887,7 @@ ax1.set_ylim(top=0,bottom=zmax+dz), ax2.set_ylim(top=0,bottom=zmax+dz)
 ax1.scatter(td['Ps']['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
 ax2.scatter(td['Pl']['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
 ax1.legend(), ax2.legend()
-plt.savefig(f'twnxP_residprofs.png')
+plt.savefig('twnxP_residprofs.png')
 plt.close()
 
 #plot evolution of convergence
@@ -898,7 +897,7 @@ ax.plot(np.arange(0, len(conv_ev)), conv_ev, marker='o',ms=ms)
 ax.set_yscale('log')
 ax.set_xlabel('k')
 ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',size=12)
-plt.savefig(f'twnxP_conv.png')
+plt.savefig('twnxP_conv.png')
 plt.close()
 
 #plot evolution of cost function
@@ -907,7 +906,7 @@ ax.plot(np.arange(0, len(cost_ev)),cost_ev,marker='o',ms=ms)
 ax.set_xlabel('k')
 ax.set_ylabel('j')
 ax.set_yscale('log')
-plt.savefig(f'twnxP_cost.png')
+plt.savefig('twnxP_cost.png')
 plt.close()
 
 #comparison plots
@@ -931,7 +930,7 @@ ax3.legend()
 ax1.axhline(bnd,c='k',ls='--',lw=lw/2)
 ax2.axhline(bnd,c='k',ls='--',lw=lw/2)
 ax3.axhline(bnd,c='k',ls='--',lw=lw/2)
-plt.savefig(f'twnxP_Pprofs.png')
+plt.savefig('twnxP_Pprofs.png')
 plt.close()
 
 #extract posterior param estimates and errors
@@ -964,7 +963,8 @@ for i, p in enumerate(pdi.keys()):
         ax.errorbar(4, pdi[p]['xh'], yerr=pdi[p]['xhe'],fmt='o',c=cyan,ms=msp,label='$x_{k+1}$',elinewidth=elwp,ecolor=ec,capsize=csp) #posteriors with errors        
     ax.tick_params(bottom=False, labelbottom=False)
     ax.set_xticks(np.arange(0,7))
-plt.savefig(f'twnxP_params.png')
+    if p == 'Bm2': ax.set_ylim(-0.5,2)
+plt.savefig('twnxP_params.png')
 plt.close()
     
 print(f'--- {time.time() - start_time} seconds ---')
