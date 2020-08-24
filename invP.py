@@ -963,6 +963,7 @@ for g in gammas:
             ax.errorbar(3, pdi[p]['gammas'][g]['xh'], yerr=pdi[p]['gammas'][g]['xhe'],fmt='o',c=cyan,ms=msp,elinewidth=elwp,ecolor=ec,capsize=csp) #posteriors with errors        
         ax.tick_params(bottom=False, labelbottom=False)
         ax.set_xticks(np.arange(0,5))
+        if p == 'Bm2': ax.set_ylim(-0.5,2.5)
     plt.savefig(f'invP_params_gam{str(g).replace(".","")}.png')
     plt.close()
       
