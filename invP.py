@@ -83,7 +83,7 @@ p_o = {'ws':2, #m/d
         'Bm2':400/dpy, #from Murnane 1994, converted to d
         'Bm1s':36/dpy, #from Clegg surface value, converted to d
         'Bm1l':0.15, #based on preliminary RESPIRE data from A Santoro
-        'Gh':0.28, #prior set to typical NPP shared data value (divided by h), error is 25% of that. mg/m2/d converted to mmol
+        'Gh':0.28, #prior set to typical NPP shared data value. mg/m3/d converted to mmol
         'Lp':28} #from NPP data, m
 #prior errors
 p_oe = {'ws':2, 
@@ -655,7 +655,7 @@ for t in tracers:
         td[t][k] = np.concatenate((oi['A'][t][k],oi['B'][t][k]))
         if k == 'x': tpri = np.concatenate((tpri,td[t][k]))
                       
-#combine xo's to form one xo, normalize xo and take the ln
+#combine xo's to form one xo, take the ln
 xo = np.concatenate((tpri,params_o))
 xoln = np.log(xo)
 
