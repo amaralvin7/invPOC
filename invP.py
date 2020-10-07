@@ -11,6 +11,8 @@ import numpy as np
 import scipy.linalg as splinalg
 import scipy.stats as sstats
 import matplotlib.pyplot as plt
+import mpl_toolkits.axisartist as AA
+from mpl_toolkits.axes_grid1 import host_subplot
 import pandas as pd
 import scipy.io as sio
 import matplotlib as mpl
@@ -31,6 +33,8 @@ sys.setrecursionlimit(10000)
 
 #colors
 red, green, blue, purple, cyan, orange, teal, navy, olive = '#e6194B', '#3cb44b', '#4363d8', '#911eb4', '#42d4f4', '#f58231', '#469990', '#000075', '#808000'
+#colors
+black, orange, sky, green, yellow, blue, red, radish = '#000000', '#E69F00', '#56B4E9', '#009E73', '#F0E442', '#0072B2', '#D55E00', '#CC79A7'
 
 #read in POC data
 cwd = os.getcwd()
@@ -452,7 +456,7 @@ def iflxcalc(fluxes, deprngs):
                     iI += tr*dzi
                     #print(i, di, zml[di], dzi)
             intflx = symfunceval(iF)
-            resT = symfunceval(iI/iF,err=False) #doesn't return error prop (takes too long)
+            resT = symfunceval(iI/iF,err=True,cov=True) #error prop takes a long time...
             flxd[f]['gammas'][g]['iflx'][rstr], flxd[f]['gammas'][g]['tau'][rstr] = intflx, resT
 
 #given a depth range, calculate (integrated) inventory and residuals
@@ -563,6 +567,7 @@ Cf_addPt = np.diag(np.ones(n)*model.mse_resid)
 
 kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A = acdrange((h,bnd-dz/2))
 kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B = acdrange((bnd+dz/2,zmax))
+ac_params = (kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A, kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B)
 fig, ax = plt.subplots(1,1)
 cA, cB = blue, green
 ax.scatter(kdz_A,np.log(ac_A),label='A (EZ)',marker='o',color=cA) 
@@ -575,6 +580,59 @@ ax.legend()
 plt.savefig('invP_autocor.png')
 plt.close()
 
+"""
+#HYDROGRAPHIC FEATURES PLOTS
+"""
+#load hydrography data
+hydro_df = pd.read_excel('T_S_SigT_cast1.xlsx')
+
+#create figure and axes
+fig = plt.figure()
+host = host_subplot(111, axes_class=AA.Axes, figure=fig)
+plt.subplots_adjust(top=0.75)
+par1 = host.twiny()
+par2 = host.twiny()
+
+#show parasite axes
+par1.axis['top'].toggle(all=True)
+offset = 40
+new_fixed_axis = par2.get_grid_helper().new_fixed_axis
+par2.axis['top'] = new_fixed_axis(loc='top',axes=par2,offset=(0, offset))
+par2.axis['top'].toggle(all=True)
+
+host.set_ylim(0, 520)
+host.invert_yaxis(), host.grid(axis='y',alpha=0.5)
+host.set_xlim(24, 27.4)
+par1.set_xlim(3, 14.8)
+par2.set_xlim(32, 34.5)
+
+host.set_ylabel('Depth (m)',fontsize='x-large')
+host.set_xlabel('$\sigma_T$ (kg $m^{-3}$)')
+par1.set_xlabel('Temperature (°C)')
+par2.set_xlabel('Salinity (PSU)')
+
+host.plot(hydro_df['sigT_kgpmc'],hydro_df['depth'],c=orange,marker='o')
+par1.plot(hydro_df['t_c'],hydro_df['depth'],c=green,marker='o')
+par2.plot(hydro_df['s_psu'],hydro_df['depth'],c=blue,marker='o')
+
+host.axis['bottom'].label.set_color(orange)
+par1.axis['top'].label.set_color(green)
+par2.axis['top'].label.set_color(blue)
+
+host.axis['bottom','left'].label.set_fontsize(14)
+par1.axis['top'].label.set_fontsize(14)
+par2.axis['top'].label.set_fontsize(14)
+
+host.axis['bottom','left'].major_ticklabels.set_fontsize(12)
+par1.axis['top'].major_ticklabels.set_fontsize(12)
+par2.axis['top'].major_ticklabels.set_fontsize(12)
+
+host.axis['bottom','left'].major_ticks.set_ticksize(6)
+par1.axis['top'].major_ticks.set_ticksize(6)
+par2.axis['top'].major_ticks.set_ticksize(6)
+
+plt.savefig('invP_hydrography.pdf')
+plt.close()
 
 """
 #INVERSE METHOD (P)
@@ -839,6 +897,7 @@ for g in gammas:
     ax1.hist(pdfx,density=True,bins=20,color=blue)
     ax2.hist(pdfn,density=True,bins=20,color=blue)
     ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
+    pdf_params = pdfx, pdfn, xg, yg_pdf
     
     #plot gaussians, show legend
     ax1.plot(xg,yg_pdf,c=red), ax2.plot(xg,yg_pdf,c=red)
@@ -1045,7 +1104,7 @@ with open ('invP_out.txt','a') as file:
     print(f'--- {time.time() - start_time} seconds ---',file=file)
 
 with open('invP_savedvars.pkl', 'wb') as file:
-    pickle.dump((flxd, td, pdi),file)
+    pickle.dump((flxd,td,pdi,model,combodf_s,ac_params,pdf_params),file)
 
 #comparison of integrated fluxes and integrals
 bw = 0.15
