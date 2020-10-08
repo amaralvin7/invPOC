@@ -614,6 +614,8 @@ par2.set_xlabel('Salinity (PSU)')
 host.plot(hydro_df['sigT_kgpmc'],hydro_df['depth'],c=orange,marker='o')
 par1.plot(hydro_df['t_c'],hydro_df['depth'],c=green,marker='o')
 par2.plot(hydro_df['s_psu'],hydro_df['depth'],c=blue,marker='o')
+host.axhline(h,c=black,ls=':',zorder=3)
+host.axhline(bnd,c=black,ls='--',zorder=3)
 
 host.axis['bottom'].label.set_color(orange)
 par1.axis['top'].label.set_color(green)
