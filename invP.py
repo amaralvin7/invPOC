@@ -261,30 +261,29 @@ def modresi(sv):
     Ps_nma, Pl_nma = np.mean(np.absolute(Ps_n)), np.mean(np.absolute(Pl_n))
     return (Ps_n, Ps_nm, Ps_nma, Pl_n, Pl_nm, Pl_nma)
 
-cscheme = plt.cm.jet
 def lsqplotsf(model,x,y,z,tracer,logscale): #make a least squares fit and plot the results, using smf offline
     #open fig
     fig, ax =  plt.subplots(1,1)
+    fig.subplots_adjust(bottom=0.2,left=0.2)
     #colorbar stuff
+    cmap=plt.cm.viridis_r
     normfac = mpl.colors.Normalize(z.min(),z.max())
     axcb = mpl.colorbar.make_axes(ax)[0]
-    cbar = mpl.colorbar.ColorbarBase(axcb, cmap=cscheme, norm=normfac)
-    cbar.set_label('Depth (m)\n', rotation=270, labelpad = 14)
+    cbar = mpl.colorbar.ColorbarBase(axcb,norm=normfac,cmap=cmap)
+    cbar.set_label('Depth (m)\n',rotation=270, labelpad=20,fontsize=14)
     #plot data
-    ax.scatter(x, y, norm=normfac, cmap=cscheme, c = z, s=ms)
-    ax.set_ylabel(f'{tracer} $(mmol/m^3)$')
-    ax.set_xlabel('$c_{p}$ $(m^{-1})$')
+    ax.scatter(x,y,norm=normfac,edgecolors=black,c=z,s=150,marker='o',cmap=cmap)
+    ax.set_ylabel(f'{tracer} (mmol/m$^3$)',fontsize=14)
+    ax.set_xlabel('$c_{p}$ (m$^{-1}$)',fontsize=14)
     xp = np.arange(0.01,0.14,0.0001)
     c = model.params #extract coefficients, where c[0] is the intercept
-    r2 = model.rsquared
+    ax.text(0.04,0.2,f'$R^2$ = {model.rsquared:.2f}\nN = {model.nobs:.0f}',fontsize=12)
     if logscale: 
         ax.set_yscale('log'), ax.set_xscale('log') 
         fit = [c[0] + c[1]*np.log(xi) for xi in xp]
     else: fit = [c[0] + c[1]*xi for xi in xp]
-    ax.plot(xp, fit, '--', c = 'k', lw=lw)
-    #ax.set_title(f' c0 = {c[0]:.2f}, c1 = {c[1]:.2f}, R2 = {r2:.2f}')
-    ax.set_title(f'$R^2$ = {r2:.2f}')
-    plt.savefig(f'invP_cpptfit_log{logscale}.png')
+    ax.plot(xp, fit, '--', c = 'k', lw=2)
+    plt.savefig(f'invP_cpptfit_log{logscale}.pdf')
     plt.close()
     return ax
 
@@ -606,7 +605,7 @@ host.set_xlim(24, 27.4)
 par1.set_xlim(3, 14.8)
 par2.set_xlim(32, 34.5)
 
-host.set_ylabel('Depth (m)',fontsize='x-large')
+host.set_ylabel('Depth (m)',fontsize=14)
 host.set_xlabel('$\sigma_T$ (kg $m^{-3}$)')
 par1.set_xlabel('Temperature (°C)')
 par2.set_xlabel('Salinity (PSU)')
@@ -1106,7 +1105,7 @@ with open ('invP_out.txt','a') as file:
     print(f'--- {time.time() - start_time} seconds ---',file=file)
 
 with open('invP_savedvars.pkl', 'wb') as file:
-    pickle.dump((flxd,td,pdi,model,combodf_s,ac_params,pdf_params),file)
+    pickle.dump((flxd,td,pdi,combodf_s,ac_params,pdf_params),file)
 
 #comparison of integrated fluxes and integrals
 bw = 0.15
