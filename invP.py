@@ -579,6 +579,29 @@ ax.legend()
 plt.savefig('invP_autocor.png')
 plt.close()
 
+#POC data plots
+#comparison plots
+fig,[ax1,ax2,ax3] = plt.subplots(1,3,tight_layout=True) #P figures
+fig.subplots_adjust(wspace=0.5)
+ax1.invert_yaxis(),ax2.invert_yaxis(),ax3.invert_yaxis()
+ax1.set_xlabel('$P_{S}$ (mmol/m$^3$)',fontsize=14),ax2.set_xlabel('$P_{L}$ (mmol/m$^3$)',fontsize=14),ax3.set_xlabel('$P_{T}$ (mmol/m$^3$)',fontsize=14)
+ax1.set_ylabel('Depth (m)',fontsize=14)
+ax1.set_ylim(top=0,bottom=zmax+30),ax2.set_ylim(top=0,bottom=zmax+30),ax3.set_ylim(top=0,bottom=zmax+30)
+ax1.errorbar(Ps_mean,zs,fmt='^',xerr=Ps_se,ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='Data',fillstyle='full')
+ax1.set_xticks([0,1,2,3])
+ax2.errorbar(Pl_mean,zs,fmt='^',xerr=Pl_se,ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='Data',fillstyle='full')
+ax2.set_xticks([0,0.05,0.1,0.15])
+ax2.set_xticklabels(['0','0.05','0.1','0.15'])
+ax3.errorbar(cppt.Pt_hat,zml+1,fmt='o',xerr=np.ones(n)*np.sqrt(model.mse_resid),ecolor=blue,elinewidth=0.5,markerfacecolor=blue,markeredgecolor='white',ms=3,capsize=2,lw=1,label='from $c_P$',markeredgewidth=0.3)
+ax3.scatter(Ps_mean+Pl_mean,zs,marker='^',s=100,c=blue,zorder=1,label='LVISF')
+ax3.set_xticks([0,1,2,3])
+ax3.legend(fontsize=12,borderpad=0.2)
+[ax.tick_params(labelleft=False) for ax in (ax2,ax3)]
+[ax.tick_params(axis='both', which='major', labelsize=12) for ax in (ax1,ax2,ax3)]
+[ax.axhline(bnd,c=black,ls='--',lw=1) for ax in (ax1,ax2,ax3)]
+plt.savefig('invP_pocdata.pdf')
+plt.close()
+
 """
 #HYDROGRAPHIC FEATURES PLOTS
 """
@@ -973,27 +996,34 @@ for g in gammas:
     plt.close()
     
     #comparison plots
-    fig, [ax1,ax2,ax3] = plt.subplots(1,3) #P figures
+    if g == 1:
+        invname = 'I1'
+    elif g == 0.01:
+        invname = 'I2'
+    else: invname = g
+    fig,[ax1,ax2,ax3] = plt.subplots(1,3,tight_layout=True) #P figures
     fig.subplots_adjust(wspace=0.5)  
-    ax1.invert_yaxis(), ax2.invert_yaxis(), ax3.invert_yaxis()
-    ax1.set_xlabel('$P_{S}$ ($mmol/m^3$)'), ax2.set_xlabel('$P_{L}$ ($mmol/m^3$)'), ax3.set_xlabel('$P_{T}$ ($mmol/m^3$)')
-    ax1.set_ylabel('Depth (m)')
-    ax1.set_ylim(top=0,bottom=zmax+2*dz), ax2.set_ylim(top=0,bottom=zmax+2*dz), ax3.set_ylim(top=0,bottom=zmax+2*dz)
-    ax1.errorbar(td['Ps']['gammas'][g]['xh'], zml, fmt='o', xerr=td['Ps']['gammas'][g]['xhe'], ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='mean', fillstyle='none')
-    ax1.errorbar(Ps_mean, zs, fmt='^', xerr=Ps_se, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
-    ax1.errorbar(td['Ps']['x'], zml, fmt='o', xerr=td['Ps']['xerr'], ecolor=blue, elinewidth=elw, c=blue, ms=ms/2, capsize=cs, lw=lw, label='OI')  
-    ax1.legend()
-    ax2.errorbar(td['Pl']['gammas'][g]['xh'], zml, fmt='o', xerr=td['Pl']['gammas'][g]['xhe'], ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='mean', fillstyle='none')
-    ax2.errorbar(Pl_mean, zs, fmt='^', xerr=Pl_se, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
-    ax2.errorbar(td['Pl']['x'], zml, fmt='o', xerr=td['Pl']['xerr'], ecolor=blue, elinewidth=elw, c=blue, ms=ms/2, capsize=cs, lw=lw, label='OI')  
-    ax2.legend()
-    ax3.errorbar(Pt_xh, zml, fmt='o', xerr=Pt_xhe, ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='Inv', fillstyle='none')
-    ax3.errorbar(cppt.Pt_hat, zml+1, fmt='o', xerr=np.ones(n)*np.sqrt(model.mse_resid), ecolor=green, elinewidth=elw, c=green, ms=ms, capsize=cs, lw=lw, label='Data', fillstyle='none')
-    ax3.legend()
-    ax1.axhline(bnd,c='k',ls='--',lw=lw/2)
-    ax2.axhline(bnd,c='k',ls='--',lw=lw/2)
-    ax3.axhline(bnd,c='k',ls='--',lw=lw/2)
-    plt.savefig(f'invP_Pprofs_gam{str(g).replace(".","")}.png')
+    ax1.invert_yaxis(),ax2.invert_yaxis(),ax3.invert_yaxis()
+    ax1.set_xlabel('$P_{S}$ (mmol/m$^3$)',fontsize=14),ax2.set_xlabel('$P_{L}$ (mmol/m$^3$)',fontsize=14),ax3.set_xlabel('$P_{T}$ (mmol/m$^3$)',fontsize=14)
+    ax1.set_ylabel('Depth (m)',fontsize=14)
+    ax1.set_ylim(top=0,bottom=zmax+30),ax2.set_ylim(top=0,bottom=zmax+30),ax3.set_ylim(top=0,bottom=zmax+30)
+    ax1.errorbar(Ps_mean,zs,fmt='^',xerr=Ps_se,ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='LVISF',fillstyle='full')
+    ax1.errorbar(td['Ps']['gammas'][g]['xh'],zml,fmt='o',xerr=td['Ps']['gammas'][g]['xhe'],ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,lw=1,label=invname,fillstyle='none',zorder=3)
+    ax1.errorbar(td['Ps']['x'],zml,fmt='o',xerr=td['Ps']['xerr'],ecolor=sky,elinewidth=elw,c=sky,ms=2,capsize=cs,lw=lw,label='OI')
+    ax1.set_xticks([0,1,2,3])
+    ax2.errorbar(Pl_mean,zs,fmt='^',xerr=Pl_se,ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='LVISF',fillstyle='full')
+    ax2.errorbar(td['Pl']['gammas'][g]['xh'],zml,fmt='o',xerr=td['Pl']['gammas'][g]['xhe'],ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,lw=1,label=invname,fillstyle='none',zorder=3)
+    ax2.errorbar(td['Pl']['x'],zml,fmt='o',xerr=td['Pl']['xerr'],ecolor=sky,elinewidth=elw,c=sky,ms=2,capsize=cs,lw=lw,label='OI')
+    ax2.set_xticks([0,0.05,0.1,0.15])
+    ax2.set_xticklabels(['0','0.05','0.1','0.15'])
+    ax3.errorbar(cppt.Pt_hat,zml,fmt='o',xerr=np.ones(n)*np.sqrt(model.mse_resid),ecolor=blue,elinewidth=elw,c=blue,ms=2,capsize=cs,lw=lw,label='from $c_P$')
+    ax3.errorbar(Pt_xh,zml,fmt='o',xerr=Pt_xhe,ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,lw=1,label=invname,fillstyle='none',zorder=3)
+    ax3.set_xticks([0,1,2,3])
+    [ax.legend(fontsize=12,borderpad=0.2) for ax in (ax1,ax2,ax3)]
+    [ax.tick_params(labelleft=False) for ax in (ax2,ax3)]
+    [ax.tick_params(axis='both',which='major',labelsize=12) for ax in (ax1,ax2,ax3)]
+    [ax.axhline(bnd,c=black,ls='--',lw=1) for ax in (ax1,ax2,ax3)]
+    plt.savefig(f'invP_Pprofs_gam{str(g).replace(".","")}.pdf')
     plt.close()
     
     #extract posterior param estimates and errors
