@@ -1037,24 +1037,24 @@ for g in gammas:
         else: pdi[stri]['gammas'][g]['xh'], pdi[stri]['gammas'][g]['xhe'] = pest, perr
     
     #make a plot of parameter priors and posteriors
-    elwp, msp, csp, ec = 1, 9, 4, 'k'
-    fig, ([ax1,ax2,ax3,ax4],[ax5,ax6,ax7,ax8]) = plt.subplots(2,4)
-    fig.subplots_adjust(wspace=0.8, hspace=0.4)
+    fig,([ax1,ax2,ax3,ax4],[ax5,ax6,ax7,ax8]) = plt.subplots(2,4)
+    fig.subplots_adjust(wspace=0.8,hspace=0.4)
     axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax8]
-    for i, p in enumerate(pdi.keys()):
+    for i,p in enumerate(pdi.keys()):
         ax = axs[i]
-        ax.set_title(pdi[p]['tset'])
+        ax.set_title(pdi[p]['tset'],fontsize=14)
         if pdi[p]['dv']: #if param is depth-varying
-            ax.errorbar(1, pdi[p]['o'], yerr=pdi[p]['oe'], fmt='o', ms=msp, c=blue, elinewidth=elwp, ecolor=ec, capsize=csp) #priors with errors
-            ax.errorbar(2, pdi[p]['gammas'][g]['xh']['A'], yerr=pdi[p]['gammas'][g]['xhe']['A'], fmt='o', c=teal, ms=msp, elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
-            ax.errorbar(3, pdi[p]['gammas'][g]['xh']['B'], yerr=pdi[p]['gammas'][g]['xhe']['B'], fmt='o', c=navy, ms=msp, elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
+            ax.errorbar(1,pdi[p]['o'],yerr=pdi[p]['oe'],fmt='o',ms=9,c=blue,elinewidth=1.5,ecolor=blue,capsize=6,label='Prior',markeredgewidth=1.5) #priors with errors
+            ax.errorbar(2,pdi[p]['gammas'][g]['xh']['A'],yerr=pdi[p]['gammas'][g]['xhe']['A'],fmt='o',c=green,ms=9,elinewidth=1.5,ecolor=green,capsize=6,label='EZ',markeredgewidth=1.5) #posteriors with errors
+            ax.errorbar(3,pdi[p]['gammas'][g]['xh']['B'],yerr=pdi[p]['gammas'][g]['xhe']['B'],fmt='o',c=orange,ms=9,elinewidth=1.5,ecolor=orange,capsize=6,label='UMZ',markeredgewidth=1.5) #posteriors with errors
+            if i == 5: ax.legend(loc='upper center',bbox_to_anchor=(1.38,-0.07),ncol=3,fontsize=12)
         else: #if param is depth-constant
-            ax.errorbar(1, pdi[p]['o'], yerr=pdi[p]['oe'],fmt='o',ms=msp,c=blue,elinewidth=elwp,ecolor=ec,capsize=csp) #priors with errors
-            ax.errorbar(3, pdi[p]['gammas'][g]['xh'], yerr=pdi[p]['gammas'][g]['xhe'],fmt='o',c=cyan,ms=msp,elinewidth=elwp,ecolor=ec,capsize=csp) #posteriors with errors        
-        ax.tick_params(bottom=False, labelbottom=False)
+            ax.errorbar(1,pdi[p]['o'],yerr=pdi[p]['oe'],fmt='o',ms=9,c=blue,elinewidth=1.5,ecolor=blue,capsize=6,label='Prior',markeredgewidth=1.5) #priors with errors
+            ax.errorbar(3,pdi[p]['gammas'][g]['xh'],yerr=pdi[p]['gammas'][g]['xhe'],fmt='o',c=radish,ms=9,elinewidth=1.5,ecolor=radish,capsize=6,markeredgewidth=1.5) #posteriors with errors
+        ax.tick_params(bottom=False,labelbottom=False)
         ax.set_xticks(np.arange(0,5))
         if p == 'Bm2': ax.set_ylim(-0.5,2.5)
-    plt.savefig(f'invP_params_gam{str(g).replace(".","")}.png')
+    plt.savefig(f'invP_params_gam{str(g).replace(".","")}.pdf')
     plt.close()
       
     #calculate fluxes and errors
