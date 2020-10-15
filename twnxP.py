@@ -37,6 +37,7 @@ plt.close('all')
 
 #colors
 red, green, blue, purple, cyan, orange, teal, navy, olive = '#e6194B', '#3cb44b', '#4363d8', '#911eb4', '#42d4f4', '#f58231', '#469990', '#000075', '#808000'
+black, orange, sky, green, yellow, blue, red, radish = '#000000', '#E69F00', '#56B4E9', '#009E73', '#F0E442', '#0072B2', '#D55E00', '#CC79A7'
 
 #read in POC data
 cwd = os.getcwd()
@@ -59,11 +60,12 @@ B2 = 0.8/dpy
 #assign df columns to variables
 zs = df.Depth
 Ps_mean_real = df.SSF_mean/mm
-Pl_mean_real = df.LSF_mean/mm
 Ps_sd_real = df.SSF_sd/mm
-Pl_sd_real = df.LSF_sd/mm
-#calculate relative errors
+Ps_se_real = df.SSF_se/mm
 Ps_re = Ps_sd_real/Ps_mean_real
+Pl_mean_real = df.LSF_mean/mm
+Pl_sd_real = df.LSF_sd/mm
+Pl_se_real = df.LSF_se/mm
 Pl_re = Pl_sd_real/Pl_mean_real
 
 gam = 0.01 #multiplier for weighting model errors
@@ -82,9 +84,9 @@ for k in pdi.keys():
     else: pdi[k]['dv'] = 0
 
 #typeset name
-p_tset = {'ws':'$w_s$', 'wl':'$w_l$', 'B2p':'$\\beta^,_2$', 'Bm2':'$\\beta_{-2}$', 
-                'Bm1s':'$\\beta_{-1,s}$', 'Bm1l':'$\\beta_{-1,l}$', 'Gh':'$\overline{\.P_s}$', 
-                'Lp':'$L_{p}$'}
+p_tset = {'ws':'$w_S$', 'wl':'$w_L$', 'B2p':'$\\beta^,_2$', 'Bm2':'$\\beta_{-2}$', 
+                'Bm1s':'$\\beta_{-1,S}$', 'Bm1l':'$\\beta_{-1,L}$', 'Gh':'$\overline{\.P_S}$', 
+                'Lp':'$L_{P}$'}
 
 #priors
 p_o = {'ws':2, #m/d
@@ -881,7 +883,7 @@ plt.close()
 fig, [ax1,ax2] = plt.subplots(1,2)
 fig.subplots_adjust(wspace=0.5)  
 ax1.invert_yaxis(), ax2.invert_yaxis()
-ax1.set_xlabel('$n^{k+1}_{P_{S}}$ (mmol/m3/d)'), ax2.set_xlabel('$n^{k+1}_{P_{L}}$ (mmol/m3/d)')
+ax1.set_xlabel('$n^{k+1}_{P_{S}}$ (mmol m$^{-3}$ d$^{-1}$)'), ax2.set_xlabel('$n^{k+1}_{P_{L}}$ (mmol m$^{-3}$ d$^{-1}$)')
 ax1.set_ylabel('Depth (m)')
 ax1.set_ylim(top=0,bottom=zmax+dz), ax2.set_ylim(top=0,bottom=zmax+dz)
 ax1.scatter(td['Ps']['n'], zml, marker='o', c=blue, s=ms/2, label='MRes')
@@ -910,27 +912,29 @@ plt.savefig('twnxP_cost.png')
 plt.close()
 
 #comparison plots
-fig, [ax1,ax2,ax3] = plt.subplots(1,3) #P figures
+fig,[ax1,ax2,ax3] = plt.subplots(1,3,tight_layout=True) #P figures
 fig.subplots_adjust(wspace=0.5)  
-ax1.invert_yaxis(), ax2.invert_yaxis(), ax3.invert_yaxis()
-ax1.set_xlabel('$P_{S}$ ($mmol/m^3$)'), ax2.set_xlabel('$P_{L}$ ($mmol/m^3$)'), ax3.set_xlabel('$P_{T}$ ($mmol/m^3$)')
-ax1.set_ylabel('Depth (m)')
-ax1.set_ylim(top=0,bottom=zmax+2*dz), ax2.set_ylim(top=0,bottom=zmax+2*dz), ax3.set_ylim(top=0,bottom=zmax+2*dz)
-ax1.errorbar(td['Ps']['xh'], zml, fmt='o', xerr=td['Ps']['xhe'], ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='mean', fillstyle='none')
-ax1.errorbar(Ps_mean, zs, fmt='^', xerr=Ps_sd, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
-ax1.errorbar(td['Ps']['x'], zml, fmt='o', xerr=td['Ps']['xerr'], ecolor=blue, elinewidth=elw, c=blue, ms=ms/2, capsize=cs, lw=lw, label='OI')  
-ax1.legend()
-ax2.errorbar(td['Pl']['xh'], zml, fmt='o', xerr=td['Pl']['xhe'], ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='mean', fillstyle='none')
-ax2.errorbar(Pl_mean, zs, fmt='^', xerr=Pl_sd, ecolor=green, elinewidth=elw, c=green, ms=ms*2, capsize=cs, lw=lw, label='Data', fillstyle='full')
-ax2.errorbar(td['Pl']['x'], zml, fmt='o', xerr=td['Pl']['xerr'], ecolor=blue, elinewidth=elw, c=blue, ms=ms/2, capsize=cs, lw=lw, label='OI')  
-ax2.legend()
-ax3.errorbar(Pt_xh, zml, fmt='o', xerr=Pt_xhe, ecolor=red, elinewidth=elw, c=red, ms=ms, capsize=cs, lw=lw, label='Inv', fillstyle='none')
-ax3.errorbar(Pt_numnl, zml+1, fmt='o', xerr=np.ones(n)*np.sqrt(MSE_fit), ecolor=green, elinewidth=elw, c=green, ms=ms, capsize=cs, lw=lw, label='Data', fillstyle='none')
-ax3.legend()
-ax1.axhline(bnd,c='k',ls='--',lw=lw/2)
-ax2.axhline(bnd,c='k',ls='--',lw=lw/2)
-ax3.axhline(bnd,c='k',ls='--',lw=lw/2)
-plt.savefig('twnxP_Pprofs.png')
+ax1.invert_yaxis(),ax2.invert_yaxis(),ax3.invert_yaxis()
+ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)',fontsize=14),ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)',fontsize=14),ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)',fontsize=14)
+ax1.set_ylabel('Depth (m)',fontsize=14)
+ax1.set_ylim(top=0,bottom=zmax+30),ax2.set_ylim(top=0,bottom=zmax+30),ax3.set_ylim(top=0,bottom=zmax+30)
+ax1.errorbar(Ps_mean,zs,fmt='^',xerr=Ps_sd,ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='Data',fillstyle='full')
+ax1.errorbar(td['Ps']['xh'],zml,fmt='o',xerr=td['Ps']['xhe'],ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,label='TE',fillstyle='none',zorder=3,capthick=0.5)
+ax1.errorbar(td['Ps']['x'],zml,fmt='o',xerr=td['Ps']['xerr'],ecolor=sky,elinewidth=0.5,c=sky,ms=2,capsize=2,label='OI',capthick=0.5)
+ax1.set_xticks([0,1,2,3])
+ax2.errorbar(Pl_mean,zs,fmt='^',xerr=Pl_sd,ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='Data',fillstyle='full')
+ax2.errorbar(td['Pl']['xh'],zml,fmt='o',xerr=td['Pl']['xhe'],ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,label='TE',fillstyle='none',zorder=3,capthick=0.5)
+ax2.errorbar(td['Pl']['x'],zml,fmt='o',xerr=td['Pl']['xerr'],ecolor=sky,elinewidth=0.5,c=sky,ms=2,capsize=2,label='OI',capthick=0.5)
+ax2.set_xticks([0,0.05,0.1,0.15])
+ax2.set_xticklabels(['0','0.05','0.1','0.15'])
+ax3.errorbar(Pt_numnl,zml+1,fmt='o',xerr=np.ones(n)*np.sqrt(MSE_fit),ecolor=blue,elinewidth=0.5,c=blue,ms=2,capsize=2,label='Data',capthick=0.5)
+ax3.errorbar(Pt_xh,zml,fmt='o',xerr=Pt_xhe,ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,label='TE',fillstyle='none',zorder=3,capthick=0.5)
+ax3.set_xticks([0,1,2,3])
+[ax.legend(fontsize=12,borderpad=0.2) for ax in (ax1,ax2,ax3)]
+[ax.tick_params(labelleft=False) for ax in (ax2,ax3)]
+[ax.tick_params(axis='both',which='major',labelsize=12) for ax in (ax1,ax2,ax3)]
+[ax.axhline(bnd,c=black,ls='--',lw=1) for ax in (ax1,ax2,ax3)]
+plt.savefig('twnxP_Pprofs.pdf')
 plt.close()
 
 #extract posterior param estimates and errors
@@ -948,23 +952,24 @@ elwp, msp, csp, ec = 1, 9, 4, 'k'
 fig, ([ax1,ax2,ax3,ax4],[ax5,ax6,ax7,ax8]) = plt.subplots(2,4)
 fig.subplots_adjust(wspace=0.8, hspace=0.4)
 axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax8]
-for i, p in enumerate(pdi.keys()):
+for i,p in enumerate(pdi.keys()):
     ax = axs[i]
     ax.set_title(pdi[p]['tset'])
     if pdi[p]['dv']: #if param is depth-varying
-        ax.errorbar(1, pdi[p]['o'], yerr=pdi[p]['oe'], fmt='o', ms=msp, c=blue, elinewidth=elwp, ecolor=ec, capsize=csp) #priors with errors
-        ax.scatter(2, pdi[p]['t']['A'], marker='+', s=msp*10, c=teal) #target value
-        ax.errorbar(3, pdi[p]['xh']['A'], yerr=pdi[p]['xhe']['A'], fmt='o', c=teal, ms=msp, elinewidth=elwp, ecolor=ec, capsize=csp) #posteriors with errors
-        ax.scatter(4, pdi[p]['t']['B'], marker='+', s=msp*10, c=navy) #target value
-        ax.errorbar(5, pdi[p]['xh']['B'], yerr=pdi[p]['xhe']['B'], fmt='o', c=navy, ms=msp, elinewidth=elwp, ecolor=ec,capsize=csp) #posteriors with errors
+        ax.errorbar(1,pdi[p]['o'],yerr=pdi[p]['oe'],fmt='o',ms=9,c=blue,elinewidth=1.5,ecolor=blue,capsize=6,markeredgewidth=1.5,label='Prior') #priors with errors
+        ax.scatter(2,pdi[p]['t']['A'],marker='+',s=90,c=green) #target value
+        ax.errorbar(3,pdi[p]['xh']['A'],yerr=pdi[p]['xhe']['A'],fmt='o',c=green,ms=9,elinewidth=1.5,ecolor=green,capsize=6,markeredgewidth=1.5,label='EZ') #posteriors with errors
+        ax.scatter(4,pdi[p]['t']['B'],marker='+',s=90,c=orange) #target value
+        ax.errorbar(5,pdi[p]['xh']['B'],yerr=pdi[p]['xhe']['B'],fmt='o',c=orange,ms=9,elinewidth=1.5,ecolor=orange,capsize=6,markeredgewidth=1.5,label='UMZ') #posteriors with errors
+        if i == 5: ax.legend(loc='upper center',bbox_to_anchor=(1.38,-0.07),ncol=3,fontsize=12)
     else: #if param is depth-constant
-        ax.errorbar(2, pdi[p]['o'], yerr=pdi[p]['oe'],fmt='o',ms=msp,c=blue,label='$x_{o}$',elinewidth=elwp,ecolor=ec,capsize=csp) #priors with errors
-        ax.scatter(3, pdi[p]['t'],marker='+',s=msp*10,c=cyan,label='$x_{T}$') #target value
-        ax.errorbar(4, pdi[p]['xh'], yerr=pdi[p]['xhe'],fmt='o',c=cyan,ms=msp,label='$x_{k+1}$',elinewidth=elwp,ecolor=ec,capsize=csp) #posteriors with errors        
-    ax.tick_params(bottom=False, labelbottom=False)
+        ax.errorbar(2,pdi[p]['o'],yerr=pdi[p]['oe'],fmt='o',ms=9,c=blue,elinewidth=1.5,ecolor=blue,capsize=6,markeredgewidth=1.5,label='Prior') #priors with errors
+        ax.scatter(3,pdi[p]['t'],marker='+',s=90,c=radish) #target value
+        ax.errorbar(4,pdi[p]['xh'],yerr=pdi[p]['xhe'],fmt='o',c=radish,ms=9,elinewidth=1.5,ecolor=radish,capsize=6,markeredgewidth=1.5) #posteriors with errors        
+    ax.tick_params(bottom=False,labelbottom=False)
     ax.set_xticks(np.arange(0,7))
     if p == 'Bm2': ax.set_ylim(-0.5,2)
-plt.savefig('twnxP_params.png')
+plt.savefig('twnxP_params.pdf')
 plt.close()
     
 print(f'--- {time.time() - start_time} seconds ---')

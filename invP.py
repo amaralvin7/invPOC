@@ -76,9 +76,9 @@ gkeys_pdi = ['xh', 'xhe'] #some keys for building dictionaries later
 pdi = {param:{} for param in params}
 
 #typeset name
-p_tset = {'ws':'$w_s$', 'wl':'$w_l$', 'B2p':'$\\beta^,_2$', 'Bm2':'$\\beta_{-2}$', 
-                'Bm1s':'$\\beta_{-1,s}$', 'Bm1l':'$\\beta_{-1,l}$', 'Gh':'$\overline{\.P_s}$', 
-                'Lp':'$L_{p}$'}
+p_tset = {'ws':'$w_S$', 'wl':'$w_L$', 'B2p':'$\\beta^,_2$', 'Bm2':'$\\beta_{-2}$', 
+                'Bm1s':'$\\beta_{-1,S}$', 'Bm1l':'$\\beta_{-1,L}$', 'Gh':'$\overline{\.P_S}$', 
+                'Lp':'$L_{P}$'}
 
 #priors
 p_o = {'ws':2, #m/d
@@ -120,8 +120,8 @@ td = {t:{k:({g:{gk:({dr:{} for dr in dr_str} if gk in invkeys else {})
     
 #build flux dictionary
 flxs = ['ws_Ps','wl_Pl','ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
-flxnames = {'ws_Ps':'sinkS', 'wl_Pl':'sinkL', 'ws_Psdz':'sinkS_div', 'wl_Pldz':'sinkL_div',
-            'Bm1s_Ps':'SRemin', 'Bm1l_Pl':'LRemin', 'B2p_Ps2':'Agg', 'Bm2_Pl':'Disagg', 'Psdot':'Prod'}
+flxnames = {'ws_Ps':'$w_SP_S$', 'wl_Pl':'$w_LP_L$', 'ws_Psdz':'$w_S\\frac{dP_S}{dz}$', 'wl_Pldz':'$w_L\\frac{dP_L}{dz}$',
+            'Bm1s_Ps':'$\\beta_{-1,S}P_S$', 'Bm1l_Pl':'$\\beta_{-1,L}P_L$', 'B2p_Ps2':'$\\beta^,_2P^2_S$', 'Bm2_Pl':'$\\beta_{-2}P_L$', 'Psdot':'${\.P_S}$'}
 flxpairs = [('ws_Ps','wl_Pl'),('ws_Psdz','wl_Pldz'),('Bm1s_Ps','B2p_Ps2'),('Bm1l_Pl','Bm2_Pl'),('Psdot',)]
 #fluxes that we want to integrate
 iflxs = ['ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
@@ -270,10 +270,10 @@ def lsqplotsf(model,x,y,z,tracer,logscale): #make a least squares fit and plot t
     normfac = mpl.colors.Normalize(z.min(),z.max())
     axcb = mpl.colorbar.make_axes(ax)[0]
     cbar = mpl.colorbar.ColorbarBase(axcb,norm=normfac,cmap=cmap)
-    cbar.set_label('Depth (m)\n',rotation=270, labelpad=20,fontsize=14)
+    cbar.set_label('Depth (m)\n',rotation=270,labelpad=20,fontsize=14)
     #plot data
     ax.scatter(x,y,norm=normfac,edgecolors=black,c=z,s=150,marker='o',cmap=cmap)
-    ax.set_ylabel(f'{tracer} (mmol/m$^3$)',fontsize=14)
+    ax.set_ylabel(f'{tracer} (mmol m$^{-3}$)',fontsize=14)
     ax.set_xlabel('$c_{p}$ (m$^{-1}$)',fontsize=14)
     xp = np.arange(0.01,0.14,0.0001)
     c = model.params #extract coefficients, where c[0] is the intercept
@@ -584,7 +584,7 @@ plt.close()
 fig,[ax1,ax2,ax3] = plt.subplots(1,3,tight_layout=True) #P figures
 fig.subplots_adjust(wspace=0.5)
 ax1.invert_yaxis(),ax2.invert_yaxis(),ax3.invert_yaxis()
-ax1.set_xlabel('$P_{S}$ (mmol/m$^3$)',fontsize=14),ax2.set_xlabel('$P_{L}$ (mmol/m$^3$)',fontsize=14),ax3.set_xlabel('$P_{T}$ (mmol/m$^3$)',fontsize=14)
+ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)',fontsize=14),ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)',fontsize=14),ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)',fontsize=14)
 ax1.set_ylabel('Depth (m)',fontsize=14)
 ax1.set_ylim(top=0,bottom=zmax+30),ax2.set_ylim(top=0,bottom=zmax+30),ax3.set_ylim(top=0,bottom=zmax+30)
 ax1.errorbar(Ps_mean,zs,fmt='^',xerr=Ps_se,ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='Data',fillstyle='full')
@@ -592,7 +592,7 @@ ax1.set_xticks([0,1,2,3])
 ax2.errorbar(Pl_mean,zs,fmt='^',xerr=Pl_se,ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='Data',fillstyle='full')
 ax2.set_xticks([0,0.05,0.1,0.15])
 ax2.set_xticklabels(['0','0.05','0.1','0.15'])
-ax3.errorbar(cppt.Pt_hat,zml+1,fmt='o',xerr=np.ones(n)*np.sqrt(model.mse_resid),ecolor=blue,elinewidth=0.5,markerfacecolor=blue,markeredgecolor='white',ms=3,capsize=2,lw=1,label='from $c_P$',markeredgewidth=0.3)
+ax3.errorbar(cppt.Pt_hat,zml+1,fmt='o',xerr=np.ones(n)*np.sqrt(model.mse_resid),ecolor=blue,elinewidth=0.5,markerfacecolor=blue,markeredgecolor='white',ms=3,capsize=2,label='from $c_P$',capthick=0.5)
 ax3.scatter(Ps_mean+Pl_mean,zs,marker='^',s=100,c=blue,zorder=1,label='LVISF')
 ax3.set_xticks([0,1,2,3])
 ax3.legend(fontsize=12,borderpad=0.2)
@@ -629,7 +629,7 @@ par1.set_xlim(3, 14.8)
 par2.set_xlim(32, 34.5)
 
 host.set_ylabel('Depth (m)',fontsize=14)
-host.set_xlabel('$\sigma_T$ (kg $m^{-3}$)')
+host.set_xlabel('$\sigma_T$ (kg m$^{-3}$)')
 par1.set_xlabel('Temperature (°C)')
 par2.set_xlabel('Salinity (PSU)')
 
@@ -965,8 +965,8 @@ for g in gammas:
     fig, [ax1,ax2,ax3] = plt.subplots(1,3)
     fig.subplots_adjust(wspace=0.5)  
     ax1.invert_yaxis(), ax2.invert_yaxis(), ax3.invert_yaxis()
-    ax1.set_xlabel('$n^{k+1}_{P_{S}}$ (mmol/m3/d)')
-    ax2.set_xlabel('$n^{k+1}_{P_{L}}$ (mmol/m3/d)')
+    ax1.set_xlabel('$n^{k+1}_{P_{S}}$ (mmol m$^{-3}$ d$^{-1}$)')
+    ax2.set_xlabel('$n^{k+1}_{P_{L}}$ (mmol m$^{-3}$ d$^{-1}$)')
     ax3.set_xlabel('$n^{k+1}_{P_{T}}$ (mmol/m3)')
     ax1.set_ylabel('Depth (m)')
     ax1.set_ylim(top=0,bottom=zmax+dz), ax2.set_ylim(top=0,bottom=zmax+dz), ax3.set_ylim(top=0,bottom=zmax+dz)
@@ -1004,20 +1004,20 @@ for g in gammas:
     fig,[ax1,ax2,ax3] = plt.subplots(1,3,tight_layout=True) #P figures
     fig.subplots_adjust(wspace=0.5)  
     ax1.invert_yaxis(),ax2.invert_yaxis(),ax3.invert_yaxis()
-    ax1.set_xlabel('$P_{S}$ (mmol/m$^3$)',fontsize=14),ax2.set_xlabel('$P_{L}$ (mmol/m$^3$)',fontsize=14),ax3.set_xlabel('$P_{T}$ (mmol/m$^3$)',fontsize=14)
+    ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)',fontsize=14),ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)',fontsize=14),ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)',fontsize=14)
     ax1.set_ylabel('Depth (m)',fontsize=14)
     ax1.set_ylim(top=0,bottom=zmax+30),ax2.set_ylim(top=0,bottom=zmax+30),ax3.set_ylim(top=0,bottom=zmax+30)
     ax1.errorbar(Ps_mean,zs,fmt='^',xerr=Ps_se,ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='LVISF',fillstyle='full')
-    ax1.errorbar(td['Ps']['gammas'][g]['xh'],zml,fmt='o',xerr=td['Ps']['gammas'][g]['xhe'],ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,lw=1,label=invname,fillstyle='none',zorder=3)
-    ax1.errorbar(td['Ps']['x'],zml,fmt='o',xerr=td['Ps']['xerr'],ecolor=sky,elinewidth=elw,c=sky,ms=2,capsize=cs,lw=lw,label='OI')
+    ax1.errorbar(td['Ps']['gammas'][g]['xh'],zml,fmt='o',xerr=td['Ps']['gammas'][g]['xhe'],ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,label=invname,fillstyle='none',zorder=3,capthick=0.5)
+    ax1.errorbar(td['Ps']['x'],zml,fmt='o',xerr=td['Ps']['xerr'],ecolor=sky,elinewidth=0.5,c=sky,ms=2,capsize=2,label='OI',capthick=0.5)
     ax1.set_xticks([0,1,2,3])
     ax2.errorbar(Pl_mean,zs,fmt='^',xerr=Pl_se,ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='LVISF',fillstyle='full')
-    ax2.errorbar(td['Pl']['gammas'][g]['xh'],zml,fmt='o',xerr=td['Pl']['gammas'][g]['xhe'],ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,lw=1,label=invname,fillstyle='none',zorder=3)
-    ax2.errorbar(td['Pl']['x'],zml,fmt='o',xerr=td['Pl']['xerr'],ecolor=sky,elinewidth=elw,c=sky,ms=2,capsize=cs,lw=lw,label='OI')
+    ax2.errorbar(td['Pl']['gammas'][g]['xh'],zml,fmt='o',xerr=td['Pl']['gammas'][g]['xhe'],ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,label=invname,fillstyle='none',zorder=3,capthick=0.5)
+    ax2.errorbar(td['Pl']['x'],zml,fmt='o',xerr=td['Pl']['xerr'],ecolor=sky,elinewidth=0.5,c=sky,ms=2,capsize=2,label='OI',capthick=0.5)
     ax2.set_xticks([0,0.05,0.1,0.15])
     ax2.set_xticklabels(['0','0.05','0.1','0.15'])
-    ax3.errorbar(cppt.Pt_hat,zml,fmt='o',xerr=np.ones(n)*np.sqrt(model.mse_resid),ecolor=blue,elinewidth=elw,c=blue,ms=2,capsize=cs,lw=lw,label='from $c_P$')
-    ax3.errorbar(Pt_xh,zml,fmt='o',xerr=Pt_xhe,ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,lw=1,label=invname,fillstyle='none',zorder=3)
+    ax3.errorbar(cppt.Pt_hat,zml,fmt='o',xerr=np.ones(n)*np.sqrt(model.mse_resid),ecolor=blue,elinewidth=0.5,c=blue,ms=2,capsize=2,label='from $c_P$',capthick=0.5)
+    ax3.errorbar(Pt_xh,zml,fmt='o',xerr=Pt_xhe,ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,label=invname,fillstyle='none',zorder=3,capthick=0.5)
     ax3.set_xticks([0,1,2,3])
     [ax.legend(fontsize=12,borderpad=0.2) for ax in (ax1,ax2,ax3)]
     [ax.tick_params(labelleft=False) for ax in (ax2,ax3)]
@@ -1101,21 +1101,23 @@ for g in gammas:
         flxd[f]['gammas'][g]['xh'], flxd[f]['gammas'][g]['xhe'] = fxh, fxhe 
     
     #plot fluxes
-    for i, pr in enumerate(flxpairs):
-        fig, ax = plt.subplots(1,1) #P figures
+    for i,pr in enumerate(flxpairs):
+        fig,ax = plt.subplots(1,1) #P figures
         ax.invert_yaxis()
         if ('w' in pr[0]) and ('dz' not in pr[0]):
-            ax.set_xlabel('Flux $[mmol/(m^2 \cdot d)]$')
-        else: ax.set_xlabel('Vol. Flux $[mmol/(m^3 \cdot d)]$')
-        ax.set_ylabel('Depth (m)')
+            ax.set_xlabel('Flux (mmol m$^{-2}$ d$^{-1}$)',fontsize=14)
+        else: ax.set_xlabel('Vol. Flux (mmol m$^{-3}$ d$^{-1}$)',fontsize=14)
+        ax.set_ylabel('Depth (m)',fontsize=14)
         ax.set_ylim(top=0,bottom=zmax+dz)
-        c1, c2, c3, c4 = navy, teal, red, purple
-        ax.errorbar(flxd[pr[0]]['gammas'][g]['xh'], zml, fmt='o', xerr=flxd[pr[0]]['gammas'][g]['xhe'], ecolor=c1, elinewidth=elw, c=c1, ms=ms, capsize=cs, lw=lw, label=flxnames[pr[0]], fillstyle='none')
-        ax.axhline(bnd,c='k',ls='--',lw=lw/2)
+        c1,c2 = blue,orange
+        eb1 = ax.errorbar(flxd[pr[0]]['gammas'][g]['xh'],zml,fmt='o',xerr=flxd[pr[0]]['gammas'][g]['xhe'],ecolor=c1,elinewidth=0.5,c=c1,ms=3,capsize=2,label=flxnames[pr[0]],fillstyle='none',capthick=0.5)
+        eb1[-1][0].set_linestyle('--')
+        ax.axhline(bnd,c='k',ls='--',lw=0.5)
         if len(pr) > 1: #if it's actually a pair
-            ax.errorbar(flxd[pr[1]]['gammas'][g]['xh'], zml, fmt='o', xerr=flxd[pr[1]]['gammas'][g]['xhe'], ecolor=c2, elinewidth=elw, c=c2, ms=ms, capsize=cs, lw=lw, label=flxnames[pr[1]], fillstyle='none')
-        ax.legend()
-        plt.savefig(f'invP_flux{i+1}_gam{str(g).replace(".","")}.png')
+            eb2 = ax.errorbar(flxd[pr[1]]['gammas'][g]['xh'],zml,fmt='o',xerr=flxd[pr[1]]['gammas'][g]['xhe'],ecolor=c2,elinewidth=0.5,c=c2,ms=3,capsize=2,label=flxnames[pr[1]],fillstyle='none',capthick=0.5)
+            eb2[-1][0].set_linestyle(':')
+        ax.legend(loc='lower right',fontsize=12)
+        plt.savefig(f'invP_flux{i+1}_gam{str(g).replace(".","")}.pdf')
         plt.close()
     
     iflxcalc(iflxs,depthranges) #calculate integrated fluxes and timescales
@@ -1160,11 +1162,11 @@ for iv in dr_str:
         r1, r2 = [x + bw for x in r1], [x + bw for x in r2]
     ax1.set_xticks(list(map(lambda n: n-bw*len(iflxs)/2,r1)))
     ax1.set_xticklabels([flxd[f]['name'] for f in iflxs])
-    ax1.set_ylabel('Integrated Flux (mmol/m2/d)')
+    ax1.set_ylabel('Integrated Flux (mmol m$^{-2}$ d$^{-1}$)')
     ax1.legend()
     ax2.set_xticks(list(map(lambda n: n-bw*len(iflxs)/2,r2)))
     ax2.set_xticklabels(tracers)
-    ax2.set_ylabel('Integrated Residuals (mmol/m2/d)')
+    ax2.set_ylabel('Integrated Residuals (mmol m$^{-2}$ d$^{-1}$)')
     ax2.legend()
     for fig in (fig1,fig2):
         plt.figure(fig.number)
