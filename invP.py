@@ -1039,7 +1039,7 @@ for g in gammas:
     #make a plot of parameter priors and posteriors
     fig,([ax1,ax2,ax3,ax4],[ax5,ax6,ax7,ax8]) = plt.subplots(2,4)
     fig.subplots_adjust(wspace=0.8,hspace=0.4)
-    axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax8]
+    axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8]
     for i,p in enumerate(pdi.keys()):
         ax = axs[i]
         ax.set_title(pdi[p]['tset'],fontsize=14)
@@ -1194,4 +1194,39 @@ ax.set_xticks(gammas)
 ax.get_xaxis().set_major_formatter(mpl.ticker.ScalarFormatter())
 ax.legend(loc='lower center', bbox_to_anchor=(0.49, 0.95), ncol=6)
 plt.savefig('invP_paramrelerror.png')
+plt.close()
+
+#make a plot of parameter priors and posteriors
+fig,([ax1,ax2,ax3],[ax4,ax5,ax6],[ax7,ax8,ax9]) = plt.subplots(3,3,figsize=(8,8))
+fig.subplots_adjust(wspace=0.3,hspace=0.8)
+axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax9]
+axs[-1].axis('off')
+for i,p in enumerate(params):
+    ax = axs[i]
+    ax.set_title(pdi[p]['tset'],fontsize=14)
+    if pdi[p]['dv']: #if param is depth-varying
+        ax.axvline(9,ls='--',c=black,lw=1)
+        j = 0
+        for l in layers:
+            c = green if l == 'A' else orange
+            layer = 'EZ' if l == 'A' else 'UMZ'
+            for g in gammas:
+                ax.errorbar(j*2,pdi[p]['gammas'][g]['xh'][l],yerr=pdi[p]['gammas'][g]['xhe'][l],fmt='o',c=c,ms=8,elinewidth=1.5,ecolor=c,capsize=6,label=layer,markeredgewidth=1.5) #posteriors with errors
+                j += 1
+        ax.set_xticks([k*2 for k in list(range(0,len(gammas)*2))])
+        ax.get_xaxis().set_major_formatter(mpl.ticker.ScalarFormatter())
+        ax.set_xticklabels(gammas+gammas,rotation=60)
+        if i == 5:
+            handles, labels = ax.get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            ax.legend(by_label.values(), by_label.keys(),loc='upper center',bbox_to_anchor=(0.5,-1),ncol=1,fontsize=12)
+    else: #if param is depth-constant
+        j = 0
+        for g in gammas:
+            ax.errorbar(j*3,pdi[p]['gammas'][g]['xh'],yerr=pdi[p]['gammas'][g]['xhe'],fmt='o',c=radish,ms=8,elinewidth=1.5,ecolor=radish,capsize=6,label=layer,markeredgewidth=1.5) #priors with errors
+            j += 1
+        ax.set_xticks([k*3 for k in list(range(0,len(gammas)))])
+        ax.get_xaxis().set_major_formatter(mpl.ticker.ScalarFormatter())
+        ax.set_xticklabels(gammas,rotation=60)
+plt.savefig('invP_sensitivity_params.pdf')
 plt.close()

@@ -951,7 +951,7 @@ for i,stri in enumerate(p_toidx):
 elwp, msp, csp, ec = 1, 9, 4, 'k'
 fig, ([ax1,ax2,ax3,ax4],[ax5,ax6,ax7,ax8]) = plt.subplots(2,4)
 fig.subplots_adjust(wspace=0.8, hspace=0.4)
-axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax8]
+axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8]
 for i,p in enumerate(pdi.keys()):
     ax = axs[i]
     ax.set_title(pdi[p]['tset'])
