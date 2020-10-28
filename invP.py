@@ -12,7 +12,6 @@ import scipy.linalg as splinalg
 import scipy.stats as sstats
 import matplotlib.pyplot as plt
 import mpl_toolkits.axisartist as AA
-from mpl_toolkits.axes_grid1 import host_subplot
 import pandas as pd
 import scipy.io as sio
 import matplotlib as mpl
@@ -24,6 +23,8 @@ import os
 import sys
 import time
 import pickle
+from mpl_toolkits.axes_grid1 import host_subplot
+from matplotlib.lines import Line2D
 
 start_time = time.time()
 plt.close('all')
@@ -32,9 +33,7 @@ plt.close('all')
 sys.setrecursionlimit(10000)
 
 #colors
-red, green, blue, purple, cyan, orange, teal, navy, olive = '#e6194B', '#3cb44b', '#4363d8', '#911eb4', '#42d4f4', '#f58231', '#469990', '#000075', '#808000'
-#colors
-black, orange, sky, green, yellow, blue, red, radish = '#000000', '#E69F00', '#56B4E9', '#009E73', '#F0E442', '#0072B2', '#D55E00', '#CC79A7'
+colors = black,orange,sky,green,yellow,blue,vermillion,radish = '#000000','#E69F00','#56B4E9','#009E73','#F0E442','#0072B2','#D55E00','#CC79A7'
 
 #read in POC data
 cwd = os.getcwd()
@@ -79,6 +78,7 @@ pdi = {param:{} for param in params}
 p_tset = {'ws':'$w_S$', 'wl':'$w_L$', 'B2p':'$\\beta^,_2$', 'Bm2':'$\\beta_{-2}$', 
                 'Bm1s':'$\\beta_{-1,S}$', 'Bm1l':'$\\beta_{-1,L}$', 'Gh':'$\overline{\.P_S}$', 
                 'Lp':'$L_{P}$'}
+t_tset = {'Ps':'$P_S$', 'Pl':'$P_L$'}
 
 #priors
 p_o = {'ws':2, #m/d
@@ -112,7 +112,7 @@ for p in pdi.keys():
 #build tracer dictionary
 tracers = ['Ps','Pl']
 gkeys_td = ['xh', 'xhe', 'inv', 'ires', 'n', 'nm', 'nma'] #some keys
-tkeys_td = ['x', 'xerr', 'y', 'si', 'gammas']
+tkeys_td = ['x', 'xerr', 'y', 'si', 'gammas','tset']
 invkeys = ['inv','ires']
 td = {t:{k:({g:{gk:({dr:{} for dr in dr_str} if gk in invkeys else {}) 
                 for gk in gkeys_td} for g in gammas} if k == 'gammas' 
@@ -730,6 +730,7 @@ for lay in oi.keys():
 #make an oi matrix with some values concatenated
 tpri = np.asarray([]) #initialize an array to collect priors of all tracers AFTER they've been concatenated by layer
 for t in tracers:
+    td[t]['tset'] = t_tset[t]
     for k in ['si','x','xerr']:
         if k == 'si': 
             td[t][k] = vidx_allP.index(f'{t}_0')
@@ -924,7 +925,7 @@ for g in gammas:
     pdf_params = pdfx, pdfn, xg, yg_pdf
     
     #plot gaussians, show legend
-    ax1.plot(xg,yg_pdf,c=red), ax2.plot(xg,yg_pdf,c=red)
+    ax1.plot(xg,yg_pdf,c=vermillion), ax2.plot(xg,yg_pdf,c=vermillion)
     plt.savefig(f'invP_pdfs_gam{str(g).replace(".","")}.png')
     plt.close()
     
@@ -933,7 +934,7 @@ for g in gammas:
     fig.subplots_adjust(wspace=0.5)
     ax1.set_ylabel('P',size=16)
     ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16), ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
-    ax1.plot(xg,yg_cdf,c=red), ax2.plot(xg,yg_cdf,c=red) #plot gaussians
+    ax1.plot(xg,yg_cdf,c=vermillion), ax2.plot(xg,yg_cdf,c=vermillion) #plot gaussians
     cdf_dfx, cdf_dfn = pd.DataFrame(), pd.DataFrame()
     cdf_dfx['var_name'] = vidxSV.copy()
     cdf_dfn['var_name'] = vidx_allP.copy() if g else vidxPt.copy()
@@ -956,7 +957,7 @@ for g in gammas:
     for i, v in enumerate(x2):
         if 'Ps' in cdf_dfns.var_name[i]: ec = blue
         elif 'Pl' in cdf_dfns.var_name[i]: ec = green
-        else: ec = teal #Pt
+        else: ec = blue #Pt
         ax2.scatter(x2[i],y2[i],s=marsize,marker=mar,facecolors=fc,edgecolors=ec)
     plt.savefig(f'invP_cdfs_gam{str(g).replace(".","")}.png')
     plt.close() 
@@ -1139,64 +1140,60 @@ with open ('invP_out.txt','a') as file:
 with open('invP_savedvars.pkl', 'wb') as file:
     pickle.dump((flxd,td,pdi,combodf_s,ac_params,pdf_params),file)
 
-#comparison of integrated fluxes and integrals
-bw = 0.15
-c1 = [red, green, blue, purple, cyan]
-c2 = [red, green, blue, purple, cyan, orange, teal, navy]
-
-barsF = {i:{g:{x:{} for x in ['xh','xhe']} for g in gammas} for i in dr_str}
-barsR = {i:{g:{x:{} for x in ['xh','xhe']} for g in gammas} for i in dr_str}
-for iv in dr_str:
-    fig1, ax1 = plt.subplots(1,1)
-    fig2, ax2 = plt.subplots(1,1)
-    fig1.suptitle(iv), fig2.suptitle(iv)
-    for i, g in enumerate(gammas):
-        barsF[iv][g]['xh'] = [flxd[f]['gammas'][g]['iflx'][iv][0] for f in iflxs]
-        barsF[iv][g]['xhe'] = [flxd[f]['gammas'][g]['iflx'][iv][1] for f in iflxs]
-        barsR[iv][g]['xh'] = [td[t]['gammas'][g]['ires'][iv] for t in tracers]
-        if i == 0: 
-            r1 = np.arange(len(barsF[iv][g]['xh']))
-            r2 = np.arange(len(barsR[iv][g]['xh']))
-        ax1.bar(r1, barsF[iv][g]['xh'], width=bw, color=c1[i], edgecolor='k', yerr=barsF[iv][g]['xhe'], capsize=3, label=g)
-        ax2.bar(r2, barsR[iv][g]['xh'], width=bw, color=c1[i], edgecolor='k', label=g)
-        r1, r2 = [x + bw for x in r1], [x + bw for x in r2]
-    ax1.set_xticks(list(map(lambda n: n-bw*len(iflxs)/2,r1)))
-    ax1.set_xticklabels([flxd[f]['name'] for f in iflxs])
-    ax1.set_ylabel('Integrated Flux (mmol m$^{-2}$ d$^{-1}$)')
-    ax1.legend()
-    ax2.set_xticks(list(map(lambda n: n-bw*len(iflxs)/2,r2)))
-    ax2.set_xticklabels(tracers)
-    ax2.set_ylabel('Integrated Residuals (mmol m$^{-2}$ d$^{-1}$)')
-    ax2.legend()
-    for fig in (fig1,fig2):
-        plt.figure(fig.number)
-        suf = 'iflxs' if fig == fig1 else 'iresids'
-        ivlabel = iv.replace('.','p')
-        plt.savefig(f'invP_{suf}_{ivlabel}.png')
-        plt.close(fig)
+#gamma sensitivity comparisons of integrated residuals
+fig,ax = plt.subplots()
+ax.set_xticks([k for k in list(range(0,len(gammas)))])
+ax.set_xticklabels(gammas)
+ax.set_yticks(list(range(-11,2)))
+ax.grid(axis='y',zorder=1)
+plt.subplots_adjust(bottom=0.1)
+markerdict = {'Ps':'s','Pl':'^'}
+layerdict = {'30_112.5':{'color':green,'layer':'EZ'},
+             '112.5_500':{'color':orange,'layer':'UMZ'}}
+for t in tracers:
+    marker = markerdict[t]
+    for dr in dr_str:
+        j=0
+        c = layerdict[dr]['color']
+        layer = layerdict[dr]['layer']
+        for g in gammas:
+            ax.scatter(j,td[t]['gammas'][g]['ires'][dr],marker=marker,c=c,s=64,label=f'{td[t]["tset"]}$^{{{layer}}}$',zorder=2)
+            j += 1
+handles, labels = ax.get_legend_handles_labels()
+by_label = dict(zip(labels, handles))
+ax.legend(by_label.values(),by_label.keys(),fontsize=12)
+ax.set_ylabel('Integrated Residuals (mmol m$^{-2}$ d$^{-1}$)',fontsize=14)
+ax.set_xlabel('$\gamma$',fontsize=14)
+plt.savefig('invP_intresids.pdf')
+plt.close()
 
 #plots of relative error of rate parameters as a function of gamma
 fig, ax = plt.subplots(1,1)
+plt.subplots_adjust(top=0.8)
+tset_list = [pdi[p]['tset'] for p in params]
 for i,p in enumerate(params):
     if pdi[p]['dv']:
         for l in layers:
             if l == 'A': m, ls = '^', '--'
             else: m, ls = 'o', ':'
             relativeerror = [pdi[p]['gammas'][g]['xhe'][l]/pdi[p]['gammas'][g]['xh'][l] for g in gammas]
-            ax.plot(gammas, relativeerror, m, c=c2[i], label=f'{p}_{l}', fillstyle='none', ls=ls)
+            ax.plot(gammas, relativeerror, m, c=colors[i], label=f'{pdi[p]["tset"]}', fillstyle='none', ls=ls)
     else:
         relativeprcsn = [pdi[p]['gammas'][g]['xhe']/pdi[p]['gammas'][g]['xh'] for g in gammas]
         label = p
-        ax.plot(gammas, relativeprcsn, 'x', c=c2[i], label=p, ls='-.')
+        ax.plot(gammas, relativeprcsn, 'x', c=colors[i], label=p, ls='-.')
 #ax.set_xscale('symlog', linthreshx=0.01)
 ax.set_xscale('log')
 ax.set_xticks(gammas)
+leg_elements = [Line2D([0],[0],marker='o',ls='none',color=colors[i],label=tset_list[i]) for i,_ in enumerate(p_tset)]
+ax.legend(handles=leg_elements,loc='lower center', bbox_to_anchor=(0.49, 1),ncol=4,fontsize=12)
+ax.set_xlabel('$\gamma$',fontsize=14)
+ax.set_ylabel('Relative Error',fontsize=14)
 ax.get_xaxis().set_major_formatter(mpl.ticker.ScalarFormatter())
-ax.legend(loc='lower center', bbox_to_anchor=(0.49, 0.95), ncol=6)
-plt.savefig('invP_paramrelerror.png')
+plt.savefig('invP_paramrelerror.pdf')
 plt.close()
 
-#make a plot of parameter priors and posteriors
+#gamma sensitivity comparisons of parameter estimates
 fig,([ax1,ax2,ax3],[ax4,ax5,ax6],[ax7,ax8,ax9]) = plt.subplots(3,3,figsize=(8,8))
 fig.subplots_adjust(wspace=0.3,hspace=0.8)
 axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax9]
