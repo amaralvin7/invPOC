@@ -277,7 +277,7 @@ def lsqplotsf(model,x,y,z,tracer,logscale): #make a least squares fit and plot t
     ax.set_xlabel('$c_{p}$ (m$^{-1}$)',fontsize=14)
     xp = np.arange(0.01,0.14,0.0001)
     c = model.params #extract coefficients, where c[0] is the intercept
-    ax.text(0.04,0.2,f'$R^2$ = {model.rsquared:.2f}\nN = {model.nobs:.0f}',fontsize=12)
+    ax.text(0.04,0.2,f'$R^2$ = {model.rsquared:.2f}\n$N$ = {model.nobs:.0f}',fontsize=12)
     if logscale: 
         ax.set_yscale('log'), ax.set_xscale('log') 
         fit = [c[0] + c[1]*np.log(xi) for xi in xp]
@@ -568,15 +568,15 @@ kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A = acdrange((h,bnd-dz/2))
 kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B = acdrange((bnd+dz/2,zmax))
 ac_params = (kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A, kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B)
 fig, ax = plt.subplots(1,1)
-cA, cB = blue, green
-ax.scatter(kdz_A,np.log(ac_A),label='A (EZ)',marker='o',color=cA) 
-ax.scatter(kdz_B,np.log(ac_B),label='B (MZ)',marker='x',color=cB)
-ax.plot(kdz_A,lfit_A,'--',lw=lw,color=cA), ax.plot(kdz_B,lfit_B,'--',lw=lw,color=cB)
-ax.set_title(f'int_A = {l_int_A:.2f}, L_A = {L_A:.2f}, R2_A = {l_r2_A:.2f} \n int_B = {l_int_B:.2f}, L_B = {L_B:.2f}, R2_B = {l_r2_B:.2f}')
-ax.set_xlabel('lags (m)')
-ax.set_ylabel('ln($r_k$)')
-ax.legend()
-plt.savefig('invP_autocor.png')
+ax.scatter(kdz_A,np.log(ac_A),label='EZ',marker='o',color=blue)
+ax.scatter(kdz_B,np.log(ac_B),label='UMZ',marker='x',color=green)
+ax.plot(kdz_A,lfit_A,'--',lw=1,color=blue), ax.plot(kdz_B,lfit_B,'--',lw=1,color=green)
+ax.text(0,-1.7,f'$R^2$ = {l_r2_A:.2f}\n$L$ = {L_A:.1f} m',fontsize=12,c=blue)
+ax.text(80,-0.8,f'$R^2$ = {l_r2_B:.2f}\n$L$ = {L_B:.1f} m',fontsize=12,c=green)
+ax.set_xlabel('Lag (m)',fontsize=14)
+ax.set_ylabel('ln($r_k$)',fontsize=14)
+ax.legend(fontsize=12)
+plt.savefig('invP_autocor.pdf')
 plt.close()
 
 #POC data plots
