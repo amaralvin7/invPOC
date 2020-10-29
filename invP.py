@@ -568,11 +568,11 @@ kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A = acdrange((h,bnd-dz/2))
 kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B = acdrange((bnd+dz/2,zmax))
 ac_params = (kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A, kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B)
 fig, ax = plt.subplots(1,1)
-ax.scatter(kdz_A,np.log(ac_A),label='EZ',marker='o',color=blue)
-ax.scatter(kdz_B,np.log(ac_B),label='UMZ',marker='x',color=green)
-ax.plot(kdz_A,lfit_A,'--',lw=1,color=blue), ax.plot(kdz_B,lfit_B,'--',lw=1,color=green)
-ax.text(0,-1.7,f'$R^2$ = {l_r2_A:.2f}\n$L$ = {L_A:.1f} m',fontsize=12,c=blue)
-ax.text(80,-0.8,f'$R^2$ = {l_r2_B:.2f}\n$L$ = {L_B:.1f} m',fontsize=12,c=green)
+ax.scatter(kdz_A,np.log(ac_A),label='EZ',marker='o',color=green)
+ax.scatter(kdz_B,np.log(ac_B),label='UMZ',marker='x',color=orange)
+ax.plot(kdz_A,lfit_A,'--',lw=1,color=green), ax.plot(kdz_B,lfit_B,'--',lw=1,color=orange)
+ax.text(0,-1.7,f'$R^2$ = {l_r2_A:.2f}\n$L$ = {L_A:.1f} m',fontsize=12,color=green)
+ax.text(80,-0.8,f'$R^2$ = {l_r2_B:.2f}\n$L$ = {L_B:.1f} m',fontsize=12,color=orange)
 ax.set_xlabel('Lag (m)',fontsize=14)
 ax.set_ylabel('ln($r_k$)',fontsize=14)
 ax.legend(fontsize=12)
@@ -917,83 +917,83 @@ for g in gammas:
     #PDFs
     fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
     fig.subplots_adjust(wspace=0.5)
-    ax1.set_ylabel('P',size=16)
-    ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16)
+    ax1.set_ylabel('Probability Density',fontsize=16)
+    ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',fontsize=24)
     ax1.hist(pdfx,density=True,bins=20,color=blue)
     ax2.hist(pdfn,density=True,bins=20,color=blue)
-    ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
+    ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',fontsize=24)
     pdf_params = pdfx, pdfn, xg, yg_pdf
     
     #plot gaussians, show legend
-    ax1.plot(xg,yg_pdf,c=vermillion), ax2.plot(xg,yg_pdf,c=vermillion)
-    plt.savefig(f'invP_pdfs_gam{str(g).replace(".","")}.png')
+    ax1.plot(xg,yg_pdf,c=orange), ax2.plot(xg,yg_pdf,c=orange)
+    plt.savefig(f'invP_pdfs_gam{str(g).replace(".","")}.pdf')
     plt.close()
     
-    #CDFs
-    fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
-    fig.subplots_adjust(wspace=0.5)
-    ax1.set_ylabel('P',size=16)
-    ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16), ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
-    ax1.plot(xg,yg_cdf,c=vermillion), ax2.plot(xg,yg_cdf,c=vermillion) #plot gaussians
-    cdf_dfx, cdf_dfn = pd.DataFrame(), pd.DataFrame()
-    cdf_dfx['var_name'] = vidxSV.copy()
-    cdf_dfn['var_name'] = vidx_allP.copy() if g else vidxPt.copy()
-    cdf_dfx['val'], cdf_dfn['val'] = pdfx.copy(), pdfn.copy() #add values that correspond to those
-    cdf_dfx['o_idx'], cdf_dfn['o_idx'] = cdf_dfx.index, cdf_dfn.index #copy original indices
-    cdf_dfxs, cdf_dfns = cdf_dfx.sort_values('val').copy(), cdf_dfn.sort_values('val').copy()
-    cdf_dfxs.reset_index(inplace=True), cdf_dfns.reset_index(inplace=True) #reset indices
-    x1,x2 = cdf_dfxs.val, cdf_dfns.val 
-    y1,y2 = np.arange(1,len(x1)+1)/len(x1), np.arange(1,len(x2)+1)/len(x2)
-    #Plot params in orange, Ps navy, Pl in green, Pt in teal
-    marsize = 16
-    mar = 'o'
-    fc = 'none'       
-    for i, v in enumerate(x1):
-        if 'Ps' in cdf_dfxs.var_name[i]: ec = blue
-        elif 'Pl' in cdf_dfxs.var_name[i]: ec = green
-        else: ec = orange #params
-        ax1.scatter(x1[i],y1[i],s=marsize,marker=mar,facecolors=fc,edgecolors=ec)
-    #plot posteriors model residuals
-    for i, v in enumerate(x2):
-        if 'Ps' in cdf_dfns.var_name[i]: ec = blue
-        elif 'Pl' in cdf_dfns.var_name[i]: ec = green
-        else: ec = blue #Pt
-        ax2.scatter(x2[i],y2[i],s=marsize,marker=mar,facecolors=fc,edgecolors=ec)
-    plt.savefig(f'invP_cdfs_gam{str(g).replace(".","")}.png')
-    plt.close() 
+    # #CDFs
+    # fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
+    # fig.subplots_adjust(wspace=0.5)
+    # ax1.set_ylabel('P',size=16)
+    # ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16), ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
+    # ax1.plot(xg,yg_cdf,c=vermillion), ax2.plot(xg,yg_cdf,c=vermillion) #plot gaussians
+    # cdf_dfx, cdf_dfn = pd.DataFrame(), pd.DataFrame()
+    # cdf_dfx['var_name'] = vidxSV.copy()
+    # cdf_dfn['var_name'] = vidx_allP.copy() if g else vidxPt.copy()
+    # cdf_dfx['val'], cdf_dfn['val'] = pdfx.copy(), pdfn.copy() #add values that correspond to those
+    # cdf_dfx['o_idx'], cdf_dfn['o_idx'] = cdf_dfx.index, cdf_dfn.index #copy original indices
+    # cdf_dfxs, cdf_dfns = cdf_dfx.sort_values('val').copy(), cdf_dfn.sort_values('val').copy()
+    # cdf_dfxs.reset_index(inplace=True), cdf_dfns.reset_index(inplace=True) #reset indices
+    # x1,x2 = cdf_dfxs.val, cdf_dfns.val
+    # y1,y2 = np.arange(1,len(x1)+1)/len(x1), np.arange(1,len(x2)+1)/len(x2)
+    # #Plot params in orange, Ps navy, Pl in green, Pt in teal
+    # marsize = 16
+    # mar = 'o'
+    # fc = 'none'
+    # for i, v in enumerate(x1):
+    #     if 'Ps' in cdf_dfxs.var_name[i]: ec = blue
+    #     elif 'Pl' in cdf_dfxs.var_name[i]: ec = green
+    #     else: ec = orange #params
+    #     ax1.scatter(x1[i],y1[i],s=marsize,marker=mar,facecolors=fc,edgecolors=ec)
+    # #plot posteriors model residuals
+    # for i, v in enumerate(x2):
+    #     if 'Ps' in cdf_dfns.var_name[i]: ec = blue
+    #     elif 'Pl' in cdf_dfns.var_name[i]: ec = green
+    #     else: ec = blue #Pt
+    #     ax2.scatter(x2[i],y2[i],s=marsize,marker=mar,facecolors=fc,edgecolors=ec)
+    # plt.savefig(f'invP_cdfs_gam{str(g).replace(".","")}.pdf')
+    # plt.close()
     
-    #model residual depth profiles (posteriors)
-    fig, [ax1,ax2,ax3] = plt.subplots(1,3)
-    fig.subplots_adjust(wspace=0.5)  
-    ax1.invert_yaxis(), ax2.invert_yaxis(), ax3.invert_yaxis()
-    ax1.set_xlabel('$n^{k+1}_{P_{S}}$ (mmol m$^{-3}$ d$^{-1}$)')
-    ax2.set_xlabel('$n^{k+1}_{P_{L}}$ (mmol m$^{-3}$ d$^{-1}$)')
-    ax3.set_xlabel('$n^{k+1}_{P_{T}}$ (mmol/m3)')
-    ax1.set_ylabel('Depth (m)')
-    ax1.set_ylim(top=0,bottom=zmax+dz), ax2.set_ylim(top=0,bottom=zmax+dz), ax3.set_ylim(top=0,bottom=zmax+dz)
-    ax1.scatter(td['Ps']['gammas'][g]['n'], zml, marker='o', c=blue, s=ms/2)
-    ax2.scatter(td['Pl']['gammas'][g]['n'], zml, marker='o', c=blue, s=ms/2)
-    ax3.scatter(Pt_resids, zml, marker='o', c=blue, s=ms/2)
-    plt.savefig(f'invP_residprofs_gam{str(g).replace(".","")}.png')
-    plt.close()
+    # #model residual depth profiles (posteriors)
+    # fig, [ax1,ax2,ax3] = plt.subplots(1,3)
+    # fig.subplots_adjust(wspace=0.5)
+    # ax1.invert_yaxis(), ax2.invert_yaxis(), ax3.invert_yaxis()
+    # ax1.set_xlabel('$n^{k+1}_{P_{S}}$ (mmol m$^{-3}$ d$^{-1}$)')
+    # ax2.set_xlabel('$n^{k+1}_{P_{L}}$ (mmol m$^{-3}$ d$^{-1}$)')
+    # ax3.set_xlabel('$n^{k+1}_{P_{T}}$ (mmol/m3)')
+    # ax1.set_ylabel('Depth (m)')
+    # ax1.set_ylim(top=0,bottom=zmax+dz), ax2.set_ylim(top=0,bottom=zmax+dz), ax3.set_ylim(top=0,bottom=zmax+dz)
+    # ax1.scatter(td['Ps']['gammas'][g]['n'], zml, marker='o', c=blue, s=ms/2)
+    # ax2.scatter(td['Pl']['gammas'][g]['n'], zml, marker='o', c=blue, s=ms/2)
+    # ax3.scatter(Pt_resids, zml, marker='o', c=blue, s=ms/2)
+    # plt.savefig(f'invP_residprofs_gam{str(g).replace(".","")}.png')
+    # plt.close()
     
     #plot evolution of convergence
     ms=3
     fig, ax = plt.subplots(1)
-    ax.plot(np.arange(0, len(conv_ev)), conv_ev, marker='o',ms=ms)
+    ax.plot(np.arange(0,len(conv_ev)),conv_ev,marker='o',ms=3,c=blue)
     ax.set_yscale('log')
-    ax.set_xlabel('k')
-    ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',size=12)
-    plt.savefig(f'invP_conv_gam{str(g).replace(".","")}.png')
+    ax.set_xlabel('Iteration, $k$',fontsize=16)
+    ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',fontsize=16)
+    plt.savefig(f'invP_conv_gam{str(g).replace(".","")}.pdf')
     plt.close()
     
     #plot evolution of cost function
     fig, ax = plt.subplots(1)
-    ax.plot(np.arange(0, len(cost_ev)),cost_ev,marker='o',ms=ms)
-    ax.set_xlabel('k')
-    ax.set_ylabel('j')
+    ax.plot(np.arange(0,len(cost_ev)),cost_ev,marker='o',ms=3,c=blue)
+    ax.set_xlabel('Iteration, $k$',fontsize=16)
+    ax.set_ylabel('Cost, $J$',fontsize=16)
     ax.set_yscale('log')
-    plt.savefig(f'invP_cost_gam{str(g).replace(".","")}.png')
+    plt.savefig(f'invP_cost_gam{str(g).replace(".","")}.pdf')
     plt.close()
     
     #comparison plots
