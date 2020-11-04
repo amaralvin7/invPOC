@@ -1107,7 +1107,7 @@ for g in gammas:
         ax.invert_yaxis()
         if ('w' in pr[0]) and ('dz' not in pr[0]):
             ax.set_xlabel('Flux (mmol m$^{-2}$ d$^{-1}$)',fontsize=14)
-        else: ax.set_xlabel('Vol. Flux (mmol m$^{-3}$ d$^{-1}$)',fontsize=14)
+        else: ax.set_xlabel('Volumetric Flux (mmol m$^{-3}$ d$^{-1}$)',fontsize=14)
         ax.set_ylabel('Depth (m)',fontsize=14)
         ax.set_ylim(top=0,bottom=zmax+dz)
         c1,c2 = blue,orange
