@@ -119,8 +119,8 @@ td = {t:{k:({g:{gk:({dr:{} for dr in dr_str} if gk in invkeys else {})
             else {}) for k in tkeys_td} for t in tracers}
     
 #build flux dictionary
-flxs = ['ws_Ps','wl_Pl','ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
-flxnames = {'ws_Ps':'$w_SP_S$', 'wl_Pl':'$w_LP_L$', 'ws_Psdz':'$w_S\\frac{dP_S}{dz}$', 'wl_Pldz':'$w_L\\frac{dP_L}{dz}$',
+flxs = ['ws_Ps','wl_Pl','wt_Pt','ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
+flxnames = {'ws_Ps':'$w_SP_S$', 'wl_Pl':'$w_LP_L$', 'wt_Pt':'$w_TP_T$', 'ws_Psdz':'$w_S\\frac{dP_S}{dz}$', 'wl_Pldz':'$w_L\\frac{dP_L}{dz}$',
             'Bm1s_Ps':'$\\beta_{-1,S}P_S$', 'Bm1l_Pl':'$\\beta_{-1,L}P_L$', 'B2p_Ps2':'$\\beta^,_2P^2_S$', 'Bm2_Pl':'$\\beta_{-2}P_L$', 'Psdot':'${\.P_S}$'}
 flxpairs = [('ws_Ps','wl_Pl'),('ws_Psdz','wl_Pldz'),('Bm1s_Ps','B2p_Ps2'),('Bm1l_Pl','Bm2_Pl'),('Psdot',)]
 #fluxes that we want to integrate
@@ -489,7 +489,7 @@ def inventory(deprngs):
                 ir += td[t]['gammas'][g]['n'][di]*dzi #integrated residual
             td[t]['gammas'][g]['inv'][rstr] = symfunceval(I)
             td[t]['gammas'][g]['ires'][rstr] = ir
-            
+
 ####Pt estimates    
 #read in cast match data
 #cmdp = '/Users/vamaral/GoogleDrive/DOCS/Py/pyEXPORTS/misc/castmatch_v1.csv' #v1 has "exact" matches, but includes ctd cast 39 which has a bad values 
@@ -1060,6 +1060,7 @@ for g in gammas:
       
     #calculate fluxes and errors
     for f in flxd.keys():
+        if f == 'wt_Pt': continue #total POC flux has a special function, skip here
         #get what parameter, tracer, and order each flux contains
         if '_' in f: #if not Psdot
             p,twordr = f.split('_')
@@ -1068,7 +1069,6 @@ for g in gammas:
         fxh, fxhe = np.zeros(n), np.zeros(n) #calculate estimates and errors 
         if 'dz' in f: #if sinking flux divergence term, more complicated
             for i in np.arange(0,n):
-                dzi = dz if i != 0 else h
                 l = lmatch(i)
                 pwi = "_".join([p,l])
                 twi = "_".join([t,str(i)])
@@ -1088,7 +1088,6 @@ for g in gammas:
                     fxh[i], fxhe[i]  = symfunceval(y)
         else: #all other terms that are not sinking flux divergence
             for i in np.arange(0,n):
-                dzi = dz if i != 0 else h
                 if f == 'Psdot': #special case
                     gh, lp = sym.symbols('Gh Lp')
                     y = gh*sym.exp(-(zml[i]-h)/lp)
@@ -1099,15 +1098,26 @@ for g in gammas:
                     pa, tr = sym.symbols(f'{pwi} {twi}')
                     y = pa*tr**ordr 
                 fxh[i], fxhe[i] = symfunceval(y)
-        flxd[f]['gammas'][g]['xh'], flxd[f]['gammas'][g]['xhe'] = fxh, fxhe 
+        flxd[f]['gammas'][g]['xh'], flxd[f]['gammas'][g]['xhe'] = fxh, fxhe
+
+    #calculate total sinking flux after eveything else is calculated
+    fxh, fxhe = np.zeros(n), np.zeros(n) #calculate estimates and errors
+    for i in np.arange(0,n):
+        l = lmatch(i)
+        wsi, wli = "_".join(['ws',l]), "_".join(['wl',l])
+        Psi, Pli = "_".join(['Ps',str(i)]), "_".join(['Pl',str(i)])
+        wsi_s, wli_s, Psi_s, Pli_s = sym.symbols(f'{wsi} {wli} {Psi} {Pli}')
+        y = wsi_s*Psi_s + wli_s*Pli_s
+        fxh[i], fxhe[i] = symfunceval(y)
+    flxd['wt_Pt']['gammas'][g]['xh'], flxd['wt_Pt']['gammas'][g]['xhe'] = fxh, fxhe
     
     #plot fluxes
     for i,pr in enumerate(flxpairs):
         fig,ax = plt.subplots(1,1) #P figures
         ax.invert_yaxis()
         if ('w' in pr[0]) and ('dz' not in pr[0]):
-            ax.set_xlabel('Flux (mmol m$^{-2}$ d$^{-1}$)',fontsize=14)
-        else: ax.set_xlabel('Volumetric Flux (mmol m$^{-3}$ d$^{-1}$)',fontsize=14)
+            ax.set_xlabel('POC Flux (mmol m$^{-2}$ d$^{-1}$)',fontsize=14)
+        else: ax.set_xlabel('Volumetric POC Flux (mmol m$^{-3}$ d$^{-1}$)',fontsize=14)
         ax.set_ylabel('Depth (m)',fontsize=14)
         ax.set_ylim(top=0,bottom=zmax+dz)
         c1,c2 = blue,orange
@@ -1133,12 +1143,6 @@ for g in gammas:
             for f in iflxs:
                 print(f"{f}: {flxd[f]['gammas'][g]['iflx'][rstr][0]:.3f} ± {flxd[f]['gammas'][g]['iflx'][rstr][1]:.3f}", file=file)
             print(f'Ps Residuals: {td["Ps"]["gammas"][g]["ires"][rstr]:.3f} \nPl Residuals: {td["Pl"]["gammas"][g]["ires"][rstr]:.3f}',file=file)
-
-with open ('invP_out.txt','a') as file:
-    print(f'--- {time.time() - start_time} seconds ---',file=file)
-
-with open('invP_savedvars.pkl', 'wb') as file:
-    pickle.dump((flxd,td,pdi,combodf_s,ac_params,pdf_params),file)
 
 #gamma sensitivity comparisons of integrated residuals
 fig,ax = plt.subplots()
@@ -1227,3 +1231,36 @@ for i,p in enumerate(params):
         ax.set_xticklabels(gammas,rotation=60)
 plt.savefig('invP_sensitivity_params.pdf')
 plt.close()
+
+#plot the results from the 0.01 inversion against Thorium estimates from Buesseler et al.
+kbfluxes = pd.read_excel('pocfluxes_fromKB_v2.xlsx',sheet_name='to_df')
+kb_depths = kbfluxes['depth']
+kb_ssf = kbfluxes['ssf']
+kb_ssf_u = kbfluxes['ssf_u']
+kb_msf = kbfluxes['msf']
+kb_msf_u = kbfluxes['msf_u']
+kb_lsf = kbfluxes['lsf']
+kb_lsf_u = kbfluxes['lsf_u']
+fig,ax = plt.subplots(1,1) #P figures
+ax.invert_yaxis()
+ax.set_xlabel('POC Flux (mmol m$^{-2}$ d$^{-1}$)',fontsize=14)
+ax.set_ylabel('Depth (m)',fontsize=14)
+ax.set_ylim(top=0,bottom=zmax+dz*2)
+eb1 = ax.errorbar(flxd['wt_Pt']['gammas'][0.01]['xh'],zml,fmt='o',xerr=flxd['wt_Pt']['gammas'][0.01]['xhe'],ecolor=blue,elinewidth=0.5,c=blue,ms=3,capsize=2,label='I2',fillstyle='none',markeredgewidth=0.5)
+eb1[-1][0].set_linestyle('--')
+ax.axhline(bnd,c='k',ls='--',lw=0.5)
+eb1a = ax.errorbar(kb_ssf,kb_depths+2.5,fmt='^',xerr=kb_ssf_u,ecolor=green,elinewidth=0.5,c=green,ms=3,capsize=2,label='Th, 1-5 µm',markeredgewidth=0.5)
+eb1a[-1][0].set_linestyle(':')
+eb2a = ax.errorbar(kb_msf,kb_depths,fmt='^',xerr=kb_msf_u,ecolor=vermillion,elinewidth=0.5,c=vermillion,ms=3,capsize=2,label='Th, 5-51 µm',markeredgewidth=0.5)
+eb2a[-1][0].set_linestyle(':')
+eb3a = ax.errorbar(kb_lsf,kb_depths-2.5,fmt='^',xerr=kb_lsf_u,ecolor=radish,elinewidth=0.5,c=radish,ms=3,capsize=2,label='Th, >51 µm',markeredgewidth=0.5)
+eb3a[-1][0].set_linestyle(':')
+ax.legend(loc='lower right',fontsize=12)
+plt.savefig('invP_KBfluxcompare_gam001.pdf')
+plt.close()
+
+with open ('invP_out.txt','a') as file:
+    print(f'--- {time.time() - start_time} seconds ---',file=file)
+
+with open('invP_savedvars.pkl', 'wb') as file:
+    pickle.dump((flxd,td,pdi,combodf_s,ac_params,pdf_params),file)
