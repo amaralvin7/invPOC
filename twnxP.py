@@ -91,20 +91,20 @@ p_tset = {'ws':'$w_S$', 'wl':'$w_L$', 'B2p':'$\\beta^,_2$', 'Bm2':'$\\beta_{-2}$
 #priors
 p_o = {'ws':2, #m/d
         'wl':20, #m/d, reported from Murnane 1990.
-        'B2p':0.5*mm/dpy, #m3/(mmol*yr), arbritrary
+        'B2p':0.5*mm/dpy, #m3/(mg*yr) converted to m3/(mmol*d). Divided B2 from Murnane 94 (0.8 1/y) by average Ps from Bishop 99 (1.6 mmol/m3)
         'Bm2':400/dpy, #from Murnane 1994, converted to d
-        'Bm1s':36/dpy, #from Clegg surface value, converted to d
-        'Bm1l':0.15, #based on preliminary RESPIRE data from A Santoro
-        'Gh':0.28, #prior set to typical NPP shared data value (divided by h), error is 25% of that. mg/m2/d converted to mmol
+        'Bm1s':0.1, #from Clegg 91 (Fig. 6) surface average
+        'Bm1l':0.15, #based on preliminary RESPIRE data from A. Santoro
+        'Gh':0.28, #prior set to typical NPP shared data value
         'Lp':28} #from NPP data, m
 #prior errors
-p_oe = {'ws':2, 
-        'wl':15, 
-        'B2p':0.5*mm/dpy, 
-        'Bm2':10000/dpy, 
-        'Bm1s':36/dpy, 
-        'Bm1l':0.15, 
-        'Gh':0.12, 
+p_oe = {'ws':2,
+        'wl':15,
+        'B2p':0.5*mm/dpy,
+        'Bm2':10000/dpy,
+        'Bm1s':0.1,
+        'Bm1l':0.15,
+        'Gh':0.12,
         'Lp':28*0.5}
 #target values used to generate pseudo-data
 p_tgt = {'ws':{'A':1.524,'B':3.513}, 
