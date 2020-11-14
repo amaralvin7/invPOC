@@ -918,10 +918,10 @@ for g in gammas:
     fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
     fig.subplots_adjust(wspace=0.5)
     ax1.set_ylabel('Probability Density',fontsize=16)
-    ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',fontsize=24)
+    ax1.set_xlabel(r'$\frac{\^x_{i}-x_{o,i}}{\sigma_{o,i}}$',fontsize=24)
     ax1.hist(pdfx,density=True,bins=20,color=blue)
     ax2.hist(pdfn,density=True,bins=20,color=blue)
-    ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',fontsize=24)
+    ax2.set_xlabel(r'$\frac{f(\^x)_{i}}{\sigma_{f(\^x)_{i}}}$',fontsize=24)
     pdf_params = pdfx, pdfn, xg, yg_pdf
     
     #plot gaussians, show legend
@@ -933,7 +933,7 @@ for g in gammas:
     # fig, [ax1,ax2] = plt.subplots(1,2,tight_layout=True)
     # fig.subplots_adjust(wspace=0.5)
     # ax1.set_ylabel('P',size=16)
-    # ax1.set_xlabel(r'$\frac{\^x-x_{o,i}}{\sigma_{o,i}}$',size=16), ax2.set_xlabel(r'$\frac{n^{k+1}_{i}}{\sigma_{n^{k+1}_{i}}}$',size=16)
+    # ax1.set_xlabel(r'$\frac{\^x_{i}-x_{o,i}}{\sigma_{o,i}}$',size=24), ax2.set_xlabel(r'$\frac{f(\^x)_{i}}{\sigma_{f(\^x)_{i}}}$',size=24)
     # ax1.plot(xg,yg_cdf,c=vermillion), ax2.plot(xg,yg_cdf,c=vermillion) #plot gaussians
     # cdf_dfx, cdf_dfn = pd.DataFrame(), pd.DataFrame()
     # cdf_dfx['var_name'] = vidxSV.copy()
