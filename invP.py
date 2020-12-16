@@ -273,7 +273,7 @@ def lsqplotsf(model,x,y,z,tracer,logscale): #make a least squares fit and plot t
     cbar = mpl.colorbar.ColorbarBase(axcb,norm=normfac,cmap=cmap)
     cbar.set_label('Depth (m)\n',rotation=270,labelpad=20,fontsize=14)
     #plot data
-    ax.scatter(x,y,norm=normfac,edgecolors=black,c=z,s=150,marker='o',cmap=cmap)
+    ax.scatter(x,y,norm=normfac,edgecolors=black,c=z,s=40,marker='o',cmap=cmap)
     ax.set_ylabel(f'{tracer} (mmol m$^{-3}$)',fontsize=14)
     ax.set_xlabel('$c_{p}$ (m$^{-1}$)',fontsize=14)
     xp = np.arange(0.01,0.14,0.0001)
@@ -283,7 +283,7 @@ def lsqplotsf(model,x,y,z,tracer,logscale): #make a least squares fit and plot t
         ax.set_yscale('log'), ax.set_xscale('log') 
         fit = [c[0] + c[1]*np.log(xi) for xi in xp]
     else: fit = [c[0] + c[1]*xi for xi in xp]
-    ax.plot(xp, fit, '--', c = 'k', lw=2)
+    ax.plot(xp, fit, '--', c = 'k', lw=1)
     plt.savefig(f'invP_cpptfit_log{logscale}.pdf')
     plt.close()
     return ax
