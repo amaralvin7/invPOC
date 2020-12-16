@@ -277,7 +277,7 @@ def lsqplotsf(model,x,y,z,tracer,logscale): #make a least squares fit and plot t
     ax.set_xlabel('$c_{p}$ (m$^{-1}$)',fontsize=14)
     xp = np.arange(0.01,0.14,0.0001)
     c = model.params #extract coefficients, where c[0] is the intercept
-    ax.text(0.04,0.2,f'$R^2$ = {model.rsquared:.2f}\n$N$ = {model.nobs:.0f}',fontsize=12)
+    ax.annotate(f'$R^2$ = {model.rsquared:.2f}\n$N$ = {model.nobs:.0f}',xy=(0.05, 0.85),xycoords='axes fraction',fontsize=12)
     if logscale: 
         ax.set_yscale('log'), ax.set_xscale('log') 
         fit = [c[0] + c[1]*np.log(xi) for xi in xp]
@@ -595,7 +595,7 @@ ax2.set_xticklabels(['0','0.05','0.1','0.15'])
 ax3.errorbar(cppt.Pt_hat,zml+1,fmt='o',xerr=np.ones(n)*np.sqrt(model.mse_resid),ecolor=blue,elinewidth=0.5,markerfacecolor=blue,markeredgecolor='white',ms=3,capsize=2,label='from $c_P$',markeredgewidth=0.5)
 ax3.scatter(Ps_mean+Pl_mean,zs,marker='^',s=100,c=blue,zorder=1,label='LVISF')
 ax3.set_xticks([0,1,2,3])
-ax3.legend(fontsize=12,borderpad=0.2)
+ax3.legend(fontsize=12,borderpad=0.2,handletextpad=0.4)
 [ax.tick_params(labelleft=False) for ax in (ax2,ax3)]
 [ax.tick_params(axis='both', which='major', labelsize=12) for ax in (ax1,ax2,ax3)]
 [ax.axhline(bnd,c=black,ls='--',lw=1) for ax in (ax1,ax2,ax3)]
