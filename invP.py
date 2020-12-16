@@ -122,7 +122,8 @@ td = {t:{k:({g:{gk:({dr:{} for dr in dr_str} if gk in invkeys else {})
 flxs = ['ws_Ps','wl_Pl','wt_Pt','ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
 flxnames = {'ws_Ps':'$w_SP_S$', 'wl_Pl':'$w_LP_L$', 'wt_Pt':'$w_TP_T$', 'ws_Psdz':'$w_S\\frac{dP_S}{dz}$', 'wl_Pldz':'$w_L\\frac{dP_L}{dz}$',
             'Bm1s_Ps':'$\\beta_{-1,S}P_S$', 'Bm1l_Pl':'$\\beta_{-1,L}P_L$', 'B2p_Ps2':'$\\beta^,_2P^2_S$', 'Bm2_Pl':'$\\beta_{-2}P_L$', 'Psdot':'${\.P_S}$'}
-flxpairs = [('ws_Ps','wl_Pl'),('ws_Psdz','wl_Pldz'),('Bm1s_Ps','B2p_Ps2'),('Bm1l_Pl','Bm2_Pl'),('Psdot',)]
+flxpairs_a = [('ws_Ps','wl_Pl'),]
+flxpairs_v = [('ws_Psdz','wl_Pldz'),('Bm1s_Ps','B2p_Ps2'),('Bm1l_Pl','Bm2_Pl'),('Psdot',)]
 #fluxes that we want to integrate
 iflxs = ['ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
 flxd = {f:{} for f in flxs}
@@ -1110,27 +1111,49 @@ for g in gammas:
         y = wsi_s*Psi_s + wli_s*Pli_s
         fxh[i], fxhe[i] = symfunceval(y)
     flxd['wt_Pt']['gammas'][g]['xh'], flxd['wt_Pt']['gammas'][g]['xhe'] = fxh, fxhe
-    
-    #plot fluxes
-    for i,pr in enumerate(flxpairs):
-        fig,ax = plt.subplots(1,1) #P figures
+
+    #plot areal fluxes (just sinking for now)
+    for i,pr in enumerate(flxpairs_a):
+        fig,ax = plt.subplots(1,1)
         ax.invert_yaxis()
-        if ('w' in pr[0]) and ('dz' not in pr[0]):
-            ax.set_xlabel('POC Flux (mmol m$^{-2}$ d$^{-1}$)',fontsize=14)
-        else: ax.set_xlabel('Volumetric POC Flux (mmol m$^{-3}$ d$^{-1}$)',fontsize=14)
+        ax.set_xlabel('POC Flux (mmol m$^{-2}$ d$^{-1}$)',fontsize=14)
         ax.set_ylabel('Depth (m)',fontsize=14)
         ax.set_ylim(top=0,bottom=zmax+dz)
         c1,c2 = blue,orange
         eb1 = ax.errorbar(flxd[pr[0]]['gammas'][g]['xh'],zml,fmt='o',xerr=flxd[pr[0]]['gammas'][g]['xhe'],ecolor=c1,elinewidth=0.5,c=c1,ms=3,capsize=2,label=flxnames[pr[0]],fillstyle='none',markeredgewidth=0.5)
         eb1[-1][0].set_linestyle('--')
         ax.axhline(bnd,c='k',ls='--',lw=0.5)
+        eb2 = ax.errorbar(flxd[pr[1]]['gammas'][g]['xh'],zml,fmt='o',xerr=flxd[pr[1]]['gammas'][g]['xhe'],ecolor=c2,elinewidth=0.5,c=c2,ms=3,capsize=2,label=flxnames[pr[1]],fillstyle='none',markeredgewidth=0.5)
+        eb2[-1][0].set_linestyle(':')
+        ax.legend(loc='lower right',fontsize=12)
+        plt.savefig(f'invP_fluxes_areal_gam{str(g).replace(".","")}.pdf')
+        plt.close()
+
+    #plot volumetric fluxes
+    fig,((ax1,ax2),(ax3,ax4)) = plt.subplots(2,2)
+    fig.subplots_adjust(left=0.15,bottom=0.15,wspace=0.1)
+    axs = (ax1,ax2,ax3,ax4)
+    panels = ('A','B','C','D')
+    fig.text(0.5,0.05,'Volumetric POC Flux (mmol m$^{-3}$ d$^{-1}$)',fontsize=14,ha='center',va='center')
+    fig.text(0.05,0.5,'Depth (m)',fontsize=14,ha='center',va='center',rotation='vertical')
+    for i,pr in enumerate(flxpairs_v):
+        ax = axs[i]
+        ax.annotate(panels[i],xy=(0.9, 0.8),xycoords='axes fraction',fontsize=12)
+        if i % 2: ax.tick_params(labelleft=False)
+        ax.invert_yaxis()
+        ax.set_ylim(top=0,bottom=zmax+dz)
+        c1,c2 = blue,orange
+        eb1 = ax.errorbar(flxd[pr[0]]['gammas'][g]['xh'],zml,fmt='o',xerr=flxd[pr[0]]['gammas'][g]['xhe'],ecolor=c1,elinewidth=0.5,c=c1,ms=1.5,capsize=2,label=flxnames[pr[0]],fillstyle='none',markeredgewidth=0.5)
+        eb1[-1][0].set_linestyle('--')
+        ax.axhline(bnd,c='k',ls='--',lw=0.5)
+        ax.set_yticks([0,100,200,300,400,500])
         if len(pr) > 1: #if it's actually a pair
-            eb2 = ax.errorbar(flxd[pr[1]]['gammas'][g]['xh'],zml,fmt='o',xerr=flxd[pr[1]]['gammas'][g]['xhe'],ecolor=c2,elinewidth=0.5,c=c2,ms=3,capsize=2,label=flxnames[pr[1]],fillstyle='none',markeredgewidth=0.5)
+            eb2 = ax.errorbar(flxd[pr[1]]['gammas'][g]['xh'],zml,fmt='o',xerr=flxd[pr[1]]['gammas'][g]['xhe'],ecolor=c2,elinewidth=0.5,c=c2,ms=1.5,capsize=2,label=flxnames[pr[1]],fillstyle='none',markeredgewidth=0.5)
             eb2[-1][0].set_linestyle(':')
         ax.legend(loc='lower right',fontsize=12)
-        plt.savefig(f'invP_flux{i+1}_gam{str(g).replace(".","")}.pdf')
+        plt.savefig(f'invP_fluxes_volumetric_gam{str(g).replace(".","")}.pdf')
         plt.close()
-    
+
     iflxcalc(iflxs,depthranges) #calculate integrated fluxes and timescales
     inventory(depthranges) #calculate tracer inventory and integrated residuals
 
