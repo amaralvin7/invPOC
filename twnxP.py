@@ -14,14 +14,12 @@ import scipy.linalg as splinalg
 import scipy.stats as sstats
 import matplotlib.pyplot as plt
 import pandas as pd
-import scipy.io as sio
-import matplotlib as mpl
 import statsmodels.formula.api as smf
-import statsmodels.tsa.stattools as smt
 import sympy as sym
 import os
 import sys
 import time
+import pickle
 
 start_time = time.time()
 plt.close('all')
@@ -34,6 +32,14 @@ SETUP FOR GENERATING PSEUDODATA
 """
 
 plt.close('all')
+
+#unpickle vars
+with open('invP_savedvars.pkl','rb') as file:
+    flxd,td,pdi,combodf_s,ac_params,pdf_params = pickle.load(file)
+model = smf.ols(formula='Pt ~ np.log(cp)',data=combodf_s).fit()
+model = smf.ols(formula='Pt ~ np.log(cp)',data=combodf_s).fit()
+pdfx,pdfn,xg,yg_pdf = pdf_params
+kdz_A,ac_A,l_int_A,L_A,lfit_A,l_r2_A,kdz_B,ac_B,l_int_B,L_B,lfit_B,l_r2_B = ac_params
 
 #colors
 red, green, blue, purple, cyan, orange, teal, navy, olive = '#e6194B', '#3cb44b', '#4363d8', '#911eb4', '#42d4f4', '#f58231', '#469990', '#000075', '#808000'
@@ -60,15 +66,15 @@ B2 = 0.8/dpy
 #assign df columns to variables
 zs = df.Depth
 Ps_mean_real = df.SSF_mean/mm
-Ps_sd_real = df.SSF_sd/mm
+#Ps_sd_real = df.SSF_sd/mm
 Ps_se_real = df.SSF_se/mm
-Ps_re = Ps_sd_real/Ps_mean_real
+Ps_re = Ps_se_real/Ps_mean_real
 Pl_mean_real = df.LSF_mean/mm
-Pl_sd_real = df.LSF_sd/mm
+#Pl_sd_real = df.LSF_sd/mm
 Pl_se_real = df.LSF_se/mm
-Pl_re = Pl_sd_real/Pl_mean_real
+Pl_re = Pl_se_real/Pl_mean_real
 
-gam = 0.01 #multiplier for weighting model errors
+gam = 0.02 #multiplier for weighting model errors
 
 #param info
 layers = ['A','B']
@@ -76,49 +82,52 @@ tracers = ['Ps','Pl']
 params = ['ws', 'wl', 'B2p', 'Bm2', 'Bm1s', 'Bm1l', 'Gh', 'Lp']
 params_dv = ['ws', 'wl', 'B2p', 'Bm2', 'Bm1s', 'Bm1l'] #depth-varying params
 params_dc = ['Gh', 'Lp'] #depth-constant params
-#make a dictionaries to store param info
-pdi = {param:{} for param in params}
-#add a key for each parameter designating if it is depth-varying or constant
-for k in pdi.keys():
-    if k in params_dv: pdi[k]['dv'] = 1
-    else: pdi[k]['dv'] = 0
 
 #typeset name
 p_tset = {'ws':'$w_S$', 'wl':'$w_L$', 'B2p':'$\\beta^,_2$', 'Bm2':'$\\beta_{-2}$', 
                 'Bm1s':'$\\beta_{-1,S}$', 'Bm1l':'$\\beta_{-1,L}$', 'Gh':'$\overline{\.P_S}$', 
                 'Lp':'$L_{P}$'}
 
-#priors
-p_o = {'ws':2, #m/d
-        'wl':20, #m/d, reported from Murnane 1990.
-        'B2p':0.5*mm/dpy, #m3/(mg*yr) converted to m3/(mmol*d). Divided B2 from Murnane 94 (0.8 1/y) by average Ps from Bishop 99 (1.6 mmol/m3)
-        'Bm2':400/dpy, #from Murnane 1994, converted to d
-        'Bm1s':0.1, #from Clegg 91 (Fig. 6) surface average
-        'Bm1l':0.15, #based on preliminary RESPIRE data from A. Santoro
-        'Gh':0.28, #prior set to typical NPP shared data value
-        'Lp':28} #from NPP data, m
+#extract information for priors from invP.py results
+p_o = {'ws':pdi['ws']['o'], #m/d
+        'wl':pdi['wl']['o'], #m/d, reported from Murnane 1990.
+        'B2p':pdi['B2p']['o'], #m3/(mg*yr) converted to m3/(mmol*d). Divided B2 from Murnane 94 (0.8 1/y) by average Ps from Bishop 99 (1.6 mmol/m3)
+        'Bm2':pdi['Bm2']['o'], #from Murnane 1994, converted to d
+        'Bm1s':pdi['Bm1s']['o'], #from Clegg 91 (Fig. 6) surface average
+        'Bm1l':pdi['Bm1l']['o'], #based on preliminary RESPIRE data from A. Santoro
+        'Gh':pdi['Gh']['o'], #prior set to typical NPP shared data value
+        'Lp':pdi['Lp']['o']} #from NPP data, m
 #prior errors
-p_oe = {'ws':2,
-        'wl':15,
-        'B2p':0.5*mm/dpy,
-        'Bm2':10000/dpy,
-        'Bm1s':0.1,
-        'Bm1l':0.15,
-        'Gh':0.12,
-        'Lp':28*0.5}
+p_oe = {'ws':pdi['ws']['oe'], #m/d
+        'wl':pdi['wl']['oe'], #m/d, reported from Murnane 1990.
+        'B2p':pdi['B2p']['oe'], #m3/(mg*yr) converted to m3/(mmol*d). Divided B2 from Murnane 94 (0.8 1/y) by average Ps from Bishop 99 (1.6 mmol/m3)
+        'Bm2':pdi['Bm2']['oe'], #from Murnane 1994, converted to d
+        'Bm1s':pdi['Bm1s']['oe'], #from Clegg 91 (Fig. 6) surface average
+        'Bm1l':pdi['Bm1l']['oe'], #based on preliminary RESPIRE data from A. Santoro
+        'Gh':pdi['Gh']['oe'], #prior set to typical NPP shared data value
+        'Lp':pdi['Lp']['oe']} #from NPP data, m
 #target values used to generate pseudo-data
-p_tgt = {'ws':{'A':1.524,'B':3.513}, 
-        'wl':{'A':18.878,'B':26.453}, 
-        'B2p':{'A':0.027,'B':0.026}, 
-        'Bm2':{'A':0.663,'B':0.135}, 
-        'Bm1s':{'A':0.087,'B':0.031}, 
-        'Bm1l':{'A':0.194,'B':0.105}, 
-        'Gh':0.267, 
-        'Lp':31.383}
+p_tgt = {'ws':{'A':pdi['ws']['gammas'][gam]['xh']['A'],'B':pdi['ws']['gammas'][gam]['xh']['B']},
+        'wl':{'A':pdi['wl']['gammas'][gam]['xh']['A'],'B':pdi['wl']['gammas'][gam]['xh']['B']},
+        'B2p':{'A':pdi['B2p']['gammas'][gam]['xh']['A'],'B':pdi['B2p']['gammas'][gam]['xh']['B']},
+        'Bm2':{'A':pdi['Bm2']['gammas'][gam]['xh']['A'],'B':pdi['Bm2']['gammas'][gam]['xh']['B']},
+        'Bm1s':{'A':pdi['Bm1s']['gammas'][gam]['xh']['A'],'B':pdi['Bm1s']['gammas'][gam]['xh']['B']},
+        'Bm1l':{'A':pdi['Bm1l']['gammas'][gam]['xh']['A'],'B':pdi['Bm1l']['gammas'][gam]['xh']['B']},
+        'Gh':pdi['Gh']['gammas'][gam]['xh'],
+        'Lp':pdi['Lp']['gammas'][gam]['xh']}
 
 #have a single layer seperation
 bnd = 112.5
 
+#some parameters for plotting later
+ms, lw, elw, cs = 3, 1, 0.5, 2
+
+#delete entries in pdi to save data from twnx
+pdi = {param:{} for param in params}
+#add a key for each parameter designating if it is depth-varying or constant
+for k in pdi.keys():
+    if k in params_dv: pdi[k]['dv'] = 1
+    else: pdi[k]['dv'] = 0
 #update entries in pdi
 for p in pdi.keys():
     dv = pdi[p]['dv']
@@ -128,14 +137,9 @@ for p in pdi.keys():
     pdi[p]['t'] = p_tgt[p]
     for k in ['xh','xhe']:
         pdi[p][k] = {} if not dv else {l:{} for l in layers}
-        
-
-#some parameters for plotting later
-ms, lw, elw, cs = 3, 1, 0.5, 2
 
 #particle prouction
 Ghz = pdi['Gh']['t']*np.exp(-(zml-h)/pdi['Lp']['t'])
-
 """
 #SOME FUNCTIONS
 """
@@ -265,48 +269,6 @@ def modresi(sv):
     Ps_nma, Pl_nma = np.mean(np.absolute(Ps_n)), np.mean(np.absolute(Pl_n))
     return (Ps_n, Ps_nm, Ps_nma, Pl_n, Pl_nm, Pl_nma)
 
-cscheme = plt.cm.jet
-def lsqplotsf(model,x,y,z,tracer,logscale): #make a least squares fit and plot the results, using smf offline
-    #open fig
-    fig, ax =  plt.subplots(1,1)
-    #colorbar stuff
-    normfac = mpl.colors.Normalize(z.min(),z.max())
-    axcb = mpl.colorbar.make_axes(ax)[0]
-    cbar = mpl.colorbar.ColorbarBase(axcb, cmap=cscheme, norm=normfac)
-    cbar.set_label('Depth (m)\n', rotation=270, labelpad = 14)
-    #plot data
-    ax.scatter(x, y, norm=normfac, cmap=cscheme, c = z, s=ms)
-    ax.set_ylabel(f'{tracer} $(mmol/m^3)$')
-    ax.set_xlabel('$c_{p}$ $(m^{-1})$')
-    xp = np.arange(0.01,0.14,0.0001)
-    c = model.params #extract coefficients, where c[0] is the intercept
-    r2 = model.rsquared
-    if logscale==True: 
-        ax.set_yscale('log'), ax.set_xscale('log') 
-        fit = [c[0] + c[1]*np.log(xi) for xi in xp]
-    else: fit = [c[0] + c[1]*xi for xi in xp]
-    ax.plot(xp, fit, '--', c = 'k', lw=lw)
-    #ax.set_title(f' c0 = {c[0]:.2f}, c1 = {c[1]:.2f}, R2 = {r2:.2f}')
-    ax.set_title(f'$R^2$ = {r2:.2f}')
-    plt.savefig(f'twnxP_cpptfit_log{logscale}.png')
-    plt.close()
-    return ax
-
-#autocorrelation function for a specific depth range
-def acdrange(drange):
-    dmin, dmax = drange #min and max depths within the range
-    dslice = zml[difind(dmin):difind(dmax)+1] #slice of zml corresponding to drange
-    tslice = cppt['Pt_hat'].values[difind(dmin):difind(dmax)+1] #slice of tracer data array corresponding to drange, in this case Pt
-    kn = int(np.ceil(len(dslice)/4)) #number of lags, round up
-    kdz = np.arange(0,(kn+1)*dz, dz) #lags in units of m
-    ac = smt.acf(tslice,fft=False,nlags=kn) #autocorrelation function
-    lmod_dic = {'rk':ac,'kdz':kdz}
-    lmod = smf.ols(formula='np.log(rk) ~ kdz', data=lmod_dic).fit()
-    l_int, L = lmod.params[0], -(1/lmod.params[1])
-    lfit = l_int + -(1/L)*kdz
-    l_r2 = lmod.rsquared
-    return kdz, ac, l_int, L, lfit, l_r2
-
 #given a vector and starting index, returns a slice of size n
 def vsli(vec,sidx):
     sli = vec[sidx:sidx+n]
@@ -389,75 +351,10 @@ def Fnf_helper(y,i,di,ln):
         xv[j] = np.exp(xk[iSV]) if ln == True else xk[iSV]
         xi[j] = iSV
     return x, xv, xi
-         
-####Pt estimates    
-#read in cast match data
-#cmdp = '/Users/vamaral/GoogleDrive/DOCS/Py/pyEXPORTS/misc/castmatch_v1.csv' #v1 has "exact" matches, but includes ctd cast 39 which has a bad values 
-cmdf = pd.read_csv(cwd+'/castmatch_v2.csv') #v2 uses stn 41, at approx. time and place as 39. Also I sub 19 for 22 (has spike at 500m)
-pctd = dict(zip(cmdf.pump_cast,cmdf.ctd_cast)) #generate dictionary with pumpcast as key, ctdcast as value
-
-#read in POC data, from EXPORTS_pumps_KB.xlsx, PC&PIC sheet (CONVERTED TO MMOL!!)
-pocdf_all = pd.read_excel(cwd+'/poc_all.xlsx') #put into a df
-
-#read in cp data (includes bad casts from Norm)
-cp_mdic = sio.loadmat(cwd+'/srcpdata.mat')
-
-#read in updated cp data (20200426) 
-cp_bycast = sio.loadmat(cwd+'/cp_bycast.mat')['cp_bycast']
-
-# add a row to the beginning so that row # is depth
-cp_bycast = np.vstack((np.ones(cp_bycast.shape[1])*-9999,cp_bycast))
-
-#make a df with POC data that doesn't include corresponding "bad" cp casts
-pocdf = pocdf_all.copy()
-for pc in pocdf.pump_cast.unique(): #look at each pump cast
-    cc = pctd[pc] #find the corresponding ctd cast
-    if np.isin(cc,cp_mdic['sr1812bads']):
-        print(f'Bad Casts: {cc}')
-        pocdf = pocdf[pocdf.pump_cast != pc].copy()
-
-#make a df to store corresponding POC and cp values
-combodf = pocdf.copy()
-for i, r in combodf.iterrows():
-    pc = r.pump_cast
-    d = r.depth
-    cc = pctd[pc] #find the corresponding ctd cast
-    combodf.at[i,'ctd_cast'] = cc
-    #combodf.at[i,'cp'] = cp_mdic['sr1812cp'][d][list(cp_mdic['srcast'][0]).index(cc)]
-    combodf.at[i,'cp'] = cp_bycast[d][list(cp_mdic['srcast'][0]).index(cc)]
-combodf_s = combodf.sort_values(by='cp').copy() #sort by ascending cp values
-
-#linear regression model (and plots)
-#converted Pt to mmol here
-x = combodf_s.cp.values
-y = combodf_s.Pt.values
-zdep = combodf_s.depth.values
-zcst = combodf_s.ctd_cast.values
-ctd_casts = np.unique(zcst)
-model = smf.ols(formula='Pt ~ np.log(cp)', data=combodf_s).fit()
-ax_ls = lsqplotsf(model, x, y, zdep, '$P_T$', logscale=True)
-
-#make a dataframe of all cp profiles, where index is depth and col name is cast #
-allcp = pd.DataFrame(data=cp_bycast, columns=cp_mdic['srcast'][0])
-cp_500_cm = allcp.loc[zml,ctd_casts].copy() #cp measurements from casts for which we have poc measurments, only above 500m and at model grid depths
-meancp = cp_500_cm.mean(axis=1).values
-
-#obtain Pt estimates at every grid depth
-Pt_hat_obj = model.get_prediction(exog=dict(cp=meancp))
-Pt_hat = Pt_hat_obj.predicted_mean
-
-#make a df with fitted meancp and Pt_hat values
-cppt = pd.DataFrame()
-cppt['depth'] = zml
-cppt['meancp'] = meancp
-cppt['Pt_hat'] = Pt_hat
 
 #make a matrix whose diagonals are MSE of residuals
 MSE_fit = model.mse_resid
 Cf_addPt = np.diag(np.ones(n)*MSE_fit)
-
-kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A = acdrange((h,bnd-dz/2))
-kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B = acdrange((bnd+dz/2,zmax))
 
 """
 #LINEAR NUMERICAL SOLUTIONS (need to solve to get priors for nonlinear solutions)
@@ -612,11 +509,6 @@ while True:
 #assign numerical solutions to variables
 Ps_numnl, Pl_numnl = [vsli(xkp1,vidxSV.index(f'{t}_0')) for t in tracers]
 Pt_numnl = Ps_numnl + Pl_numnl
-# #generate noisy estimates of Pt, assuming Pt_numnl is the mean from a lognormal dist (wikipedia page was helpful)
-# #data might be too noisy, and not a good analog to real data inversion
-# mu, sig = np.log(Pt_numnl**2/np.sqrt(Pt_numnl**2+MSE_fit)), np.sqrt(np.log(1+MSE_fit/Pt_numnl**2))
-# #from documentation: the mean and standard deviation are not the values for the distribution itself, but of the underlying normal distribution it is derived from
-# Pt_noisy = np.random.lognormal(mu,sig)
 
 """
 #INVERSE METHOD (P)
@@ -628,16 +520,16 @@ zsi = sorter[np.searchsorted(zml, zs, sorter=sorter)]
 #assign observation vectors and data errors
 Ps_mean = Ps_numnl[zsi]
 Pl_mean = Pl_numnl[zsi]
-Ps_sd = Ps_re*Ps_mean
-Pl_sd = Pl_re*Pl_mean
+Ps_se = Ps_re*Ps_mean
+Pl_se = Pl_re*Pl_mean
 
 #make a dictionary for tracer params for each layer. could be more cleverly coded
 tracers = ['Ps','Pl']
 oi = {lay:{t:{} for t in tracers} for lay in layers}
 oi['A']['Ps']['y'],oi['B']['Ps']['y'] = Ps_mean[0:3],Ps_mean[3:] #mean POC
 oi['A']['Pl']['y'],oi['B']['Pl']['y'] = Pl_mean[0:3],Pl_mean[3:]
-oi['A']['Pl']['sig_j'],oi['B']['Pl']['sig_j'] = Pl_sd[0:3].values,Pl_sd[3:].values #POC standard deviation
-oi['A']['Ps']['sig_j'],oi['B']['Ps']['sig_j'] = Ps_sd[0:3].values,Ps_sd[3:].values
+oi['A']['Pl']['sig_j'],oi['B']['Pl']['sig_j'] = Pl_se[0:3].values,Pl_se[3:].values #POC standard deviation
+oi['A']['Ps']['sig_j'],oi['B']['Ps']['sig_j'] = Ps_se[0:3].values,Ps_se[3:].values
 oi['A']['smpd'], oi['A']['grdd'] = zs[0:3].values, zml[difind(h):difind(bnd-dz/2)+1] #sample and grid depths, layer A
 oi['B']['smpd'], oi['B']['grdd'] = zs[3:].values, zml[difind(bnd+dz/2):] #sample and grid depths, layer B
 oi['A']['L'], oi['B']['L'] = L_A, L_B #interpolation length scales
@@ -918,18 +810,18 @@ ax1.invert_yaxis(),ax2.invert_yaxis(),ax3.invert_yaxis()
 ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)',fontsize=14),ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)',fontsize=14),ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)',fontsize=14)
 ax1.set_ylabel('Depth (m)',fontsize=14)
 ax1.set_ylim(top=0,bottom=zmax+30),ax2.set_ylim(top=0,bottom=zmax+30),ax3.set_ylim(top=0,bottom=zmax+30)
-ax1.errorbar(Ps_mean,zs,fmt='^',xerr=Ps_sd,ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='Data',fillstyle='full')
+ax1.errorbar(Ps_mean,zs,fmt='^',xerr=Ps_se,ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='Data',fillstyle='full')
 ax1.errorbar(td['Ps']['xh'],zml,fmt='o',xerr=td['Ps']['xhe'],ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,label='TE',fillstyle='none',zorder=3,markeredgewidth=0.5)
 ax1.errorbar(td['Ps']['x'],zml,fmt='o',xerr=td['Ps']['xerr'],ecolor=sky,elinewidth=0.5,c=sky,ms=2,capsize=2,label='OI',markeredgewidth=0.5)
-ax1.set_xticks([0,1,2,3])
-ax2.errorbar(Pl_mean,zs,fmt='^',xerr=Pl_sd,ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='Data',fillstyle='full')
+ax1.set_xticks([0,1,2])
+ax2.errorbar(Pl_mean,zs,fmt='^',xerr=Pl_se,ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='Data',fillstyle='full')
 ax2.errorbar(td['Pl']['xh'],zml,fmt='o',xerr=td['Pl']['xhe'],ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,label='TE',fillstyle='none',zorder=3,markeredgewidth=0.5)
 ax2.errorbar(td['Pl']['x'],zml,fmt='o',xerr=td['Pl']['xerr'],ecolor=sky,elinewidth=0.5,c=sky,ms=2,capsize=2,label='OI',markeredgewidth=0.5)
-ax2.set_xticks([0,0.05,0.1,0.15])
-ax2.set_xticklabels(['0','0.05','0.1','0.15'])
+ax2.set_xticks([0,0.05,0.1])
+ax2.set_xticklabels(['0','0.05','0.1'])
 ax3.errorbar(Pt_numnl,zml+1,fmt='o',xerr=np.ones(n)*np.sqrt(MSE_fit),ecolor=blue,elinewidth=0.5,c=blue,ms=2,capsize=2,label='Data',markeredgewidth=0.5)
 ax3.errorbar(Pt_xh,zml,fmt='o',xerr=Pt_xhe,ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,label='TE',fillstyle='none',zorder=3,markeredgewidth=0.5)
-ax3.set_xticks([0,1,2,3])
+ax3.set_xticks([0,1,2])
 [ax.legend(fontsize=12,borderpad=0.2) for ax in (ax1,ax2,ax3)]
 [ax.tick_params(labelleft=False) for ax in (ax2,ax3)]
 [ax.tick_params(axis='both',which='major',labelsize=12) for ax in (ax1,ax2,ax3)]

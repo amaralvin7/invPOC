@@ -53,17 +53,53 @@ dpy = 365.24 #days per year
 #assign df colums to variables
 zs = df.Depth
 Ps_mean = df.SSF_mean/mm
-Ps_sd = df.SSF_sd/mm
 Ps_se = df.SSF_se/mm
 Pl_mean = df.LSF_mean/mm
-Pl_sd = df.LSF_sd/mm
 Pl_se = df.LSF_se/mm
 
-gammas = [0.01, 0.05, 0.1, 0.5, 1] #multiplier for weighting model errors
+gammas = [0.02, 0.05, 0.1, 0.5, 1] #multiplier for weighting model errors
 
-bnd = 112.5 #boundary that separates EZ from UMZ
+bnd = 112.5 #boundary that separates LEZ from UMZ
 depthranges = ((h,bnd),(bnd,zmax)) #for integration
 dr_str = tuple(map(lambda d: '_'.join((str(d[0]),str(d[1]))),depthranges))
+
+#read in NPP data
+cwd = os.getcwd()
+npp_missingvals = pd.read_excel(cwd+'/npp.xlsx',sheet_name='14C NPP')
+npp = npp_missingvals.loc[(npp_missingvals['OSU 14C npp (mg c/m3/d)'] > 0)].copy()
+
+#estimate particle production in the ML and plot compare to actual data
+npp_ml = npp.loc[(npp['target Z'] > h-dz) & (npp['target Z'] < h+dz)].copy()
+Gh_o = npp_ml['OSU 14C npp (mg c/m3/d)'].mean()/mm
+Gh_oe = npp_ml['OSU 14C npp (mg c/m3/d)'].sem()/mm
+
+#estimate the vertical e-folding scale of particle production from npp data
+npp_bml = npp.loc[(npp['target Z'] > h-dz) & (npp['OSU 14C npp (mg c/m3/d)'] > 0)].copy()
+npp_bml.rename(columns={"OSU 14C npp (mg c/m3/d)": "npp_mg", "target Z": "npp_z"},inplace=True)
+npp_model = smf.ols(formula='np.log(npp_mg/(Gh_o*mm)) ~ npp_z', data=npp_bml).fit()
+
+Lp_o = -1/npp_model.params[1]
+Lp_oe = npp_model.bse[1]/npp_model.params[1]**2 #error propagation
+
+# #some NPP plots
+# fig,ax = plt.subplots(1,1) #Profiles
+# ax.invert_yaxis()
+# ax.set_xlabel('NPP (mmol/m3/d)',fontsize=14)
+# ax.set_ylabel('Depth (m)',fontsize=14)
+# ax.scatter(npp['OSU 14C npp (mg c/m3/d)']/mm, npp['target Z'],label='NPP Data',c=blue)
+# npp_priorprof = Gh_o*np.exp(-(np.arange(h,200+dz,dz)-h)/Lp_o)
+# ax.scatter(npp_priorprof,np.arange(h,200+dz,dz),label='Prior',c=orange)
+# ax.legend()
+# plt.savefig('invP_npp_prof.png')
+# plt.close()
+# fig,ax = plt.subplots(1,1) #Regression
+# ax.set_xlabel('ln(Ps(z)/Gh)',fontsize=14)
+# ax.set_ylabel('Depth (m)',fontsize=14)
+# ax.scatter(npp_bml['npp_z'],np.log(npp_bml['npp_mg']/(Gh_o*mm)),c=blue)
+# ax.plot(np.arange(30,71,1),npp_model.params[0]+npp_model.params[1]*np.arange(30,71,1),c=black)
+# ax.annotate(f'$R^2$ = {npp_model.rsquared:.4f}\nm = {npp_model.params[1]:.4f}\nb = {npp_model.params[0]:.4f}\nLp = {Lp_o:.4f}±{Lp_oe:.4f} (m)\nGh = {Gh_o:.4f}±{Gh_oe:.4f} (mmol/m3/d)',xy=(0.05, 0.1),xycoords='axes fraction',fontsize=12)
+# plt.savefig('invP_npp_regression.png')
+# plt.close()
 
 #param info
 layers = ['A','B']
@@ -87,8 +123,8 @@ p_o = {'ws':2, #m/d
         'Bm2':400/dpy, #from Murnane 1994, converted to d
         'Bm1s':0.1, #from Clegg 91 (Fig. 6) surface average
         'Bm1l':0.15, #based on preliminary RESPIRE data from A. Santoro
-        'Gh':0.28, #prior set to typical NPP shared data value.
-        'Lp':28} #from NPP data, m
+        'Gh':Gh_o, #prior set to typical NPP shared data value, average at base of ML.
+        'Lp':Lp_o} #from NPP data, m
 #prior errors
 p_oe = {'ws':2,
         'wl':15,
@@ -96,8 +132,8 @@ p_oe = {'ws':2,
         'Bm2':10000/dpy,
         'Bm1s':0.1,
         'Bm1l':0.15,
-        'Gh':0.12,
-        'Lp':28*0.5}
+        'Gh':Gh_oe,
+        'Lp':Lp_oe}
 
 #update entries in pdi
 for p in pdi.keys():
@@ -135,10 +171,12 @@ for f in flxs:
     if f == 'Psdot': flxd[f]['order'] = 0   
     elif f == 'B2p_Ps2': flxd[f]['order'] = 2
     else: flxd[f]['order'] = 1
+    flxd[f]['gammas'] = {g:{k:{} for k in gkeys_pdi} for g in gammas}
     if f in iflxs:
-        flxd[f]['gammas'] = {g:{k:({dr:{} for dr in dr_str} if k in intkeys 
-                                   else {}) for k in gkeys_flxd} for g in gammas}
-    else: flxd[f]['gammas'] = {g:{k:{} for k in gkeys_pdi} for g in gammas}
+        for g in gammas: #integrated flux quantities
+            aggterm = True if '2' in f else False #iff aggregation or disagregation, need 2 taus
+            flxd[f]['gammas'][g]['iflx'] = {dr:{} for dr in dr_str}
+            flxd[f]['gammas'][g]['tau'] = {dr:{t:{} for t in tracers} for dr in dr_str} if aggterm else {dr:{} for dr in dr_str}
 
 #some parameters for plotting later
 ms, lw, elw, cs = 3, 1, 0.5, 2
@@ -278,15 +316,15 @@ def lsqplotsf(model,x,y,z,tracer,logscale): #make a least squares fit and plot t
     ax.set_xlabel('$c_{p}$ (m$^{-1}$)',fontsize=14)
     xp = np.arange(0.01,0.14,0.0001)
     c = model.params #extract coefficients, where c[0] is the intercept
-    ax.annotate(f'$R^2$ = {model.rsquared:.2f}\n$N$ = {model.nobs:.0f}',xy=(0.05, 0.85),xycoords='axes fraction',fontsize=12)
     if logscale: 
-        ax.set_yscale('log'), ax.set_xscale('log') 
+        ax.set_yscale('log'), ax.set_xscale('log')
+        ax.set_xlim(0.0085,0.15)
         fit = [c[0] + c[1]*np.log(xi) for xi in xp]
     else: fit = [c[0] + c[1]*xi for xi in xp]
+    ax.annotate(f'$R^2$ = {model.rsquared:.2f}\n$N$ = {model.nobs:.0f}',xy=(0.05, 0.85),xycoords='axes fraction',fontsize=12)
     ax.plot(xp, fit, '--', c = 'k', lw=1)
     plt.savefig(f'invP_cpptfit_log{logscale}.pdf')
     plt.close()
-    return ax
 
 #autocorrelation function for a specific depth range
 def acdrange(drange):
@@ -388,6 +426,7 @@ def symfunceval(y,err=True,cov=True):
 #given a depth range, calculate integrated fluxes
 def iflxcalc(fluxes, deprngs):
     for f in fluxes:
+        aggterm = True if '2' in f else False #if aggregation or disagregation, need 2 taus
         #print(f'-------{f}-------')
         if '_' in f: #if not Psdot
             p,t = f.split('_')[0], f.split('_')[1][:2]
@@ -396,9 +435,7 @@ def iflxcalc(fluxes, deprngs):
             do, dn = dr #unpack start and end depths
             rstr = "_".join([str(do),str(dn)])
             #assign value of dz for first depth
-            if do == h:
-                dz_b = h+dz/2
-            elif do == bnd:
+            if do == bnd:
                 do += dz/2
                 dz_b = dz
             else: dz_b = dz/2
@@ -457,7 +494,24 @@ def iflxcalc(fluxes, deprngs):
                     #print(i, di, zml[di], dzi)
             intflx = symfunceval(iF)
             resT = symfunceval(iI/iF,err=True,cov=True) #error prop takes a long time...
-            flxd[f]['gammas'][g]['iflx'][rstr], flxd[f]['gammas'][g]['tau'][rstr] = intflx, resT
+            flxd[f]['gammas'][g]['iflx'][rstr] = intflx
+            if not aggterm:
+                flxd[f]['gammas'][g]['tau'][rstr] = resT
+            else: #if it is an aggterm, we need to recalculate another tau
+                flxd[f]['gammas'][g]['tau'][rstr][t] = resT
+                if t == 'Pl': new_t = 'Ps'
+                elif t == 'Ps': new_t = 'Pl'
+                iI = 0
+                for i,di in enumerate(dis): #calculate inventory for the other tracer
+                    if i == 0: dzi = dz_b #first depth in range
+                    elif i == len(dis)-1: dzi = dz_e #last depth in range
+                    else: dzi = dz #all other depths
+                    l = lmatch(di)
+                    twi = "_".join([new_t,str(di)])
+                    tr = sym.symbols(f'{twi}')
+                    iI += tr*dzi
+                new_resT = symfunceval(iI/iF,err=True,cov=True)
+                flxd[f]['gammas'][g]['tau'][rstr][new_t] = new_resT
 
 #given a depth range, calculate (integrated) inventory and residuals
 def inventory(deprngs):
@@ -466,9 +520,7 @@ def inventory(deprngs):
             do, dn = dr #unpack start and end depths
             rstr = "_".join([str(do),str(dn)])
             #assign value of dz for first depth
-            if do == h:
-                dz_b = h+dz/2
-            elif do == bnd:
+            if do == bnd:
                 do += dz/2
                 dz_b = dz
             else: dz_b = dz/2
@@ -537,8 +589,8 @@ zcst = combodf_s.ctd_cast.values
 ctd_casts = np.unique(zcst)
 model = smf.ols(formula='Pt ~ np.log(cp)', data=combodf_s).fit()
 model_lin = smf.ols(formula='Pt ~ cp', data=combodf_s).fit()
-ax_ls = lsqplotsf(model, x, y, zdep, '$P_T$', logscale=True)
-ax_ls_nonlog = lsqplotsf(model_lin, x, y, zdep, '$P_T$', logscale=False)
+lsqplotsf(model, x, y, zdep, '$P_T$', logscale=True)
+lsqplotsf(model_lin, x, y, zdep, '$P_T$', logscale=False)
 
 #make a dataframe of all cp profiles, where index is depth and col name is cast #
 allcp = pd.DataFrame(data=cp_bycast, columns=cp_mdic['srcast'][0])
@@ -569,7 +621,7 @@ kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A = acdrange((h,bnd-dz/2))
 kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B = acdrange((bnd+dz/2,zmax))
 ac_params = (kdz_A, ac_A, l_int_A, L_A, lfit_A, l_r2_A, kdz_B, ac_B, l_int_B, L_B, lfit_B, l_r2_B)
 fig, ax = plt.subplots(1,1)
-ax.scatter(kdz_A,np.log(ac_A),label='EZ',marker='o',color=green)
+ax.scatter(kdz_A,np.log(ac_A),label='LEZ',marker='o',color=green)
 ax.scatter(kdz_B,np.log(ac_B),label='UMZ',marker='x',color=orange)
 ax.plot(kdz_A,lfit_A,'--',lw=1,color=green), ax.plot(kdz_B,lfit_B,'--',lw=1,color=orange)
 ax.text(0,-1.7,f'$R^2$ = {l_r2_A:.2f}\n$L$ = {L_A:.1f} m',fontsize=12,color=green)
@@ -697,8 +749,8 @@ vidxSV = vidxP+p_toidx #only state variables
 oi = {lay:{t:{} for t in tracers} for lay in layers}
 oi['A']['Ps']['y'],oi['B']['Ps']['y'] = Ps_mean[0:3].values,Ps_mean[3:].values #mean POC
 oi['A']['Pl']['y'],oi['B']['Pl']['y'] = Pl_mean[0:3].values,Pl_mean[3:].values
-oi['A']['Pl']['sig_j'],oi['B']['Pl']['sig_j'] = Pl_sd[0:3].values,Pl_sd[3:].values #POC standard deviation
-oi['A']['Ps']['sig_j'],oi['B']['Ps']['sig_j'] = Ps_sd[0:3].values,Ps_sd[3:].values
+oi['A']['Pl']['sig_j'],oi['B']['Pl']['sig_j'] = Pl_se[0:3].values,Pl_se[3:].values #POC standard deviation
+oi['A']['Ps']['sig_j'],oi['B']['Ps']['sig_j'] = Ps_se[0:3].values,Ps_se[3:].values
 oi['A']['smpd'], oi['A']['grdd'] = zs[0:3].values, zml[difind(h):difind(bnd-dz/2)+1] #sample and grid depths, layer A
 oi['B']['smpd'], oi['B']['grdd'] = zs[3:].values, zml[difind(bnd+dz/2):] #sample and grid depths, layer B
 oi['A']['L'], oi['B']['L'] = L_A, L_B #interpolation length scales
@@ -765,7 +817,7 @@ Co_neg = (Co<0).any() #checks if any element of Co is negative
 ColnColninv = np.matmul(Coln,np.linalg.inv(Coln))
 Coln_check = np.sum(ColnColninv-np.identity(N))
 
-pdelt = 0.01 #allowable percent change in each state element for convergence
+pdelt = 0.01 #allowable change in each state element for convergence, expressed as a fraction
 maxiter = 50
 
 for g in gammas:
@@ -924,9 +976,7 @@ for g in gammas:
     ax2.hist(pdfn,density=True,bins=20,color=blue)
     ax2.set_xlabel(r'$\frac{f(\^x)_{i}}{\sigma_{f(\^x)_{i}}}$',fontsize=24)
     pdf_params = pdfx, pdfn, xg, yg_pdf
-    
-    #plot gaussians, show legend
-    ax1.plot(xg,yg_pdf,c=orange), ax2.plot(xg,yg_pdf,c=orange)
+    [ax.set_xlim([-1,1]) for ax in (ax1,ax2)]
     plt.savefig(f'invP_pdfs_gam{str(g).replace(".","")}.pdf')
     plt.close()
     
@@ -1000,7 +1050,7 @@ for g in gammas:
     #comparison plots
     if g == 1:
         invname = 'I1'
-    elif g == 0.01:
+    elif g == 0.02:
         invname = 'I2'
     else: invname = g
     fig,[ax1,ax2,ax3] = plt.subplots(1,3,tight_layout=True) #P figures
@@ -1047,7 +1097,7 @@ for g in gammas:
         ax.set_title(pdi[p]['tset'],fontsize=14)
         if pdi[p]['dv']: #if param is depth-varying
             ax.errorbar(1,pdi[p]['o'],yerr=pdi[p]['oe'],fmt='o',ms=9,c=blue,elinewidth=1.5,ecolor=blue,capsize=6,label='Prior',markeredgewidth=1.5) #priors with errors
-            ax.errorbar(2,pdi[p]['gammas'][g]['xh']['A'],yerr=pdi[p]['gammas'][g]['xhe']['A'],fmt='o',c=green,ms=9,elinewidth=1.5,ecolor=green,capsize=6,label='EZ',markeredgewidth=1.5) #posteriors with errors
+            ax.errorbar(2,pdi[p]['gammas'][g]['xh']['A'],yerr=pdi[p]['gammas'][g]['xhe']['A'],fmt='o',c=green,ms=9,elinewidth=1.5,ecolor=green,capsize=6,label='LEZ',markeredgewidth=1.5) #posteriors with errors
             ax.errorbar(3,pdi[p]['gammas'][g]['xh']['B'],yerr=pdi[p]['gammas'][g]['xhe']['B'],fmt='o',c=orange,ms=9,elinewidth=1.5,ecolor=orange,capsize=6,label='UMZ',markeredgewidth=1.5) #posteriors with errors
             if i == 5: ax.legend(loc='upper center',bbox_to_anchor=(1.38,-0.07),ncol=3,fontsize=12)
         else: #if param is depth-constant
@@ -1113,8 +1163,8 @@ for g in gammas:
     flxd['wt_Pt']['gammas'][g]['xh'], flxd['wt_Pt']['gammas'][g]['xhe'] = fxh, fxhe
 
     #plot areal fluxes (just sinking for now)
+    fig,ax = plt.subplots(1,1)
     for i,pr in enumerate(flxpairs_a):
-        fig,ax = plt.subplots(1,1)
         ax.invert_yaxis()
         ax.set_xlabel('POC Flux (mmol m$^{-2}$ d$^{-1}$)',fontsize=14)
         ax.set_ylabel('Depth (m)',fontsize=14)
@@ -1126,8 +1176,8 @@ for g in gammas:
         eb2 = ax.errorbar(flxd[pr[1]]['gammas'][g]['xh'],zml,fmt='o',xerr=flxd[pr[1]]['gammas'][g]['xhe'],ecolor=c2,elinewidth=0.5,c=c2,ms=3,capsize=2,label=flxnames[pr[1]],fillstyle='none',markeredgewidth=0.5)
         eb2[-1][0].set_linestyle(':')
         ax.legend(loc='lower right',fontsize=12)
-        plt.savefig(f'invP_fluxes_areal_gam{str(g).replace(".","")}.pdf')
-        plt.close()
+    plt.savefig(f'invP_fluxes_areal_gam{str(g).replace(".","")}.pdf')
+    plt.close()
 
     #plot volumetric fluxes
     fig,((ax1,ax2),(ax3,ax4)) = plt.subplots(2,2)
@@ -1151,21 +1201,30 @@ for g in gammas:
             eb2 = ax.errorbar(flxd[pr[1]]['gammas'][g]['xh'],zml,fmt='o',xerr=flxd[pr[1]]['gammas'][g]['xhe'],ecolor=c2,elinewidth=0.5,c=c2,ms=1.5,capsize=2,label=flxnames[pr[1]],fillstyle='none',markeredgewidth=0.5)
             eb2[-1][0].set_linestyle(':')
         ax.legend(loc='lower right',fontsize=12)
-        plt.savefig(f'invP_fluxes_volumetric_gam{str(g).replace(".","")}.pdf')
-        plt.close()
+    plt.savefig(f'invP_fluxes_volumetric_gam{str(g).replace(".","")}.pdf')
+    plt.close()
 
     iflxcalc(iflxs,depthranges) #calculate integrated fluxes and timescales
     inventory(depthranges) #calculate tracer inventory and integrated residuals
 
     #Print integrated fluxes and residuals for each depth range
     with open ('invP_out.txt','a') as file:
-        print(f'---------- Gamma = {g} ----------', file=file)
+        print(f'########################################\nGAMMA = {g}\n########################################',file=file)
         for dr in depthranges:
             rstr = "_".join([str(dr[0]),str(dr[1])])
-            print(f'--- Depth range: {dr} ---', file=file)
+            print(f'~~~~~~~ Depth range: {dr} ~~~~~~~',file=file)
+            print('---- Integrated fluxes ----',file=file)
             for f in iflxs:
                 print(f"{f}: {flxd[f]['gammas'][g]['iflx'][rstr][0]:.3f} ± {flxd[f]['gammas'][g]['iflx'][rstr][1]:.3f}", file=file)
             print(f'Ps Residuals: {td["Ps"]["gammas"][g]["ires"][rstr]:.3f} \nPl Residuals: {td["Pl"]["gammas"][g]["ires"][rstr]:.3f}',file=file)
+            print('---- Timescales ----',file=file)
+            for f in iflxs:
+                if '2' not in f:
+                    print(f"{f}: {flxd[f]['gammas'][g]['tau'][rstr][0]:.3f} ± {flxd[f]['gammas'][g]['tau'][rstr][1]:.3f}",file=file)
+                else:
+                    for t in tracers:
+                        print(f"{f} ({t}): {flxd[f]['gammas'][g]['tau'][rstr][t][0]:.3f} ± {flxd[f]['gammas'][g]['tau'][rstr][t][1]:.3f}",file=file)
+            print(f'Ps Inventory: {td["Ps"]["gammas"][g]["inv"][rstr][0]:.3f} ± {td["Ps"]["gammas"][g]["inv"][rstr][1]:.3f}\nPl Inventory: {td["Pl"]["gammas"][g]["inv"][rstr][0]:.3f} ± {td["Pl"]["gammas"][g]["inv"][rstr][1]:.3f}',file=file)
 
 #gamma sensitivity comparisons of integrated residuals
 fig,ax = plt.subplots()
@@ -1175,7 +1234,7 @@ ax.set_yticks(list(range(-11,2)))
 ax.grid(axis='y',zorder=1)
 plt.subplots_adjust(bottom=0.1)
 markerdict = {'Ps':'s','Pl':'^'}
-layerdict = {'30_112.5':{'color':green,'layer':'EZ'},
+layerdict = {'30_112.5':{'color':green,'layer':'LEZ'},
              '112.5_500':{'color':orange,'layer':'UMZ'}}
 for t in tracers:
     marker = markerdict[t]
@@ -1233,7 +1292,7 @@ for i,p in enumerate(params):
         j = 0
         for l in layers:
             c = green if l == 'A' else orange
-            layer = 'EZ' if l == 'A' else 'UMZ'
+            layer = 'LEZ' if l == 'A' else 'UMZ'
             for g in gammas:
                 ax.errorbar(j*2,pdi[p]['gammas'][g]['xh'][l],yerr=pdi[p]['gammas'][g]['xhe'][l],fmt='o',c=c,ms=8,elinewidth=1.5,ecolor=c,capsize=6,label=layer,markeredgewidth=1.5) #posteriors with errors
                 j += 1
@@ -1255,7 +1314,7 @@ for i,p in enumerate(params):
 plt.savefig('invP_sensitivity_params.pdf')
 plt.close()
 
-#plot the results from the 0.01 inversion against Thorium estimates from Buesseler et al.
+#plot the results from the 0.02 inversion against Thorium estimates from Buesseler et al.
 kbfluxes = pd.read_excel('pocfluxes_fromKB_v2.xlsx',sheet_name='to_df')
 kb_depths = kbfluxes['depth']
 kb_ssf = kbfluxes['ssf']
@@ -1269,7 +1328,7 @@ ax.invert_yaxis()
 ax.set_xlabel('POC Flux (mmol m$^{-2}$ d$^{-1}$)',fontsize=14)
 ax.set_ylabel('Depth (m)',fontsize=14)
 ax.set_ylim(top=0,bottom=zmax+dz*2)
-eb1 = ax.errorbar(flxd['wt_Pt']['gammas'][0.01]['xh'],zml,fmt='o',xerr=flxd['wt_Pt']['gammas'][0.01]['xhe'],ecolor=blue,elinewidth=0.5,c=blue,ms=3,capsize=2,label='I2',fillstyle='none',markeredgewidth=0.5)
+eb1 = ax.errorbar(flxd['wt_Pt']['gammas'][0.02]['xh'],zml,fmt='o',xerr=flxd['wt_Pt']['gammas'][0.02]['xhe'],ecolor=blue,elinewidth=0.5,c=blue,ms=3,capsize=2,label='I2',fillstyle='none',markeredgewidth=0.5)
 eb1[-1][0].set_linestyle('--')
 ax.axhline(bnd,c='k',ls='--',lw=0.5)
 eb1a = ax.errorbar(kb_ssf,kb_depths+2.5,fmt='^',xerr=kb_ssf_u,ecolor=green,elinewidth=0.5,c=green,ms=3,capsize=2,label='Th, 1-5 µm',markeredgewidth=0.5)
@@ -1279,7 +1338,7 @@ eb2a[-1][0].set_linestyle(':')
 eb3a = ax.errorbar(kb_lsf,kb_depths-2.5,fmt='^',xerr=kb_lsf_u,ecolor=radish,elinewidth=0.5,c=radish,ms=3,capsize=2,label='Th, >51 µm',markeredgewidth=0.5)
 eb3a[-1][0].set_linestyle(':')
 ax.legend(loc='lower right',fontsize=12)
-plt.savefig('invP_KBfluxcompare_gam001.pdf')
+plt.savefig('invP_KBfluxcompare_gam002.pdf')
 plt.close()
 
 with open ('invP_out.txt','a') as file:
