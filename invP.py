@@ -25,6 +25,7 @@ import time
 import pickle
 from mpl_toolkits.axes_grid1 import host_subplot
 from matplotlib.lines import Line2D
+import matplotlib.ticker as ticker
 
 start_time = time.time()
 plt.close('all')
@@ -112,7 +113,7 @@ pdi = {param:{} for param in params}
 
 #typeset name
 p_tset = {'ws':'$w_S$', 'wl':'$w_L$', 'B2p':'$\\beta^,_2$', 'Bm2':'$\\beta_{-2}$', 
-                'Bm1s':'$\\beta_{-1,S}$', 'Bm1l':'$\\beta_{-1,L}$', 'Gh':'$\overline{\.P_S}$', 
+                'Bm1s':'$\\beta_{-1,S}$', 'Bm1l':'$\\beta_{-1,L}$', 'Gh':'$\.P_{S,30}$',
                 'Lp':'$L_{P}$'}
 t_tset = {'Ps':'$P_S$', 'Pl':'$P_L$'}
 
@@ -156,7 +157,7 @@ td = {t:{k:({g:{gk:({dr:{} for dr in dr_str} if gk in invkeys else {})
     
 #build flux dictionary
 flxs = ['ws_Ps','wl_Pl','wt_Pt','ws_Psdz','wl_Pldz','Bm1s_Ps','Bm1l_Pl','B2p_Ps2','Bm2_Pl','Psdot']
-flxnames = {'ws_Ps':'$w_SP_S$', 'wl_Pl':'$w_LP_L$', 'wt_Pt':'$w_TP_T$', 'ws_Psdz':'$w_S\\frac{dP_S}{dz}$', 'wl_Pldz':'$w_L\\frac{dP_L}{dz}$',
+flxnames = {'ws_Ps':'$w_SP_S$', 'wl_Pl':'$w_LP_L$', 'wt_Pt':'$w_TP_T$', 'ws_Psdz':'$\\frac{d}{dz}w_SP_S$', 'wl_Pldz':'$\\frac{d}{dz}w_LP_L$',
             'Bm1s_Ps':'$\\beta_{-1,S}P_S$', 'Bm1l_Pl':'$\\beta_{-1,L}P_L$', 'B2p_Ps2':'$\\beta^,_2P^2_S$', 'Bm2_Pl':'$\\beta_{-2}P_L$', 'Psdot':'${\.P_S}$'}
 flxpairs_a = [('ws_Ps','wl_Pl'),]
 flxpairs_v = [('ws_Psdz','wl_Pldz'),('Bm1s_Ps','B2p_Ps2'),('Bm1l_Pl','Bm2_Pl'),('Psdot',)]
@@ -383,7 +384,7 @@ def Fnf_helper(y,i,di):
         xv[j],xi[j] = np.exp(xk[iSV]), iSV
     return x, xv, xi
 
-#given a mathmatical function for flux at particular depth, return flux and uncertainty
+#given a mathematical function for flux at particular depth, return flux and uncertainty
 #if err==True, considers uncertainties
 #if cov==True, considers covariances
 def symfunceval(y,err=True,cov=True):
@@ -626,7 +627,7 @@ ax.scatter(kdz_B,np.log(ac_B),label='UMZ',marker='x',color=orange)
 ax.plot(kdz_A,lfit_A,'--',lw=1,color=green), ax.plot(kdz_B,lfit_B,'--',lw=1,color=orange)
 ax.text(0,-1.7,f'$R^2$ = {l_r2_A:.2f}\n$L$ = {L_A:.1f} m',fontsize=12,color=green)
 ax.text(80,-0.8,f'$R^2$ = {l_r2_B:.2f}\n$L$ = {L_B:.1f} m',fontsize=12,color=orange)
-ax.set_xlabel('Lag (m)',fontsize=14)
+ax.set_xlabel('Vertical spacing (m)',fontsize=14)
 ax.set_ylabel('ln($r_k$)',fontsize=14)
 ax.legend(fontsize=12)
 plt.savefig('invP_autocor.pdf')
@@ -1099,7 +1100,7 @@ for g in gammas:
             ax.errorbar(1,pdi[p]['o'],yerr=pdi[p]['oe'],fmt='o',ms=9,c=blue,elinewidth=1.5,ecolor=blue,capsize=6,label='Prior',markeredgewidth=1.5) #priors with errors
             ax.errorbar(2,pdi[p]['gammas'][g]['xh']['A'],yerr=pdi[p]['gammas'][g]['xhe']['A'],fmt='o',c=green,ms=9,elinewidth=1.5,ecolor=green,capsize=6,label='LEZ',markeredgewidth=1.5) #posteriors with errors
             ax.errorbar(3,pdi[p]['gammas'][g]['xh']['B'],yerr=pdi[p]['gammas'][g]['xhe']['B'],fmt='o',c=orange,ms=9,elinewidth=1.5,ecolor=orange,capsize=6,label='UMZ',markeredgewidth=1.5) #posteriors with errors
-            if i == 5: ax.legend(loc='upper center',bbox_to_anchor=(1.38,-0.07),ncol=3,fontsize=12)
+            if i == 5: ax.legend(loc='upper center',bbox_to_anchor=(1.38,-0.07),ncol=3,fontsize=12,frameon=False)
         else: #if param is depth-constant
             ax.errorbar(1,pdi[p]['o'],yerr=pdi[p]['oe'],fmt='o',ms=9,c=blue,elinewidth=1.5,ecolor=blue,capsize=6,label='Prior',markeredgewidth=1.5) #priors with errors
             ax.errorbar(3,pdi[p]['gammas'][g]['xh'],yerr=pdi[p]['gammas'][g]['xhe'],fmt='o',c=radish,ms=9,elinewidth=1.5,ecolor=radish,capsize=6,markeredgewidth=1.5) #posteriors with errors
@@ -1200,6 +1201,9 @@ for g in gammas:
         if len(pr) > 1: #if it's actually a pair
             eb2 = ax.errorbar(flxd[pr[1]]['gammas'][g]['xh'],zml,fmt='o',xerr=flxd[pr[1]]['gammas'][g]['xhe'],ecolor=c2,elinewidth=0.5,c=c2,ms=1.5,capsize=2,label=flxnames[pr[1]],fillstyle='none',markeredgewidth=0.5)
             eb2[-1][0].set_linestyle(':')
+        if pr[0] == 'Psdot': #also plot the npp data in the Psdot panel
+            ax.scatter(npp.loc[npp['target Z']>=h]['OSU 14C npp (mg c/m3/d)']/mm,npp.loc[npp['target Z']>h]['target Z'],
+                       c=orange,alpha=0.5,label='NPP',s=10)
         ax.legend(loc='lower right',fontsize=12)
     plt.savefig(f'invP_fluxes_volumetric_gam{str(g).replace(".","")}.pdf')
     plt.close()
@@ -1272,7 +1276,7 @@ for i,p in enumerate(params):
 ax.set_xscale('log')
 ax.set_xticks(gammas)
 leg_elements = [Line2D([0],[0],marker='o',ls='none',color=colors[i],label=tset_list[i]) for i,_ in enumerate(p_tset)]
-ax.legend(handles=leg_elements,loc='lower center', bbox_to_anchor=(0.49, 1),ncol=4,fontsize=12)
+ax.legend(handles=leg_elements,loc='lower center', bbox_to_anchor=(0.49, 1),ncol=4,fontsize=12,frameon=False)
 ax.set_xlabel('$\gamma$',fontsize=14)
 ax.set_ylabel('Relative Error',fontsize=14)
 ax.get_xaxis().set_major_formatter(mpl.ticker.ScalarFormatter())
@@ -1302,7 +1306,7 @@ for i,p in enumerate(params):
         if i == 5:
             handles, labels = ax.get_legend_handles_labels()
             by_label = dict(zip(labels, handles))
-            ax.legend(by_label.values(), by_label.keys(),loc='upper center',bbox_to_anchor=(0.5,-1),ncol=1,fontsize=12)
+            ax.legend(by_label.values(), by_label.keys(),loc='upper center',bbox_to_anchor=(0.5,-1),ncol=1,fontsize=12,frameon=False)
     else: #if param is depth-constant
         j = 0
         for g in gammas:
@@ -1316,6 +1320,7 @@ plt.close()
 
 #plot the results from the 0.02 inversion against Thorium estimates from Buesseler et al.
 kbfluxes = pd.read_excel('pocfluxes_fromKB_v2.xlsx',sheet_name='to_df')
+wong_aug, wong_sep = 31/mm, 23/mm
 kb_depths = kbfluxes['depth']
 kb_ssf = kbfluxes['ssf']
 kb_ssf_u = kbfluxes['ssf_u']
@@ -1328,17 +1333,109 @@ ax.invert_yaxis()
 ax.set_xlabel('POC Flux (mmol m$^{-2}$ d$^{-1}$)',fontsize=14)
 ax.set_ylabel('Depth (m)',fontsize=14)
 ax.set_ylim(top=0,bottom=zmax+dz*2)
-eb1 = ax.errorbar(flxd['wt_Pt']['gammas'][0.02]['xh'],zml,fmt='o',xerr=flxd['wt_Pt']['gammas'][0.02]['xhe'],ecolor=blue,elinewidth=0.5,c=blue,ms=3,capsize=2,label='I2',fillstyle='none',markeredgewidth=0.5)
+eb1 = ax.errorbar(flxd['wt_Pt']['gammas'][0.02]['xh'],zml,fmt='o',xerr=flxd['wt_Pt']['gammas'][0.02]['xhe'],ecolor=blue,elinewidth=0.5,c=blue,ms=3,capsize=2,label='This study (I2)',fillstyle='none',markeredgewidth=0.5)
 eb1[-1][0].set_linestyle('--')
 ax.axhline(bnd,c='k',ls='--',lw=0.5)
-eb1a = ax.errorbar(kb_ssf,kb_depths+2.5,fmt='^',xerr=kb_ssf_u,ecolor=green,elinewidth=0.5,c=green,ms=3,capsize=2,label='Th, 1-5 µm',markeredgewidth=0.5)
+eb1a = ax.errorbar(kb_ssf,kb_depths+2.5,fmt='^',xerr=kb_ssf_u,ecolor=green,elinewidth=0.5,c=green,ms=6,capsize=2,label='Buesseler et al. (2020)\nTh, 1-5 µm',markeredgewidth=0.5)
 eb1a[-1][0].set_linestyle(':')
-eb2a = ax.errorbar(kb_msf,kb_depths,fmt='^',xerr=kb_msf_u,ecolor=vermillion,elinewidth=0.5,c=vermillion,ms=3,capsize=2,label='Th, 5-51 µm',markeredgewidth=0.5)
+eb2a = ax.errorbar(kb_msf,kb_depths,fmt='^',xerr=kb_msf_u,ecolor=vermillion,elinewidth=0.5,c=vermillion,ms=6,capsize=2,label='Buesseler et al. (2020)\nTh, 5-51 µm',markeredgewidth=0.5)
 eb2a[-1][0].set_linestyle(':')
-eb3a = ax.errorbar(kb_lsf,kb_depths-2.5,fmt='^',xerr=kb_lsf_u,ecolor=radish,elinewidth=0.5,c=radish,ms=3,capsize=2,label='Th, >51 µm',markeredgewidth=0.5)
+eb3a = ax.errorbar(kb_lsf,kb_depths-2.5,fmt='^',xerr=kb_lsf_u,ecolor=radish,elinewidth=0.5,c=radish,ms=6,capsize=2,label='Buesseler et al. (2020)\nTh, >51 µm',markeredgewidth=0.5)
 eb3a[-1][0].set_linestyle(':')
-ax.legend(loc='lower right',fontsize=12)
+ax.scatter(wong_aug,200,marker='s',facecolors='none',edgecolors='k',s=20,zorder=1,label='Wong et al. (1999)\nSediment Trap, Aug')
+ax.scatter(wong_sep,200,marker='d',facecolors='none',edgecolors='k',s=26,zorder=1,label='Wong et al. (1999)\nSediment Trap, Sep')
+ax.legend(loc='lower right',fontsize=10)
 plt.savefig('invP_KBfluxcompare_gam002.pdf')
+plt.close()
+
+#comparison of parameters across studies
+Ps_LEZ_mean = td['Ps']['gammas'][0.02]['xh'][0:difind(bnd+dz/2)].mean()
+Ps_UMZ_mean = td['Ps']['gammas'][0.02]['xh'][difind(bnd+dz/2):].mean()
+B2_EX_LEZ = pdi['B2p']['gammas'][0.02]['xh']['A']*Ps_LEZ_mean
+B2_EX_UMZ = pdi['B2p']['gammas'][0.02]['xh']['B']*Ps_UMZ_mean
+
+compare_params = {'EXP':{'B2':{'EZ':(B2_EX_LEZ,),'MZ':(B2_EX_UMZ,)},
+                         'Bm2':{'EZ':(pdi['Bm2']['gammas'][0.02]['xh']['A'],pdi['Bm2']['gammas'][0.02]['xhe']['A']),
+                                'MZ':(pdi['Bm2']['gammas'][0.02]['xh']['B'],pdi['Bm2']['gammas'][0.02]['xhe']['B'])},
+                         'Bm1s':{'EZ':(pdi['Bm1s']['gammas'][0.02]['xh']['A'],pdi['Bm1s']['gammas'][0.02]['xhe']['A']),
+                                'MZ':(pdi['Bm1s']['gammas'][0.02]['xh']['B'],pdi['Bm1s']['gammas'][0.02]['xhe']['B'])}
+                         },
+                  'MOSP':{'B2':{'BZ':(0.8/dpy,0.9/dpy)},
+                          'Bm2':{'BZ':(400/dpy,10000/dpy)},
+                          'Bm1s':{'BZ':(1.7/dpy,0.9/dpy)}
+                          },
+                  'MNABE':{'B2':{'MZ':{'t1':(2/dpy,0.2/dpy),
+                                       't2':(12/dpy,1/dpy),
+                                       't3':(76/dpy,9/dpy)}
+                                 },
+                           'Bm2':{'MZ':{'t1':(156/dpy,17/dpy),
+                                       't2':(321/dpy,32/dpy),
+                                       't3':(524/dpy,74/dpy)}
+                                  },
+                           'Bm1s':{'MZ':{'t1':(13/dpy,1/dpy),
+                                       't2':(32/dpy,2/dpy),
+                                       't3':(596/dpy,6/dpy)}
+                                  }
+                           },
+                  'MNWA':{'B2':{'EZ':{'lo':(9/dpy,24/dpy),'hi':(11/dpy,30/dpy)},
+                                'MZ':{'lo':(13/dpy,50/dpy),'hi':(18/dpy,89/dpy)}
+                                },
+                          'Bm2':{'EZ':{'lo':(2280/dpy,10000/dpy),'hi':(2690/dpy,10000/dpy)},
+                                 'MZ':{'lo':(870/dpy,5000/dpy),'hi':(1880/dpy,10000/dpy)}
+                                },
+                          'Bm1s':{'EZ':{'lo':(70/dpy,137/dpy),'hi':(798/dpy,7940/dpy)},
+                                  'MZ':{'lo':(113/dpy,10000/dpy),'hi':(1766/dpy,10000000/dpy)}
+                                },
+                          }
+                  }
+
+#plot them all
+fig, ([ax1,ax2,ax3],[ax4,ax5,ax6]) = plt.subplots(2,3,tight_layout=True)
+ax6.axis('off')
+axs = [ax1,ax2,ax3,ax4,ax5]
+[ax.tick_params(bottom=False,labelbottom=False) for ax in axs]
+[ax.set_yscale('log') for ax in (axs)]
+#below line from https://stackoverflow.com/questions/21920233/matplotlib-log-scale-tick-label-number-formatting/33213196
+[ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, _: '{:g}'.format(y))) for ax in axs]
+ax1.set_ylabel('Estimate (d$^{-1}$)',fontsize=14), ax4.set_ylabel('Error (d$^{-1}$)',fontsize=14)
+ax1.set_title('$\\beta_{-1,S}$',fontsize=14),ax2.set_title('$\\beta_{-2}$',fontsize=14),ax3.set_title('$\\beta_2$',fontsize=14)
+study_colors = {'EXP':green,'MOSP':blue,'MNABE':orange,'MNWA':radish}
+layer_shapes = {'EZ':'s','MZ':'^','BZ':'d'}
+axs_dict = {ax1:{'ylim':(0.001,10),'panel':'A'},
+            ax2:{'ylim':(0.1,10),'panel':'B'},
+            ax3:{'ylim':(0.001,1),'panel':'C'},
+            ax4:{'ylim':(0.001,100000),'panel':'D'},
+            ax5:{'ylim':(0.01,100),'panel':'E'}}
+for (ax,p) in ((ax1,'Bm1s'),(ax2,'Bm2'),(ax3,'B2')):
+    studies = [study for study, value in compare_params.items() if p in value]
+    ct = 0
+    for s in studies:
+        c = study_colors[s]
+        for l, vals in compare_params[s][p].items():
+            m = layer_shapes[l]
+            if type(vals) == dict:
+                for k in vals.keys():
+                    ax.scatter(ct,compare_params[s][p][l][k][0],s=60,marker=m,c=c,edgecolors=black,lw=0.5)
+                    if p != 'B2':
+                        axs[axs.index(ax)+3].scatter(ct,compare_params[s][p][l][k][1],s=60,marker=m,c=c,edgecolors=black,lw=0.5)
+                    ct += 1
+            else:
+                ax.scatter(ct,compare_params[s][p][l][0],s=60,marker=m,c=c,edgecolors=black,lw=0.5)
+                if p != 'B2':
+                    axs[axs.index(ax)+3].scatter(ct,compare_params[s][p][l][1],s=60,marker=m,c=c,edgecolors=black,lw=0.5)
+                ct += 1
+leg_elements = [Line2D([0],[0],marker=layer_shapes['EZ'],c='w',label='Euphotic Zone',markerfacecolor='w',markeredgecolor=black,ms=9,lw=0.5),
+                Line2D([0],[0],marker=layer_shapes['MZ'],c='w',label='Mesopelagic Zone',markerfacecolor='w',markeredgecolor=black,ms=9,lw=0.5),
+                Line2D([0],[0],marker=layer_shapes['BZ'],c='w',label='Bathypelagic Zone',markerfacecolor='w',markeredgecolor=black,ms=9,lw=0.5),
+                Line2D([0],[0],marker='o',c='w',label='This study (I2)\nStation P',markerfacecolor=green,ms=9),
+                Line2D([0],[0],marker='o',c='w',label='Murnane (1994)\nStation P',markerfacecolor=blue,ms=9),
+                Line2D([0],[0],marker='o',c='w',label='Murnane et al. (1996)\nNABE',markerfacecolor=orange,ms=9),
+                Line2D([0],[0],marker='o',c='w',label='Murnane et al. (1994)\nNWAO',markerfacecolor=radish,ms=9)]
+ax6.legend(handles=leg_elements,loc='center',fontsize=10,frameon=False)
+for ax in axs:
+    ax.set_ylim(axs_dict[ax]['ylim'])
+    ax.annotate(axs_dict[ax]['panel'],xy=(0.82, 0.05),xycoords='axes fraction',fontsize=14)
+plt.savefig('invP_compare_params.pdf')
 plt.close()
 
 with open ('invP_out.txt','a') as file:

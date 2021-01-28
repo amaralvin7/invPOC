@@ -85,7 +85,7 @@ params_dc = ['Gh', 'Lp'] #depth-constant params
 
 #typeset name
 p_tset = {'ws':'$w_S$', 'wl':'$w_L$', 'B2p':'$\\beta^,_2$', 'Bm2':'$\\beta_{-2}$', 
-                'Bm1s':'$\\beta_{-1,S}$', 'Bm1l':'$\\beta_{-1,L}$', 'Gh':'$\overline{\.P_S}$', 
+                'Bm1s':'$\\beta_{-1,S}$', 'Bm1l':'$\\beta_{-1,L}$', 'Gh':'$\.P_{S,30}$',
                 'Lp':'$L_{P}$'}
 
 #extract information for priors from invP.py results
@@ -734,8 +734,7 @@ ax1.set_xlabel(r'$\frac{\^x_{i}-x_{o,i}}{\sigma_{o,i}}$',size=24)
 ax1.hist(pdfx,density=True,bins=20,color=blue)
 ax2.hist(pdfn,density=True,bins=20,color=blue)
 ax2.set_xlabel(r'$\frac{f(\^x)_{i}}{\sigma_{f(\^x)_{i}}}$',size=24)
-#plot gaussians, show legend
-ax1.plot(xg,yg_pdf,c=red), ax2.plot(xg,yg_pdf,c=red)
+[ax.set_xlim([-1,1]) for ax in (ax1,ax2)]
 plt.savefig('twnxP_pdfs.png')
 plt.close()
 
@@ -853,7 +852,7 @@ for i,p in enumerate(pdi.keys()):
         ax.errorbar(3,pdi[p]['xh']['A'],yerr=pdi[p]['xhe']['A'],fmt='o',c=green,ms=9,elinewidth=1.5,ecolor=green,capsize=6,markeredgewidth=1.5,label='EZ') #posteriors with errors
         ax.scatter(4,pdi[p]['t']['B'],marker='+',s=90,c=orange) #target value
         ax.errorbar(5,pdi[p]['xh']['B'],yerr=pdi[p]['xhe']['B'],fmt='o',c=orange,ms=9,elinewidth=1.5,ecolor=orange,capsize=6,markeredgewidth=1.5,label='UMZ') #posteriors with errors
-        if i == 5: ax.legend(loc='upper center',bbox_to_anchor=(1.38,-0.07),ncol=3,fontsize=12)
+        if i == 5: ax.legend(loc='upper center',bbox_to_anchor=(1.38,-0.07),ncol=3,fontsize=12,frameon=False)
     else: #if param is depth-constant
         ax.errorbar(2,pdi[p]['o'],yerr=pdi[p]['oe'],fmt='o',ms=9,c=blue,elinewidth=1.5,ecolor=blue,capsize=6,markeredgewidth=1.5,label='Prior') #priors with errors
         ax.scatter(3,pdi[p]['t'],marker='+',s=90,c=radish) #target value
