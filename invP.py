@@ -5,7 +5,7 @@ Created on Jun 09 2020
 
 @author: vamaral
 
-Gamma sensitivity (_gs) studies on invP
+Script for the PYRITE (Particle cYcling Rates from Inversion of Tracers in the ocEan) model
 """
 import numpy as np
 import scipy.linalg as splinalg
@@ -1319,16 +1319,16 @@ plt.savefig('invP_sensitivity_params.pdf')
 plt.close()
 
 #plot the results from the 0.02 inversion against Thorium estimates from Buesseler et al.
-kbfluxes = pd.read_excel('pocfluxes_fromKB_v2.xlsx',sheet_name='to_df')
-wong_aug, wong_sep = 31/mm, 23/mm
+kbfluxes = pd.read_excel('pocfluxes_fromKB_v2.xlsx',sheet_name='thorium')
+estapafluxes = pd.read_excel('pocfluxes_fromKB_v2.xlsx',sheet_name='traps')
 kb_depths = kbfluxes['depth']
-kb_ssf = kbfluxes['ssf']
-kb_ssf_u = kbfluxes['ssf_u']
-kb_msf = kbfluxes['msf']
-kb_msf_u = kbfluxes['msf_u']
-kb_lsf = kbfluxes['lsf']
-kb_lsf_u = kbfluxes['lsf_u']
-fig,ax = plt.subplots(1,1) #P figures
+estapa_depths = estapafluxes['depth']
+kb_flux = kbfluxes['msf']
+kb_flux_u = kbfluxes['msf_u']
+estapa_flux = estapafluxes['flux']
+estapa_flux_u = estapafluxes['flux_u']
+
+fig,ax = plt.subplots(1,1)
 ax.invert_yaxis()
 ax.set_xlabel('POC Flux (mmol m$^{-2}$ d$^{-1}$)',fontsize=14)
 ax.set_ylabel('Depth (m)',fontsize=14)
@@ -1336,16 +1336,12 @@ ax.set_ylim(top=0,bottom=zmax+dz*2)
 eb1 = ax.errorbar(flxd['wt_Pt']['gammas'][0.02]['xh'],zml,fmt='o',xerr=flxd['wt_Pt']['gammas'][0.02]['xhe'],ecolor=blue,elinewidth=0.5,c=blue,ms=3,capsize=2,label='This study (I2)',fillstyle='none',markeredgewidth=0.5)
 eb1[-1][0].set_linestyle('--')
 ax.axhline(bnd,c='k',ls='--',lw=0.5)
-eb1a = ax.errorbar(kb_ssf,kb_depths+2.5,fmt='^',xerr=kb_ssf_u,ecolor=green,elinewidth=0.5,c=green,ms=6,capsize=2,label='Buesseler et al. (2020)\nTh, 1-5 µm',markeredgewidth=0.5)
+eb1a = ax.errorbar(kb_flux,kb_depths+2.5,fmt='^',xerr=kb_flux_u,ecolor=green,elinewidth=0.5,c=green,ms=6,capsize=2,label='Buesseler et al. (2020)\nTh, 5-51 µm',markeredgewidth=0.5)
 eb1a[-1][0].set_linestyle(':')
-eb2a = ax.errorbar(kb_msf,kb_depths,fmt='^',xerr=kb_msf_u,ecolor=vermillion,elinewidth=0.5,c=vermillion,ms=6,capsize=2,label='Buesseler et al. (2020)\nTh, 5-51 µm',markeredgewidth=0.5)
+eb2a = ax.errorbar(estapa_flux,estapa_depths,fmt='^',xerr=estapa_flux_u,ecolor=vermillion,elinewidth=0.5,c=vermillion,ms=6,capsize=2,label='Estapa et al. (2021)\nSediment Traps',markeredgewidth=0.5)
 eb2a[-1][0].set_linestyle(':')
-eb3a = ax.errorbar(kb_lsf,kb_depths-2.5,fmt='^',xerr=kb_lsf_u,ecolor=radish,elinewidth=0.5,c=radish,ms=6,capsize=2,label='Buesseler et al. (2020)\nTh, >51 µm',markeredgewidth=0.5)
-eb3a[-1][0].set_linestyle(':')
-ax.scatter(wong_aug,200,marker='s',facecolors='none',edgecolors='k',s=20,zorder=1,label='Wong et al. (1999)\nSediment Trap, Aug')
-ax.scatter(wong_sep,200,marker='d',facecolors='none',edgecolors='k',s=26,zorder=1,label='Wong et al. (1999)\nSediment Trap, Sep')
 ax.legend(loc='lower right',fontsize=10)
-plt.savefig('invP_KBfluxcompare_gam002.pdf')
+plt.savefig('invP_fluxcompare_gam002.pdf')
 plt.close()
 
 #comparison of parameters across studies
