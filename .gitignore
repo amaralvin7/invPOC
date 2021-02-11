@@ -8,5 +8,8 @@
 ehthumbs.db
 Thumbs.db
 
-# PNG images (python output)
+#PNG images
 *.png
+
+#output file
+/out
