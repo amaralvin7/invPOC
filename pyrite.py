@@ -5,18 +5,18 @@ Created on Tue Feb  9 11:55:53 2021
 
 @author: Vinicius J. Amaral
 
-Pyrite (Particle cYcling Rates from Inversion of Tracers in the ocEan)
+PYRITE Model (Particle cYcling Rates from Inversion of Tracers in the ocEan)
 """
 import time
-start_time = time.time()
 
 import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
+#from varname import nameof
 
-class Pyrite:
-    
-    def __init__(self,gammas=[0.02]):
+class PyriteModel:
+
+    def __init__(self, gammas=[0.02]):
         
         self.GAMMAS = gammas
         self.MIXED_LAYER_DEPTH = 30
@@ -33,6 +33,10 @@ class Pyrite:
         self.load_data()
         self.unpack_tracers()
         self.define_params()
+
+    def __repr__(self):
+
+        return f'PyriteModel(gammas={self.GAMMAS})'
                     
     def load_data(self):
         
@@ -49,35 +53,24 @@ class Pyrite:
         
         P30_PRIOR, P30_PRIOR_E, LP_PRIOR, LP_PRIOR_E = self.process_npp_data()
         
-        self.PARAM_DICT = {'ws': {'prior': 2,
-                                    'prior error': 2,
-                                    'typeset': '$w_S$'},
-                             'wl': {'prior': 20,
-                                    'prior error': 15,
-                                    'typeset': '$w_L$'},
-                             'B2p': {'prior': (0.5*self.MOLAR_MASS_C/
-                                               self.DAYS_PER_YEAR),
-                                     'prior error': (0.5*self.MOLAR_MASS_C/
-                                                     self.DAYS_PER_YEAR),
-                                     'typeset': '$\\beta^,_2$'},
-                             'Bm2': {'prior': (400*self.MOLAR_MASS_C/
-                                               self.DAYS_PER_YEAR),
-                                     'prior error': (10000*self.MOLAR_MASS_C/
-                                                     self.DAYS_PER_YEAR),
-                                     'typeset': '$\\beta_{-2}$'},
-                             'Bm1s': {'prior': 0.1,
-                                      'prior error': 0.1,
-                                      'typeset': '$\\beta_{-1,S}$'},
-                             'Bm1;': {'prior': 0.15,
-                                      'prior error': 0.15,
-                                      'typeset': '$\\beta_{-1,L}$'},
-                             'P30': {'prior': P30_PRIOR,
-                                     'prior error': P30_PRIOR_E,
-                                     'typeset': '$\.P_{S,30}$'},
-                             'Lp': {'prior': LP_PRIOR,
-                                     'prior error': LP_PRIOR_E,
-                                     'typeset': '$L_P$'}}
-    
+        self.ws = PyriteParam(2, 2, 'ws', '$w_S$')
+        self.wl = PyriteParam(20, 15, 'wl', '$w_L$')
+        self.B2p = PyriteParam(0.5*self.MOLAR_MASS_C/self.DAYS_PER_YEAR,
+                               0.5*self.MOLAR_MASS_C/self.DAYS_PER_YEAR,
+                               'B2p', '$\\beta^,_2$')
+        self.Bm2 = PyriteParam(400*self.MOLAR_MASS_C/self.DAYS_PER_YEAR,
+                               10000*self.MOLAR_MASS_C/self.DAYS_PER_YEAR,
+                               'Bm2', '$\\beta_{-2}$')
+        self.Bm1s = PyriteParam(0.1, 0.1, 'Bm1s', '$\\beta_{-1,S}$')
+        self.Bm1l = PyriteParam(0.15, 0.15, 'Bm1l', '$\\beta_{-1,L}$')
+        self.P30 = PyriteParam(P30_PRIOR, P30_PRIOR_E, 'P30', '$\.P_{S,30}$',
+                               depth_vary=False)
+        self.Lp = PyriteParam(LP_PRIOR, LP_PRIOR_E, 'Lp', '$L_P$',
+                              depth_vary=False)
+
+        self.model_params = (self.ws, self.wl, self.B2p, self.Bm2, self.Bm1s,
+                             self.Bm1l, self.P30, self.Lp)
+
     def process_npp_data(self):
         
         NPP_DATA_RAW = self.DATA['npp']
@@ -90,7 +83,7 @@ class Pyrite:
             (NPP_DATA_CLEAN['target_depth'] <= MIXED_LAYER_LOWER_BOUND)]
         
         NPP_BELOW_MIXED_LAYER = NPP_DATA_CLEAN.loc[
-            NPP_DATA_CLEAN['target_depth'] >= 28]
+            NPP_DATA_CLEAN['target_depth'] >=  MIXED_LAYER_UPPER_BOUND]
         
         P30_PRIOR = NPP_MIXED_LAYER['npp'].mean()/self.MOLAR_MASS_C
         P30_PRIOR_E = NPP_MIXED_LAYER['npp'].sem()/self.MOLAR_MASS_C
@@ -103,8 +96,24 @@ class Pyrite:
         LP_PRIOR_E = NPP_REGRESSION.bse[1]/NPP_REGRESSION.params[1]**2
         
         return P30_PRIOR, P30_PRIOR_E, LP_PRIOR, LP_PRIOR_E
-        
-        
-model = Pyrite()
 
-print(f'--- {(time.time() - start_time)/60} minutes ---')
+class PyriteParam:
+
+    def __init__(self, prior, prior_error, name, label, depth_vary=True):
+        
+        self.PRIOR = prior
+        self.PRIOR_E = prior_error
+        self.NAME = name
+        self.LABEL = label
+        self.DV = depth_vary
+
+    def __repr__(self):
+
+        return f'PyriteParam({self.NAME})'
+
+if __name__ == '__main__':
+
+    start_time = time.time()
+    model = PyriteModel()
+
+    print(f'--- {(time.time() - start_time)/60} minutes ---')
