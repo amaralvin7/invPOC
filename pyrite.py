@@ -35,7 +35,7 @@ class PyriteModel:
         self.DAYS_PER_YEAR = 365.24
         
         self.load_data()
-        self.unpack_tracers()
+        self.unpack_tracer_data()
         self.define_params()
 
         self.pickle_model()
@@ -47,18 +47,26 @@ class PyriteModel:
     def load_data(self):
         
         self.DATA = pd.read_excel('pyrite_data.xlsx',sheet_name=None)
+        self.SAMPLE_DEPTHS = self.DATA['poc_means']['Depth']
+        self.N_SAMPLE_DEPTHS = len(self.SAMPLE_DEPTHS)
     
-    def unpack_tracers(self):
+    def unpack_tracer_data(self):
         
-        self.POC_S_MEAN = self.DATA['poc_means']['SSF_mean']/self.MOLAR_MASS_C
-        self.POC_S_SE = self.DATA['poc_means']['SSF_se']/self.MOLAR_MASS_C
-        self.POC_L_MEAN = self.DATA['poc_means']['LSF_mean']/self.MOLAR_MASS_C
-        self.POC_L_SE = self.DATA['poc_means']['LSF_se']/self.MOLAR_MASS_C
+        self.Ps = PyriteTracer('POC', 'S', '$P_S$',
+                               self.DATA['poc_means']['SSF_mean']/
+                               self.MOLAR_MASS_C,
+                               self.DATA['poc_means']['SSF_se']/
+                               self.MOLAR_MASS_C)
+        self.Pl = PyriteTracer('POC', 'L', '$P_L$',
+                               self.DATA['poc_means']['LSF_mean']/
+                               self.MOLAR_MASS_C,
+                               self.DATA['poc_means']['LSF_se']/
+                               self.MOLAR_MASS_C)
     
     def define_params(self):
         
-        P30_prior, P30_prior_e, Lp_prior, Lp_prior_e = self.process_npp_data()
-        
+        P30_prior, P30_prior_e, LP_prior, LP_prior_e = self.process_npp_data()
+
         self.ws = PyriteParam(2, 2, 'ws', '$w_S$')
         self.wl = PyriteParam(20, 15, 'wl', '$w_L$')
         self.B2p = PyriteParam(0.5*self.MOLAR_MASS_C/self.DAYS_PER_YEAR,
@@ -71,11 +79,11 @@ class PyriteModel:
         self.Bm1l = PyriteParam(0.15, 0.15, 'Bm1l', '$\\beta_{-1,L}$')
         self.P30 = PyriteParam(P30_prior, P30_prior_e, 'P30', '$\.P_{S,30}$',
                                depth_vary=False)
-        self.Lp = PyriteParam(Lp_prior, Lp_prior_e, 'Lp', '$L_P$',
+        self.LP = PyriteParam(LP_prior, LP_prior_e, 'LP', '$L_P$',
                               depth_vary=False)
 
         self.model_params = (self.ws, self.wl, self.B2p, self.Bm2, self.Bm1s,
-                             self.Bm1l, self.P30, self.Lp)
+                             self.Bm1l, self.P30, self.LP)
 
     def process_npp_data(self):
         
@@ -98,15 +106,29 @@ class PyriteModel:
             formula='np.log(npp/(P30_prior*self.MOLAR_MASS_C)) ~ target_depth',
             data=npp_below_mixed_layer).fit()
 
-        Lp_prior = -1/npp_regression.params[1]
-        Lp_prior_e = npp_regression.bse[1]/npp_regression.params[1]**2
+        LP_prior = -1/npp_regression.params[1]
+        LP_prior_e = npp_regression.bse[1]/npp_regression.params[1]**2
         
-        return P30_prior, P30_prior_e, Lp_prior, Lp_prior_e
+        return P30_prior, P30_prior_e, LP_prior, LP_prior_e
 
     def pickle_model(self):
 
         with open(self.pickled, 'wb') as file:
             pickle.dump(self,file)
+
+class PyriteTracer:
+
+    def __init__(self, species, size_fraction, label, data, data_error):
+
+        self.species = species
+        self.sf = size_fraction
+        self.label = label
+        self.data = data
+        self.data_e = data_error
+
+    def __repr__(self):
+
+        return f'PyriteTracer(species={self.species}, size_frac={self.sf})'
 
 class PyriteParam:
 
@@ -120,7 +142,7 @@ class PyriteParam:
 
     def __repr__(self):
 
-        return f'PyriteParam({self.NAME})'
+        return f'PyriteParam({self.name})'
 
 class PyritePlotter:
 
@@ -155,13 +177,13 @@ class PyritePlotter:
 
         par1.axis['top'].toggle(all=True)
         offset = 40
-        new_fixed_axis = par2.get_grid_helper().new_fixed_axis
+        new_fixed_axis = par2.get_grid_heLPer().new_fixed_axis
         par2.axis['top'] = new_fixed_axis(loc='top', axes=par2,
                                           offset=(0, offset))
         par2.axis['top'].toggle(all=True)
 
         host.set_ylim(0, 520)
-        host.invert_yaxis(), host.grid(axis='y', alpha=0.5)
+        host.invert_yaxis(), host.grid(axis='y', aLPha=0.5)
         host.set_xlim(24, 27.4)
         par1.set_xlim(3, 14.8)
         par2.set_xlim(32, 34.5)
@@ -204,6 +226,6 @@ if __name__ == '__main__':
 
     start_time = time.time()
     model = PyriteModel()
-    plotter = PyritePlotter(model)
+    #plotter = PyritePlotter(model)
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
