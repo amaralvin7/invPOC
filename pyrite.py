@@ -11,6 +11,7 @@ import time
 import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
+import statsmodels.tsa.stattools as smt
 import pickle
 import matplotlib.pyplot as plt
 import matplotlib.colorbar as colorbar
@@ -34,8 +35,6 @@ class PyriteModel:
                               self.GRID_STEP)
         self.N_GRID_POINTS = len(self.GRID)
         self.BOUNDARY = 112.5
-        self.EZ = PyriteZone(self, op.lt, 'EZ')  # euphotic zone
-        self.UMZ = PyriteZone(self, op.gt, 'UMZ')  # upper mesopelagic zone
 
         self.MOLAR_MASS_C = 12
         self.DAYS_PER_YEAR = 365.24
@@ -44,6 +43,10 @@ class PyriteModel:
         self.define_tracers()
         self.define_params()
         self.process_cp_data()
+        
+        self.LEZ = PyriteZone(self, op.lt, 'LEZ')  # euphotic zone
+        self.UMZ = PyriteZone(self, op.gt, 'UMZ')  # upper mesopelagic zone
+        self.zones = (self.LEZ, self.UMZ)
 
         self.pickle_model()
 
@@ -144,7 +147,7 @@ class PyriteModel:
         self.cp_mean = cp_bycast_to_mean.mean(axis=1)
         self.Pt_mean = self.cp_Pt_regression_nonlinear.get_prediction(
             exog=dict(cp=self.cp_mean)).predicted_mean
-
+     
     def pickle_model(self):
 
         with open(self.pickled, 'wb') as file:
@@ -182,14 +185,33 @@ class PyriteZone:
 
     def __init__(self, model, operator, label):
 
-        indices = np.where(operator(model.GRID, model.BOUNDARY))[0]
-        self.depths = model.GRID[indices]
+        self.model = model
+        self.indices = np.where(operator(model.GRID, model.BOUNDARY))[0]
+        self.depths = model.GRID[self.indices]
         self.label = label
+        
+        self.calculate_length_scales(0.25)
 
     def __repr__(self):
 
         return f'PyriteZone({self.label})'
+    
+    def calculate_length_scales(self, fraction):
 
+        Pt = self.model.Pt_mean[self.indices]
+        n_lags = int(np.ceil(len(Pt)*fraction))
+        self.grid_steps = np.arange(
+            0, (n_lags+1)*self.model.GRID_STEP, self.model.GRID_STEP)
+        self.autocorrelation = smt.acf(Pt, nlags=n_lags, fft=False)
+        
+        acf_regression = smf.ols(
+            formula='np.log(ac) ~ gs',
+            data = {'ac':self.autocorrelation, 'gs':self.grid_steps}).fit()
+        b, m = acf_regression.params
+        
+        self.length_scale = -1/m
+        self.length_scale_fit = b + m*self.grid_steps
+        self.fit_rsquared = acf_regression.rsquared
 
 class PyritePlotter:
 
@@ -201,6 +223,7 @@ class PyritePlotter:
         self.define_colors()
         self.plot_hydrography()
         self.plot_cp_Pt_regression()
+        self.plot_zone_length_scales()
         #self.plot_poc_data()
 
     def define_colors(self):
@@ -308,6 +331,31 @@ class PyritePlotter:
             plt.savefig(f'out/cpptfit_log{logarithmic[fit]}.pdf')
             plt.close()
 
+    def plot_zone_length_scales(self):
+        
+        zones = {'LEZ': {'color': self.GREEN,
+                        'text_coords': (0,-1.7),
+                        'marker':'o'},
+                 'UMZ': {'color': self.ORANGE,
+                        'text_coords': (80,-0.8),
+                        'marker':'x'}}
+  
+        fig, ax = plt.subplots(1,1)
+        for z in self.model.zones:
+            c = zones[z.label]['color']
+            ax.scatter(z.grid_steps, np.log(z.autocorrelation), label=z.label,
+                       marker=zones[z.label]['marker'], color=c)
+            ax.plot(z.grid_steps, z.length_scale_fit, '--', lw=1, color=c)
+            ax.text(
+                *zones[z.label]['text_coords'],
+                f'$R^2$ = {z.fit_rsquared:.2f}\n$L$ = {z.length_scale:.1f} m',
+                fontsize=12, color=c)
+        ax.set_xlabel('Vertical spacing (m)',fontsize=14)
+        ax.set_ylabel('ln($r_k$)',fontsize=14)
+        ax.legend(fontsize=12)
+        plt.savefig('out/length_scales.pdf')
+        plt.close()
+        
     #def plot_poc_data():
 
 if __name__ == '__main__':
