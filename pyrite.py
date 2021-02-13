@@ -17,6 +17,7 @@ import matplotlib.colorbar as colorbar
 import matplotlib.colors as mplc
 import mpl_toolkits.axisartist as AA
 from mpl_toolkits.axes_grid1 import host_subplot
+import operator as op
 #from varname import nameof
 
 class PyriteModel:
@@ -33,11 +34,14 @@ class PyriteModel:
                               self.GRID_STEP)
         self.N_GRID_POINTS = len(self.GRID)
         self.BOUNDARY = 112.5
+        self.EZ = PyriteZone(self, op.lt, 'EZ')  # euphotic zone
+        self.UMZ = PyriteZone(self, op.gt, 'UMZ')  # upper mesopelagic zone
+
         self.MOLAR_MASS_C = 12
         self.DAYS_PER_YEAR = 365.24
         
         self.load_data()
-        self.unpack_tracer_data()
+        self.define_tracers()
         self.define_params()
         self.process_cp_data()
 
@@ -53,7 +57,7 @@ class PyriteModel:
         self.SAMPLE_DEPTHS = self.DATA['poc_means']['Depth']
         self.N_SAMPLE_DEPTHS = len(self.SAMPLE_DEPTHS)
     
-    def unpack_tracer_data(self):
+    def define_tracers(self):
         
         self.Ps = PyriteTracer('POC', 'S', '$P_S$',
                                self.DATA['poc_means']['SSF_mean']/
@@ -65,10 +69,12 @@ class PyriteModel:
                                self.MOLAR_MASS_C,
                                self.DATA['poc_means']['LSF_se']/
                                self.MOLAR_MASS_C)
-    
+
+        self.tracers = (self.Ps, self.Pl)
+
     def define_params(self):
         
-        P30_prior, P30_prior_e, LP_prior, LP_prior_e = self.process_npp_data()
+        P30_prior, P30_prior_e, Lp_prior, Lp_prior_e = self.process_npp_data()
 
         self.ws = PyriteParam(2, 2, 'ws', '$w_S$')
         self.wl = PyriteParam(20, 15, 'wl', '$w_L$')
@@ -82,11 +88,11 @@ class PyriteModel:
         self.Bm1l = PyriteParam(0.15, 0.15, 'Bm1l', '$\\beta_{-1,L}$')
         self.P30 = PyriteParam(P30_prior, P30_prior_e, 'P30', '$\.P_{S,30}$',
                                depth_vary=False)
-        self.LP = PyriteParam(LP_prior, LP_prior_e, 'LP', '$L_P$',
+        self.Lp = PyriteParam(Lp_prior, Lp_prior_e, 'Lp', '$L_P$',
                               depth_vary=False)
 
         self.model_params = (self.ws, self.wl, self.B2p, self.Bm2, self.Bm1s,
-                             self.Bm1l, self.P30, self.LP)
+                             self.Bm1l, self.P30, self.Lp)
 
     def process_npp_data(self):
         
@@ -109,10 +115,10 @@ class PyriteModel:
             formula='np.log(npp/(P30_prior*self.MOLAR_MASS_C)) ~ target_depth',
             data=npp_below_mixed_layer).fit()
 
-        LP_prior = -1/npp_regression.params[1]
-        LP_prior_e = npp_regression.bse[1]/npp_regression.params[1]**2
+        Lp_prior = -1/npp_regression.params[1]
+        Lp_prior_e = npp_regression.bse[1]/npp_regression.params[1]**2
         
-        return P30_prior, P30_prior_e, LP_prior, LP_prior_e
+        return P30_prior, P30_prior_e, Lp_prior, Lp_prior_e
 
     def process_cp_data(self):
 
@@ -128,15 +134,15 @@ class PyriteModel:
         self.poc_cp_df['cp'] = self.poc_cp_df.apply(
             lambda x: cp_bycast.at[x['depth']-1, x['ctd_cast']], axis=1)
 
-        self.cp_pt_regression_nonlinear = smf.ols(
+        self.cp_Pt_regression_nonlinear = smf.ols(
             formula='Pt ~ np.log(cp)', data=self.poc_cp_df).fit()
-        self.cp_pt_regression_linear = smf.ols(
+        self.cp_Pt_regression_linear = smf.ols(
             formula='Pt ~ cp', data=self.poc_cp_df).fit()
 
         cp_bycast_to_mean = cp_bycast.loc[self.GRID-1,
                                           cast_match_table['ctd_cast']]
         self.cp_mean = cp_bycast_to_mean.mean(axis=1)
-        self.Pt_mean = self.cp_pt_regression_nonlinear.get_prediction(
+        self.Pt_mean = self.cp_Pt_regression_nonlinear.get_prediction(
             exog=dict(cp=self.cp_mean)).predicted_mean
 
     def pickle_model(self):
@@ -172,6 +178,19 @@ class PyriteParam:
 
         return f'PyriteParam({self.name})'
 
+class PyriteZone:
+
+    def __init__(self, model, operator, label):
+
+        indices = np.where(operator(model.GRID, model.BOUNDARY))[0]
+        self.depths = model.GRID[indices]
+        self.label = label
+
+    def __repr__(self):
+
+        return f'PyriteZone({self.label})'
+
+
 class PyritePlotter:
 
     def __init__(self, pickled_model):
@@ -180,8 +199,9 @@ class PyritePlotter:
             self.model = pickle.load(file)
 
         self.define_colors()
-        self.hydrography()
-        self.cp_pt_regression()
+        self.plot_hydrography()
+        self.plot_cp_Pt_regression()
+        #self.plot_poc_data()
 
     def define_colors(self):
 
@@ -194,7 +214,7 @@ class PyritePlotter:
         self.VERMILLION = '#D55E00'
         self.RADISH = '#CC79A7'
 
-    def hydrography(self):
+    def plot_hydrography(self):
 
         hydro_df = self.model.DATA['hydrography']
 
@@ -251,13 +271,13 @@ class PyritePlotter:
         plt.savefig('out/hydrography.pdf')
         plt.close()
 
-    def cp_pt_regression(self):
+    def plot_cp_Pt_regression(self):
 
         cp = self.model.poc_cp_df['cp']
         Pt = self.model.poc_cp_df['Pt']
         depths = self.model.poc_cp_df['depth']
-        linear_regression = self.model.cp_pt_regression_linear
-        nonlinear_regression = self.model.cp_pt_regression_nonlinear
+        linear_regression = self.model.cp_Pt_regression_linear
+        nonlinear_regression = self.model.cp_Pt_regression_nonlinear
         logarithmic = {linear_regression: False, nonlinear_regression: True}
 
         colormap = plt.cm.viridis_r
@@ -287,6 +307,8 @@ class PyritePlotter:
             ax.plot(x_fit, y_fit, '--', c=self.BLACK, lw=1)
             plt.savefig(f'out/cpptfit_log{logarithmic[fit]}.pdf')
             plt.close()
+
+    #def plot_poc_data():
 
 if __name__ == '__main__':
 
