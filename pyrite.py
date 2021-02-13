@@ -13,6 +13,8 @@ import pandas as pd
 import statsmodels.formula.api as smf
 import pickle
 import matplotlib.pyplot as plt
+import matplotlib.colorbar as colorbar
+import matplotlib.colors as mplc
 import mpl_toolkits.axisartist as AA
 from mpl_toolkits.axes_grid1 import host_subplot
 #from varname import nameof
@@ -37,6 +39,7 @@ class PyriteModel:
         self.load_data()
         self.unpack_tracer_data()
         self.define_params()
+        self.process_cp_data()
 
         self.pickle_model()
 
@@ -111,6 +114,31 @@ class PyriteModel:
         
         return P30_prior, P30_prior_e, LP_prior, LP_prior_e
 
+    def process_cp_data(self):
+
+        cast_match_table = self.DATA['cast_match']
+        cast_match_dict = dict(zip(cast_match_table['pump_cast'],
+                                   cast_match_table['ctd_cast']))
+        poc_discrete = self.DATA['poc_discrete']
+        cp_bycast = self.DATA['cp_bycast']
+        self.poc_cp_df = poc_discrete.copy()
+
+        self.poc_cp_df['ctd_cast'] = self.poc_cp_df.apply(
+            lambda x: cast_match_dict[x['pump_cast']], axis=1)
+        self.poc_cp_df['cp'] = self.poc_cp_df.apply(
+            lambda x: cp_bycast.at[x['depth']-1, x['ctd_cast']], axis=1)
+
+        self.cp_pt_regression_nonlinear = smf.ols(
+            formula='Pt ~ np.log(cp)', data=self.poc_cp_df).fit()
+        self.cp_pt_regression_linear = smf.ols(
+            formula='Pt ~ cp', data=self.poc_cp_df).fit()
+
+        cp_bycast_to_mean = cp_bycast.loc[self.GRID-1,
+                                          cast_match_table['ctd_cast']]
+        self.cp_mean = cp_bycast_to_mean.mean(axis=1)
+        self.Pt_mean = self.cp_pt_regression_nonlinear.get_prediction(
+            exog=dict(cp=self.cp_mean)).predicted_mean
+
     def pickle_model(self):
 
         with open(self.pickled, 'wb') as file:
@@ -152,7 +180,8 @@ class PyritePlotter:
             self.model = pickle.load(file)
 
         self.define_colors()
-        self.plot_hydrography()
+        self.hydrography()
+        self.cp_pt_regression()
 
     def define_colors(self):
 
@@ -165,7 +194,7 @@ class PyritePlotter:
         self.VERMILLION = '#D55E00'
         self.RADISH = '#CC79A7'
 
-    def plot_hydrography(self):
+    def hydrography(self):
 
         hydro_df = self.model.DATA['hydrography']
 
@@ -177,13 +206,13 @@ class PyritePlotter:
 
         par1.axis['top'].toggle(all=True)
         offset = 40
-        new_fixed_axis = par2.get_grid_heLPer().new_fixed_axis
+        new_fixed_axis = par2.get_grid_helper().new_fixed_axis
         par2.axis['top'] = new_fixed_axis(loc='top', axes=par2,
                                           offset=(0, offset))
         par2.axis['top'].toggle(all=True)
 
         host.set_ylim(0, 520)
-        host.invert_yaxis(), host.grid(axis='y', aLPha=0.5)
+        host.invert_yaxis(), host.grid(axis='y', alpha=0.5)
         host.set_xlim(24, 27.4)
         par1.set_xlim(3, 14.8)
         par2.set_xlim(32, 34.5)
@@ -222,10 +251,48 @@ class PyritePlotter:
         plt.savefig('out/hydrography.pdf')
         plt.close()
 
+    def cp_pt_regression(self):
+
+        cp = self.model.poc_cp_df['cp']
+        Pt = self.model.poc_cp_df['Pt']
+        depths = self.model.poc_cp_df['depth']
+        linear_regression = self.model.cp_pt_regression_linear
+        nonlinear_regression = self.model.cp_pt_regression_nonlinear
+        logarithmic = {linear_regression: False, nonlinear_regression: True}
+
+        colormap = plt.cm.viridis_r
+        norm = mplc.Normalize(depths.min(), depths.max())
+
+        for fit in (linear_regression, nonlinear_regression):
+            fig, ax =  plt.subplots(1,1)
+            fig.subplots_adjust(bottom=0.2,left=0.2)
+            cbar_ax = colorbar.make_axes(ax)[0]
+            cbar = colorbar.ColorbarBase(cbar_ax, norm=norm, cmap=colormap)
+            cbar.set_label('Depth (m)\n', rotation=270, labelpad=20,
+                           fontsize=14)
+            ax.scatter(cp, Pt, norm=norm, edgecolors=self.BLACK, c=depths,
+                       s=40, marker='o', cmap=colormap)
+            ax.set_ylabel('$P_T$ (mmol m$^{-3}$)',fontsize=14)
+            ax.set_xlabel('$c_p$ (m$^{-1}$)',fontsize=14)
+            x_fit = np.arange(0.01,0.14,0.0001)
+            coefs = fit.params
+            if logarithmic[fit]:
+                ax.set_yscale('log'), ax.set_xscale('log')
+                ax.set_xlim(0.0085, 0.15)
+                y_fit = [coefs[0] + coefs[1]*np.log(x) for x in x_fit]
+            else: y_fit = [coefs[0] + coefs[1]*x for x in x_fit]
+            ax.annotate(
+                f'$R^2$ = {fit.rsquared:.2f}\n$N$ = {fit.nobs:.0f}',
+                xy=(0.05, 0.85), xycoords='axes fraction', fontsize=12)
+            ax.plot(x_fit, y_fit, '--', c=self.BLACK, lw=1)
+            plt.savefig(f'out/cpptfit_log{logarithmic[fit]}.pdf')
+            plt.close()
+
 if __name__ == '__main__':
 
     start_time = time.time()
     model = PyriteModel()
-    #plotter = PyritePlotter(model)
+    plotter = PyritePlotter(model)
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
+
