@@ -47,6 +47,8 @@ class PyriteModel:
         self.LEZ = PyriteZone(self, op.lt, 'LEZ')  # euphotic zone
         self.UMZ = PyriteZone(self, op.gt, 'UMZ')  # upper mesopelagic zone
         self.zones = (self.LEZ, self.UMZ)
+        
+        self.objective_interpolation()
 
         self.pickle_model()
 
@@ -57,21 +59,15 @@ class PyriteModel:
     def load_data(self):
         
         self.DATA = pd.read_excel('pyrite_data.xlsx',sheet_name=None)
-        self.SAMPLE_DEPTHS = self.DATA['poc_means']['Depth']
+        self.SAMPLE_DEPTHS = self.DATA['poc_means']['depth']
         self.N_SAMPLE_DEPTHS = len(self.SAMPLE_DEPTHS)
     
     def define_tracers(self):
         
-        self.Ps = PyriteTracer('POC', 'S', '$P_S$',
-                               self.DATA['poc_means']['SSF_mean']/
-                               self.MOLAR_MASS_C,
-                               self.DATA['poc_means']['SSF_se']/
-                               self.MOLAR_MASS_C)
-        self.Pl = PyriteTracer('POC', 'L', '$P_L$',
-                               self.DATA['poc_means']['LSF_mean']/
-                               self.MOLAR_MASS_C,
-                               self.DATA['poc_means']['LSF_se']/
-                               self.MOLAR_MASS_C)
+        self.Ps = PyriteTracer('POC', 'S', '$P_S$', self.DATA['poc_means'][
+            ['depth', 'SSF_mean', 'SSF_se']])
+        self.Pl = PyriteTracer('POC', 'L', '$P_L$', self.DATA['poc_means'][
+            ['depth', 'LSF_mean', 'LSF_se']])
 
         self.tracers = (self.Ps, self.Pl)
 
@@ -147,7 +143,64 @@ class PyriteModel:
         self.cp_mean = cp_bycast_to_mean.mean(axis=1)
         self.Pt_mean = self.cp_Pt_regression_nonlinear.get_prediction(
             exog=dict(cp=self.cp_mean)).predicted_mean
-     
+
+    def objective_interpolation(self):
+        
+        for tracer in self.tracers:
+            
+            tracer_data_oi = pd.DataFrame(columns=tracer.data.columns)
+            
+            for zone in self.zones:
+            
+                L = zone.length_scale
+                min_depth = zone.depths.min()
+                max_depth = zone.depths.max()
+
+                zone_data = tracer.data[
+                    tracer.data['depth'].between(min_depth, max_depth)]
+                
+                sample_depths, conc, conc_e = zone_data.T.values
+                
+                def R_matrix(array1, array2):
+                    
+                    m = len(array1)
+                    n = len(array2)
+                    R = np.zeros((m,n))
+                    
+                    for i in np.arange(0,m):
+                        for j in np.arange(0,n):
+                            R[i,j] = np.exp(-np.abs(array1[i]-array2[j])/L)
+                    
+                    return R
+                
+                Rxxmm = R_matrix(sample_depths, sample_depths)
+                Rxxnn = R_matrix(zone.depths, zone.depths)
+                Rxy = R_matrix(zone.depths, sample_depths)
+                
+                conc_anom = conc - conc.mean()
+                conc_var_discrete = conc_e**2
+                conc_var = np.var(conc, ddof=1) + np.sum(
+                    conc_var_discrete)/len(sample_depths)
+                
+                Rnn = np.diag(conc_var_discrete)
+                Rxxmm = Rxxmm*conc_var
+                Rxxnn = Rxxnn*conc_var
+                Rxy = Rxy*conc_var
+                Ryy = Rxxmm + Rnn
+                Ryyi = np.linalg.inv(Ryy)
+                
+                conc_anom_oi = np.matmul(np.matmul(Rxy, Ryyi), conc_anom)
+                conc_oi = conc_anom_oi + conc.mean()
+                P = Rxxnn - np.matmul(np.matmul(Rxy, Ryyi), Rxy.T)
+                conc_e_oi = np.sqrt(np.diag(P))
+                
+                tracer_data_oi = tracer_data_oi.append(
+                    pd.DataFrame(np.array([zone.depths,conc_oi, conc_e_oi]).T,
+                                 columns=tracer_data_oi.columns),
+                    ignore_index=True)
+                 
+            tracer.prior = tracer_data_oi
+ 
     def pickle_model(self):
 
         with open(self.pickled, 'wb') as file:
@@ -155,18 +208,19 @@ class PyriteModel:
 
 class PyriteTracer:
 
-    def __init__(self, species, size_fraction, label, data, data_error):
-
+    def __init__(self, species, size_fraction, label, data):
         self.species = species
         self.sf = size_fraction
         self.label = label
-        self.data = data
-        self.data_e = data_error
+        self.data = pd.DataFrame(data)
+        self.data.rename(columns={self.data.columns[1]: 'conc',
+                                  self.data.columns[2]: 'conc_e'},
+                         inplace=True)
 
     def __repr__(self):
 
         return f'PyriteTracer(species={self.species}, size_frac={self.sf})'
-
+        
 class PyriteParam:
 
     def __init__(self, prior, prior_error, name, label, depth_vary=True):
@@ -225,6 +279,7 @@ class PyritePlotter:
         self.plot_cp_Pt_regression()
         self.plot_zone_length_scales()
         #self.plot_poc_data()
+        self.plot_result_profiles()
 
     def define_colors(self):
 
@@ -356,7 +411,62 @@ class PyritePlotter:
         plt.savefig('out/length_scales.pdf')
         plt.close()
         
-    #def plot_poc_data():
+    def plot_result_profiles(self):
+        
+        fig,[ax1,ax2,ax3] = plt.subplots(1,3,tight_layout=True) #P figures
+        fig.subplots_adjust(wspace=0.5)  
+        
+        ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)',fontsize=14)
+        ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)',fontsize=14)
+        ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)',fontsize=14)
+        ax1.set_ylabel('Depth (m)',fontsize=14)
+        
+        [ax.invert_yaxis() for ax in (ax1, ax2, ax3)]
+        [ax.set_ylim(
+            top=0, bottom=self.model.MAX_DEPTH+30) for ax in (ax1, ax2, ax3)]
+        
+        ax1.errorbar(
+            self.model.Ps.prior['conc'], self.model.Ps.prior['depth'], fmt='o',
+            xerr=self.model.Ps.prior['conc_e'], ecolor=self.SKY,
+            elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
+            label='OI', markeredgewidth=0.5)
+        ax1.errorbar(
+            self.model.Ps.data['conc'], self.model.Ps.data['depth'], fmt='^',
+            xerr=self.model.Ps.data['conc_e'], ecolor=self.BLUE,
+            elinewidth=1, c=self.BLUE, ms=10, capsize=5,
+            label='LVISF', fillstyle='full')
+        ax2.errorbar(
+            self.model.Pl.prior['conc'], self.model.Pl.prior['depth'], fmt='o',
+            xerr=self.model.Pl.prior['conc_e'], ecolor=self.SKY,
+            elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
+            label='OI', markeredgewidth=0.5)
+        ax2.errorbar(
+            self.model.Pl.data['conc'], self.model.Pl.data['depth'], fmt='^',
+            xerr=self.model.Pl.data['conc_e'], ecolor=self.BLUE,
+            elinewidth=1, c=self.BLUE, ms=10, capsize=5,
+            label='LVISF', fillstyle='full')
+        ax3.errorbar(
+            self.model.Pt_mean, self.model.GRID, fmt='o',
+            xerr=np.ones(self.model.N_GRID_POINTS)*np.sqrt(
+                self.model.cp_Pt_regression_nonlinear.mse_resid),
+            ecolor=self.BLUE, elinewidth=0.5, c=self.BLUE, ms=2,capsize=2,
+            label='from $c_P$',markeredgewidth=0.5)
+        
+        ax1.set_xticks([0,1,2,3])
+        ax2.set_xticks([0,0.05,0.1,0.15])
+        ax2.set_xticklabels(['0','0.05','0.1','0.15'])
+        ax3.set_xticks([0,1,2,3])
+        
+        [ax.legend(fontsize=12,borderpad=0.2) for ax in (ax1,ax2,ax3)]
+        [ax.tick_params(labelleft=False) for ax in (ax2,ax3)]
+        [ax.tick_params(
+            axis='both', which='major', labelsize=12) for ax in (ax1,ax2,ax3)]
+        [ax.axhline(
+            self.model.BOUNDARY, c=self.BLACK, ls='--', lw=1
+            ) for ax in (ax1,ax2,ax3)]
+        #plt.savefig(f'Pprofs_gam{str(g).replace(".","")}.pdf')
+        plt.savefig('out/OI.pdf')
+        plt.close()
 
 if __name__ == '__main__':
 
