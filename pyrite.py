@@ -19,6 +19,7 @@ import matplotlib.colors as mplc
 import mpl_toolkits.axisartist as AA
 from mpl_toolkits.axes_grid1 import host_subplot
 import operator as op
+import itertools.chain.from_iterable as chain 
 #from varname import nameof
 
 class PyriteModel:
@@ -49,6 +50,7 @@ class PyriteModel:
         self.zones = (self.LEZ, self.UMZ)
         
         self.objective_interpolation()
+        self.build_prior_vector()
 
         self.pickle_model()
 
@@ -200,7 +202,22 @@ class PyriteModel:
                     ignore_index=True)
                  
             tracer.prior = tracer_data_oi
- 
+
+    def build_prior_vector(self):
+        
+        tracer_priors = [t.prior['conc'] for t in self.tracers]
+        tracer_priors = list(chain(tracer_priors))
+        param_priors = []
+        
+        for param in self.model_params:
+            if param.dv:
+                for _ in range(0, len(self.zones)):
+                    param_priors.append(param.prior)
+            else:
+                param_priors.append(param.prior)
+                
+        self.xo = np.concatenate((tracer_priors,param_priors))
+        
     def pickle_model(self):
 
         with open(self.pickled, 'wb') as file:
