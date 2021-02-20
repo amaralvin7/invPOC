@@ -6,6 +6,7 @@ Created on Tue Feb  9 11:55:53 2021
 @author: Vinicius J. Amaral
 
 PYRITE Model (Particle cYcling Rates from Inversion of Tracers in the ocEan)
+
 """
 import time
 import numpy as np
@@ -19,14 +20,15 @@ import matplotlib.colors as mplc
 import mpl_toolkits.axisartist as AA
 from mpl_toolkits.axes_grid1 import host_subplot
 import operator as op
-import itertools.chain.from_iterable as chain 
+import itertools
+import scipy.linalg as splinalg
+import sympy as sym
 #from varname import nameof
 
 class PyriteModel:
 
     def __init__(self, gammas=[0.02], pickle_into='out/pyrite_Amaral21a.pkl'):
         
-        self.gammas = gammas
         self.pickled = pickle_into
         self.MIXED_LAYER_DEPTH = 30
         self.MAX_DEPTH = 500
@@ -50,13 +52,16 @@ class PyriteModel:
         self.zones = (self.LEZ, self.UMZ)
         
         self.objective_interpolation()
-        self.build_prior_vector()
+        self.define_prior_vector_and_cov_matrix()
+        self.define_equation_elements()
+        
+        self.model_runs = [PyriteModelRun(self, g) for g in gammas]
 
         self.pickle_model()
 
     def __repr__(self):
 
-        return f'PyriteModel(gammas={self.gammas})'
+        return 'PyriteModel object'
                     
     def load_data(self):
         
@@ -82,8 +87,8 @@ class PyriteModel:
         self.B2p = PyriteParam(0.5*self.MOLAR_MASS_C/self.DAYS_PER_YEAR,
                                0.5*self.MOLAR_MASS_C/self.DAYS_PER_YEAR,
                                'B2p', '$\\beta^,_2$')
-        self.Bm2 = PyriteParam(400*self.MOLAR_MASS_C/self.DAYS_PER_YEAR,
-                               10000*self.MOLAR_MASS_C/self.DAYS_PER_YEAR,
+        self.Bm2 = PyriteParam(400/self.DAYS_PER_YEAR,
+                               10000/self.DAYS_PER_YEAR,
                                'Bm2', '$\\beta_{-2}$')
         self.Bm1s = PyriteParam(0.1, 0.1, 'Bm1s', '$\\beta_{-1,S}$')
         self.Bm1l = PyriteParam(0.15, 0.15, 'Bm1l', '$\\beta_{-1,L}$')
@@ -151,6 +156,7 @@ class PyriteModel:
         for tracer in self.tracers:
             
             tracer_data_oi = pd.DataFrame(columns=tracer.data.columns)
+            tracer_data_cov_matrices = []
             
             for zone in self.zones:
             
@@ -181,8 +187,8 @@ class PyriteModel:
                 
                 conc_anom = conc - conc.mean()
                 conc_var_discrete = conc_e**2
-                conc_var = np.var(conc, ddof=1) + np.sum(
-                    conc_var_discrete)/len(sample_depths)
+                conc_var = (np.var(conc, ddof=1)
+                            + np.sum(conc_var_discrete)/len(sample_depths))
                 
                 Rnn = np.diag(conc_var_discrete)
                 Rxxmm = Rxxmm*conc_var
@@ -195,29 +201,75 @@ class PyriteModel:
                 conc_oi = conc_anom_oi + conc.mean()
                 P = Rxxnn - np.matmul(np.matmul(Rxy, Ryyi), Rxy.T)
                 conc_e_oi = np.sqrt(np.diag(P))
+                tracer_data_cov_matrices.append(P)
                 
                 tracer_data_oi = tracer_data_oi.append(
                     pd.DataFrame(np.array([zone.depths,conc_oi, conc_e_oi]).T,
                                  columns=tracer_data_oi.columns),
                     ignore_index=True)
-                 
+            
+            tracer.cov_matrices = tracer_data_cov_matrices
             tracer.prior = tracer_data_oi
-
-    def build_prior_vector(self):
+            
+    def define_prior_vector_and_cov_matrix(self):
         
-        tracer_priors = [t.prior['conc'] for t in self.tracers]
-        tracer_priors = list(chain(tracer_priors))
+        tracer_priors = []
+        self.state_elements = []
+        
+        for t in self.tracers:
+            tracer_priors.append(t.prior['conc'])
+            for i in range(0,self.N_GRID_POINTS):
+                self.state_elements.append(f'{t.species}{t.sf}_{i}')
+                   
+        tracer_priors = list(itertools.chain.from_iterable(tracer_priors))
+        self.nte = len(tracer_priors)  # number of tracer elements
+           
         param_priors = []
+        param_priors_var = []
         
-        for param in self.model_params:
-            if param.dv:
-                for _ in range(0, len(self.zones)):
-                    param_priors.append(param.prior)
+        for p in self.model_params:
+            if p.dv:
+                for z in self.zones:
+                    param_priors.append(p.prior)
+                    param_priors_var.append(p.prior_e**2)
+                    self.state_elements.append(f'{p.name}_{z.label}')
             else:
-                param_priors.append(param.prior)
-                
+                param_priors.append(p.prior)
+                param_priors_var.append(p.prior_e**2)
+                self.state_elements.append(f'{p.name}')
+        self.npe = len(param_priors)  # number of parameter elements
+
         self.xo = np.concatenate((tracer_priors,param_priors))
+        self.xo_log = np.log(self.xo)  
+        self.nse = len(self.xo)  # number of state elements
         
+        self.Co = np.zeros((self.nse, self.nse))
+        
+        tracer_cov_matrices = [t.cov_matrices for t in self.tracers]
+        tracer_cov_matrices = list(
+            itertools.chain.from_iterable(tracer_cov_matrices))
+        
+        self.Co[:self.nte, :self.nte] = splinalg.block_diag(
+            *tracer_cov_matrices)
+        np.fill_diagonal(self.Co[self.nte:, self.nte:], param_priors_var)
+        
+        for i, row in enumerate(self.Co):
+            for j, val in enumerate(row):
+                self.Co[i,j] = np.log(1 + val/(self.xo[i]*self.xo[j]))
+     
+    def define_equation_elements(self):
+        
+        self.equation_elements = self.state_elements[:self.nte]
+        
+        for i in range(0,self.N_GRID_POINTS):
+            self.equation_elements.append(f'POCT_{i}')  
+            
+    def which_zone(self, depth):
+        
+        if int(depth) in self.LEZ.indices:
+            return 'LEZ'
+        return 'UMZ'
+            
     def pickle_model(self):
 
         with open(self.pickled, 'wb') as file:
@@ -272,7 +324,7 @@ class PyriteZone:
         Pt = self.model.Pt_mean[self.indices]
         n_lags = int(np.ceil(len(Pt)*fraction))
         self.grid_steps = np.arange(
-            0, (n_lags+1)*self.model.GRID_STEP, self.model.GRID_STEP)
+            0, (n_lags + 1)*self.model.GRID_STEP, self.model.GRID_STEP)
         self.autocorrelation = smt.acf(Pt, nlags=n_lags, fft=False)
         
         acf_regression = smf.ols(
@@ -284,6 +336,166 @@ class PyriteZone:
         self.length_scale_fit = b + m*self.grid_steps
         self.fit_rsquared = acf_regression.rsquared
 
+class PyriteModelRun():
+    
+    def __init__(self, model, gamma):
+        
+        self.model = model
+        self.gamma = gamma
+        
+        self.define_model_error_matrix()
+        self.run_model()
+        
+    def __repr__(self):
+        
+        return 'PyriteModelRun(gamma={self.gamma})'
+
+    def define_model_error_matrix(self):
+        
+        Cf_Ps_Pl = np.zeros((self.model.nte, self.model.nte))
+        Cf_Pt = np.zeros((self.model.N_GRID_POINTS, self.model.N_GRID_POINTS))
+        
+        np.fill_diagonal(Cf_Ps_Pl, (self.model.P30.prior**2)*self.gamma)
+        np.fill_diagonal(Cf_Pt,
+                         self.model.cp_Pt_regression_nonlinear.mse_resid)
+        
+        self.Cf = splinalg.block_diag(Cf_Ps_Pl, Cf_Pt)
+    
+    def run_model(self):
+
+        def equation_builder(species, depth):
+
+            Psi, Psip1, Psim1, Psim2 = sym.symbols(
+                'POCS_0 POCS_1 POCS_-1 POCS_-2')
+            Pli, Plip1, Plim1, Plim2 = sym.symbols(
+                'POCL_0 POCL_1 POCL_-1 POCL_-2')
+            Bm2i, B2pi, Bm1si, Bm1li, P30i, Lpi, wsi, wli, = sym.symbols(
+                'Bm2 B2p Bm1s Bm1l P30 Lp ws wl')
+            
+            h = self.model.MIXED_LAYER_DEPTH
+            depth = int(depth)
+            
+            if species == 'POCS':
+                if depth == 0:
+                    eq = P30i + Bm2i*Pli - (wsi/h + Bm1si + B2pi*Psi)*Psi
+                else:
+                    if (depth == 1 or depth == 2):
+                        multiply_by = Psip1 - Psim1
+                    else:
+                        multiply_by = 3*Psi - 4*Psim1 + Psim2
+                    eq = (P30i*sym.exp(-(self.model.GRID[depth] - h)/(Lpi))
+                          + (Bm2i*Pli) - (Bm1si + B2pi*Psi)*Psi
+                          - wsi/(2*self.model.GRID_STEP)*multiply_by)
+            elif species == 'POCL':
+                if depth == 0:
+                    eq = B2pi*Psi**2 - (wli/h + Bm2i + Bm1li)*Pli
+                else:
+                    if (depth == 1 or depth == 2):
+                        multiply_by = Plip1 - Plim1
+                    else:
+                        multiply_by = 3*Pli - 4*Plim1 + Plim2
+                    eq = (B2pi*Psi**2 - (Bm2i + Bm1li)*Pli
+                          - wli/(2*self.model.GRID_STEP)*multiply_by)
+            else: 
+                Pti = self.model.Pt_mean[self.model.equation_elements.index(
+                    f'POCT_{depth}') - self.model.nte]
+                eq = Psi + Pli - Pti
+            
+            return eq
+            
+        def extract_equation_variables(y, depth):
+            
+            x_symbolic = y.free_symbols
+            x_numerical = []
+            x_indices = []
+                
+            for x in x_symbolic:
+                if '_' in x.name:  # if it's a tracer
+                    tracer, relative_depth = x.name.split('_')
+                    real_depth = str(int(depth) + int(relative_depth))
+                    element = '_'.join([tracer, real_depth])
+                else:  # if it's a parameter
+                    param = eval(f'self.model.{x.name}')
+                    if param.dv:
+                        zone = self.model.which_zone(depth)
+                        element = '_'.join([param.name, zone])
+                    else:
+                        element = param.name
+                element_index = self.model.state_elements.index(element)
+                x_indices.append(element_index)
+                x_numerical.append(np.exp(self.xk[element_index]))
+            
+            return(x_symbolic, x_numerical, x_indices)
+        
+        def evaluate_jacobian_and_model_equations():
+            
+            F = np.zeros((len(self.Cf), self.model.nse))  # jacobian matrix
+            f = np.zeros(len(self.Cf))  # vector of model equations
+            
+            for i, element in enumerate(self.model.equation_elements):
+                species, depth = element.split('_')
+                y = equation_builder(species, depth)
+                x_sym, x_num, x_ind = extract_equation_variables(y, depth)
+                f[i] = sym.lambdify(x_sym, y)(*x_num)
+                for j, x in enumerate(x_sym):
+                    dy = y.diff(x)*x  # dy/d(ln(x)) = x*dy/dx
+                    dx_sym, dx_num, _ = extract_equation_variables(dy, depth)
+                    F[i,x_ind[j]] = sym.lambdify(dx_sym, dy)(*dx_num)   
+            
+            return(F, f)
+        
+        def calculate_xkp1(F, f):
+            
+            CoFT = self.model.Co @ F.T
+            FCoFT = F @ CoFT
+            FCoFTpCfi = np.linalg.inv(FCoFT + self.Cf)
+            return (self.model.xo_log
+                    + CoFT @ FCoFTpCfi
+                    @ (F @ (self.xk - self.model.xo_log) - f))
+            
+        def check_convergence(xkp1):
+            
+            converged = False
+            max_change_limit = 0.01 
+            change = np.abs((np.exp(xkp1) - np.exp(self.xk))/np.exp(self.xk))
+            self.convergence_evolution.append(np.max(change))
+            if np.max(change) < max_change_limit:
+                converged = True
+            
+            return converged
+        
+        def calculate_cost(f):
+            
+            if self.gamma == 0:
+                f = f[:self.model.nte]
+                Cf = self.Cf[:self.model.nte,:self.model.nte]
+            else:
+                Cf = self.Cf           
+            cost = ((self.xk - self.model.xo_log).T
+                    @ np.linalg.inv(self.model.Co)
+                    @ (self.xk - self.model.xo_log)
+                    + f.T @ np.linalg.inv(Cf) @ f)            
+            self.cost_evolution.append(cost)
+                    
+            return
+                                               
+        self.xk = self.model.xo_log  # estimate of state vector at iteration k
+        xkp1 = np.ones(len(self.xk))  # at iteration k+1
+
+        max_iterations = 25
+        self.cost_evolution = []
+        self.convergence_evolution = []
+        
+        for _ in range(0, max_iterations):
+            F, f = evaluate_jacobian_and_model_equations()
+            xkp1 = calculate_xkp1(F, f)
+            calculate_cost(f)
+            if check_convergence(xkp1) == True:
+                break
+            self.xk = xkp1
+        
+        self.n_iterations = len(self.cost_evolution) - 1
+           
 class PyritePlotter:
 
     def __init__(self, pickled_model):
@@ -298,6 +510,7 @@ class PyritePlotter:
         self.plot_poc_profiles()
         
         self.plot_poc_profiles(with_results=True)
+        self.plot_cost_and_convergence()
 
     def define_colors(self):
 
@@ -443,7 +656,6 @@ class PyritePlotter:
         [ax.set_ylim(
             top=0, bottom=self.model.MAX_DEPTH+30) for ax in (ax1, ax2, ax3)]
         
-
         ax1.errorbar(
             self.model.Ps.data['conc'], self.model.Ps.data['depth'], fmt='^',
             xerr=self.model.Ps.data['conc_e'], ecolor=self.BLUE,
@@ -458,13 +670,13 @@ class PyritePlotter:
         if with_results:
             file_name = 'poc_data_results'
             ax1.errorbar(
-                self.model.Ps.prior['conc'], self.model.Ps.prior['depth'], fmt='o',
-                xerr=self.model.Ps.prior['conc_e'], ecolor=self.SKY,
+                self.model.Ps.prior['conc'], self.model.Ps.prior['depth'],
+                fmt='o', xerr=self.model.Ps.prior['conc_e'], ecolor=self.SKY,
                 elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
                 label='OI', markeredgewidth=0.5)
             ax2.errorbar(
-                self.model.Pl.prior['conc'], self.model.Pl.prior['depth'], fmt='o',
-                xerr=self.model.Pl.prior['conc_e'], ecolor=self.SKY,
+                self.model.Pl.prior['conc'], self.model.Pl.prior['depth'],
+                fmt='o', xerr=self.model.Pl.prior['conc_e'], ecolor=self.SKY,
                 elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
                 label='OI', markeredgewidth=0.5)
             ax3.errorbar(
@@ -504,6 +716,32 @@ class PyritePlotter:
         #plt.savefig(f'Pprofs_gam{str(g).replace(".","")}.pdf')
         plt.savefig(f'out/{file_name}.pdf')
         plt.close()
+        
+    def plot_cost_and_convergence(self):
+        
+        for run in self.model.model_runs:
+            g = run.gamma
+            k = run.n_iterations + 1
+            
+            fig, ax = plt.subplots(1)
+            ax.plot(np.arange(0, k), run.convergence_evolution,
+                    marker='o', ms=3, c=self.BLUE)
+            ax.set_yscale('log')
+            ax.set_xlabel('Iteration, $k$',fontsize=16)
+            ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',
+                          fontsize=16)
+            plt.savefig(f'out/conv_gam{str(g).replace(".","")}.pdf')
+            plt.close()
+            
+            #plot evolution of cost function
+            fig, ax = plt.subplots(1)
+            ax.plot(np.arange(0, k),run.cost_evolution,
+                    marker='o', ms=3, c=self.BLUE)
+            ax.set_xlabel('Iteration, $k$',fontsize=16)
+            ax.set_ylabel('Cost, $J$',fontsize=16)
+            ax.set_yscale('log')
+            plt.savefig(f'out/cost_gam{str(g).replace(".","")}.pdf')
+            plt.close()
 
 if __name__ == '__main__':
 
