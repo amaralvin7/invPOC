@@ -507,14 +507,14 @@ class PyritePlotter:
         self.plot_hydrography()
         self.plot_cp_Pt_regression()
         self.plot_zone_length_scales()
-        self.plot_poc_profiles()
+        self.plot_poc_data()
         
-        self.plot_poc_profiles(with_results=True)
         self.plot_cost_and_convergence()
 
     def define_colors(self):
 
         self.BLACK = '#000000'
+        self.WHITE = '#FFFFFF'
         self.ORANGE = '#E69F00'
         self.SKY = '#56B4E9'
         self.GREEN = '#009E73'
@@ -642,7 +642,7 @@ class PyritePlotter:
         plt.savefig('out/length_scales.pdf')
         plt.close()
         
-    def plot_poc_profiles(self, with_results=False):
+    def plot_poc_data(self):
         
         fig,[ax1,ax2,ax3] = plt.subplots(1,3,tight_layout=True) #P figures
         fig.subplots_adjust(wspace=0.5)  
@@ -665,57 +665,60 @@ class PyritePlotter:
             self.model.Pl.data['conc'], self.model.Pl.data['depth'], fmt='^',
             xerr=self.model.Pl.data['conc_e'], ecolor=self.BLUE,
             elinewidth=1, c=self.BLUE, ms=10, capsize=5,
-            label='LVISF', fillstyle='full')
+            label='LVISF', fillstyle='full')           
+        ax3.scatter(
+            self.model.Pt_mean, self.model.GRID, marker='o', c=self.BLUE,
+            edgecolors=self.WHITE ,s=7, label='from $c_P$', zorder=3, lw=0.7)
+        ax3.fill_betweenx(
+            self.model.GRID,
+            (self.model.Pt_mean
+             - np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
+            (self.model.Pt_mean
+             + np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
+            color=self.BLUE, alpha=0.25, zorder=2)
+        ax3.errorbar(
+            self.model.Ps.data['conc'] + self.model.Pl.data['conc'],
+            self.model.SAMPLE_DEPTHS, fmt='^', ms=100, c=self.BLUE,
+            xerr=np.sqrt(self.model.Ps.data['conc']**2
+                         + self.model.Pl.data['conc']**2),
+            zorder=1, label='LVISF', capsize=5, fillstyle='full')
+        ax3.legend(fontsize=12, borderpad=0.2, handletextpad=0.4)
         
-        if with_results:
-            file_name = 'poc_data_results'
-            ax1.errorbar(
-                self.model.Ps.prior['conc'], self.model.Ps.prior['depth'],
-                fmt='o', xerr=self.model.Ps.prior['conc_e'], ecolor=self.SKY,
-                elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
-                label='OI', markeredgewidth=0.5)
-            ax2.errorbar(
-                self.model.Pl.prior['conc'], self.model.Pl.prior['depth'],
-                fmt='o', xerr=self.model.Pl.prior['conc_e'], ecolor=self.SKY,
-                elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
-                label='OI', markeredgewidth=0.5)
-            ax3.errorbar(
-                self.model.Pt_mean, self.model.GRID, fmt='o',
-                xerr=np.ones(self.model.N_GRID_POINTS)*np.sqrt(
-                    self.model.cp_Pt_regression_nonlinear.mse_resid),
-                ecolor=self.BLUE, elinewidth=0.5, c=self.BLUE, ms=2,capsize=2,
-                label='from $c_P$',markeredgewidth=0.5)
-            [ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4)
-             for ax in (ax1,ax2,ax3)]
-            
-        else:
-            file_name = 'poc_data'
-            ax3.errorbar(
-                self.model.Pt_mean, self.model.GRID+1, fmt='o',
-                xerr=np.ones(self.model.N_GRID_POINTS)*np.sqrt(
-                    self.model.cp_Pt_regression_nonlinear.mse_resid),
-                ecolor=self.BLUE, elinewidth=0.5, c=self.BLUE, ms=3, capsize=2,
-                label='from $c_P$',markeredgewidth=0.5,
-                markeredgecolor='white')
-            ax3.scatter(self.model.Ps.data['conc']+self.model.Pl.data['conc'],
-                        self.model.SAMPLE_DEPTHS, marker='^', s=100,
-                        c=self.BLUE, zorder=1, label='LVISF')
-            ax3.legend(fontsize=12, borderpad=0.2, handletextpad=0.4)
-            
         ax1.set_xticks([0,1,2,3])
         ax2.set_xticks([0,0.05,0.1,0.15])
         ax2.set_xticklabels(['0','0.05','0.1','0.15'])
         ax3.set_xticks([0,1,2,3])
         
         [ax.tick_params(labelleft=False) for ax in (ax2,ax3)]
+        [ax.set_xlim([-0.2,3.4]) for ax in (ax1,ax3)]
         [ax.tick_params(
             axis='both', which='major', labelsize=12) for ax in (ax1,ax2,ax3)]
         [ax.axhline(
-            self.model.BOUNDARY, c=self.BLACK, ls='--', lw=1
+            self.model.BOUNDARY, c=self.BLACK, ls='--', lw=1, zorder=10
             ) for ax in (ax1,ax2,ax3)]
-        #plt.savefig(f'Pprofs_gam{str(g).replace(".","")}.pdf')
-        plt.savefig(f'out/{file_name}.pdf')
+        plt.savefig('out/poc_data.pdf')
         plt.close()
+        
+        # if with_results:
+        #     file_name = 'poc_data_results'
+        #     ax1.errorbar(
+        #         self.model.Ps.prior['conc'], self.model.Ps.prior['depth'],
+        #         fmt='o', xerr=self.model.Ps.prior['conc_e'], ecolor=self.SKY,
+        #         elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
+        #         label='OI', markeredgewidth=0.5)
+        #     ax2.errorbar(
+        #         self.model.Pl.prior['conc'], self.model.Pl.prior['depth'],
+        #         fmt='o', xerr=self.model.Pl.prior['conc_e'], ecolor=self.SKY,
+        #         elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
+        #         label='OI', markeredgewidth=0.5)
+        #     ax3.errorbar(
+        #         self.model.Pt_mean, self.model.GRID, fmt='o',
+        #         xerr=np.ones(self.model.N_GRID_POINTS)*np.sqrt(
+        #             self.model.cp_Pt_regression_nonlinear.mse_resid),
+        #         ecolor=self.BLUE, elinewidth=0.5, c=self.BLUE, ms=2,capsize=2,
+        #         label='from $c_P$',markeredgewidth=0.5)
+        #     [ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4)
+        #      for ax in (ax1,ax2,ax3)]
         
     def plot_cost_and_convergence(self):
         
