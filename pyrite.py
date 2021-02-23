@@ -148,7 +148,9 @@ class PyriteModel:
         cp_bycast_to_mean = cp_bycast.loc[self.GRID-1,
                                           cast_match_table['ctd_cast']]
         self.cp_mean = cp_bycast_to_mean.mean(axis=1)
-        self.Pt_mean = self.cp_Pt_regression_nonlinear.get_prediction(
+        self.Pt_mean_nonlinear = self.cp_Pt_regression_nonlinear.get_prediction(
+            exog=dict(cp=self.cp_mean)).predicted_mean
+        self.Pt_mean_linear = self.cp_Pt_regression_linear.get_prediction(
             exog=dict(cp=self.cp_mean)).predicted_mean
 
     def objective_interpolation(self):
@@ -321,7 +323,7 @@ class PyriteZone:
     
     def calculate_length_scales(self, fraction):
 
-        Pt = self.model.Pt_mean[self.indices]
+        Pt = self.model.Pt_mean_nonlinear[self.indices]
         n_lags = int(np.ceil(len(Pt)*fraction))
         self.grid_steps = np.arange(
             0, (n_lags + 1)*self.model.GRID_STEP, self.model.GRID_STEP)
@@ -397,8 +399,9 @@ class PyriteModelRun():
                     eq = (B2pi*Psi**2 - (Bm2i + Bm1li)*Pli
                           - wli/(2*self.model.GRID_STEP)*multiply_by)
             else: 
-                Pti = self.model.Pt_mean[self.model.equation_elements.index(
-                    f'POCT_{depth}') - self.model.nte]
+                Pti = self.model.Pt_mean_nonlinear[
+                    (self.model.equation_elements.index(f'POCT_{depth}')
+                     - self.model.nte)]
                 eq = Psi + Pli - Pti
             
             return eq
@@ -506,6 +509,7 @@ class PyritePlotter:
         self.define_colors()
         self.plot_hydrography()
         self.plot_cp_Pt_regression()
+        self.compare_Pt_estimates()
         self.plot_zone_length_scales()
         self.plot_poc_data()
         
@@ -617,6 +621,46 @@ class PyritePlotter:
             plt.savefig(f'out/cpptfit_log{logarithmic[fit]}.pdf')
             plt.close()
 
+    def compare_Pt_estimates(self):
+
+        fig,ax = plt.subplots(1,1)
+        fig.subplots_adjust(wspace=0.5)  
+        ax.set_xlabel('$P_{T}$ (mmol m$^{-3}$)',fontsize=14)
+        ax.set_ylabel('Depth (m)',fontsize=14)        
+        ax.invert_yaxis()
+        ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH+30)
+                  
+        ax.scatter(
+            self.model.Pt_mean_nonlinear, self.model.GRID, marker='o',
+            c=self.BLUE, s=7, label='non-linear', zorder=3, lw=0.7)
+        ax.fill_betweenx(
+            self.model.GRID,
+            (self.model.Pt_mean_nonlinear
+             - np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
+            (self.model.Pt_mean_nonlinear
+             + np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
+            color=self.BLUE, alpha=0.25)
+        
+        ax.scatter(
+            self.model.Pt_mean_linear, self.model.GRID, marker='o',
+            c=self.ORANGE, s=7, label='linear', zorder=3, lw=0.7)
+        ax.fill_betweenx(
+            self.model.GRID,
+            (self.model.Pt_mean_linear
+             - np.sqrt(self.model.cp_Pt_regression_linear.mse_resid)),
+            (self.model.Pt_mean_linear
+             + np.sqrt(self.model.cp_Pt_regression_linear.mse_resid)),
+            color=self.ORANGE, alpha=0.25)
+        
+        ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
+                  loc='lower right')
+        ax.set_xticks([0,1,2])
+        ax.tick_params(axis='both', which='major', labelsize=12)
+        ax.axhline(self.model.BOUNDARY, c=self.BLACK, ls='--', lw=1)
+        
+        plt.savefig('out/Pt_estimate_comparison.pdf')
+        plt.close()        
+        
     def plot_zone_length_scales(self):
         
         zones = {'LEZ': {'color': self.GREEN,
@@ -644,7 +688,7 @@ class PyritePlotter:
         
     def plot_poc_data(self):
         
-        fig,[ax1,ax2,ax3] = plt.subplots(1,3,tight_layout=True) #P figures
+        fig,[ax1,ax2,ax3] = plt.subplots(1,3,tight_layout=True)
         fig.subplots_adjust(wspace=0.5)  
         
         ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)',fontsize=14)
@@ -667,13 +711,14 @@ class PyritePlotter:
             elinewidth=1, c=self.BLUE, ms=10, capsize=5,
             label='LVISF', fillstyle='full')           
         ax3.scatter(
-            self.model.Pt_mean, self.model.GRID, marker='o', c=self.BLUE,
-            edgecolors=self.WHITE ,s=7, label='from $c_P$', zorder=3, lw=0.7)
+            self.model.Pt_mean_nonlinear, self.model.GRID, marker='o',
+            c=self.BLUE, edgecolors=self.WHITE, s=7, label='from $c_P$',
+            zorder=3, lw=0.7)
         ax3.fill_betweenx(
             self.model.GRID,
-            (self.model.Pt_mean
+            (self.model.Pt_mean_nonlinear
              - np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
-            (self.model.Pt_mean
+            (self.model.Pt_mean_nonlinear
              + np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
             color=self.BLUE, alpha=0.25, zorder=2)
         ax3.errorbar(
@@ -687,7 +732,7 @@ class PyritePlotter:
         ax1.set_xticks([0,1,2,3])
         ax2.set_xticks([0,0.05,0.1,0.15])
         ax2.set_xticklabels(['0','0.05','0.1','0.15'])
-        ax3.set_xticks([0,1,2,3])
+        ax3.set_xticks([0,1,2])
         
         [ax.tick_params(labelleft=False) for ax in (ax2,ax3)]
         [ax.set_xlim([-0.2,3.4]) for ax in (ax1,ax3)]
@@ -712,7 +757,7 @@ class PyritePlotter:
         #         elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
         #         label='OI', markeredgewidth=0.5)
         #     ax3.errorbar(
-        #         self.model.Pt_mean, self.model.GRID, fmt='o',
+        #         self.model.Pt_mean_nonlinear, self.model.GRID, fmt='o',
         #         xerr=np.ones(self.model.N_GRID_POINTS)*np.sqrt(
         #             self.model.cp_Pt_regression_nonlinear.mse_resid),
         #         ecolor=self.BLUE, elinewidth=0.5, c=self.BLUE, ms=2,capsize=2,
