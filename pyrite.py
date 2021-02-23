@@ -678,9 +678,9 @@ class PyritePlotter:
             color=self.BLUE, alpha=0.25, zorder=2)
         ax3.errorbar(
             self.model.Ps.data['conc'] + self.model.Pl.data['conc'],
-            self.model.SAMPLE_DEPTHS, fmt='^', ms=100, c=self.BLUE,
-            xerr=np.sqrt(self.model.Ps.data['conc']**2
-                         + self.model.Pl.data['conc']**2),
+            self.model.SAMPLE_DEPTHS, fmt='^', ms=10, c=self.BLUE,
+            xerr=np.sqrt(self.model.Ps.data['conc_e']**2
+                         + self.model.Pl.data['conc_e']**2),
             zorder=1, label='LVISF', capsize=5, fillstyle='full')
         ax3.legend(fontsize=12, borderpad=0.2, handletextpad=0.4)
         

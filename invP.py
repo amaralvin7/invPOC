@@ -58,7 +58,8 @@ Ps_se = df.SSF_se/mm
 Pl_mean = df.LSF_mean/mm
 Pl_se = df.LSF_se/mm
 
-gammas = [0.02, 0.05, 0.1, 0.5, 1] #multiplier for weighting model errors
+#gammas = [0.02, 0.05, 0.1, 0.5, 1] #multiplier for weighting model errors
+gammas = [0.02, 1]
 
 bnd = 112.5 #boundary that separates LEZ from UMZ
 depthranges = ((h,bnd),(bnd,zmax)) #for integration
@@ -1073,7 +1074,7 @@ for g in gammas:
     ax3.scatter(cppt.Pt_hat,zml,marker='o',c=blue,s=3,label='from $c_P$',zorder=3,lw=0.7)
     ax3.fill_betweenx(zml,cppt.Pt_hat-np.sqrt(model.mse_resid),cppt.Pt_hat+np.sqrt(model.mse_resid),color=blue,alpha=0.25,zorder=2)
     ax3.errorbar(Pt_xh,zml,fmt='o',xerr=Pt_xhe,ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,label=invname,fillstyle='none',zorder=3,markeredgewidth=0.5)
-    ax3.set_xticks([0,1,2,3])
+    ax3.set_xticks([0,1,2])
     [ax.legend(fontsize=12,borderpad=0.2,handletextpad=0.4,loc='lower right') for ax in (ax1,ax2,ax3)]
     [ax.tick_params(labelleft=False) for ax in (ax2,ax3)]
     [ax.tick_params(axis='both',which='major',labelsize=12) for ax in (ax1,ax2,ax3)]
