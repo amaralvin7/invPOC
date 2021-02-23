@@ -634,7 +634,6 @@ plt.savefig('invP_autocor.pdf')
 plt.close()
 
 #POC data plots
-#comparison plots
 fig,[ax1,ax2,ax3] = plt.subplots(1,3,tight_layout=True) #P figures
 fig.subplots_adjust(wspace=0.5)
 ax1.invert_yaxis(),ax2.invert_yaxis(),ax3.invert_yaxis()
@@ -646,13 +645,15 @@ ax1.set_xticks([0,1,2,3])
 ax2.errorbar(Pl_mean,zs,fmt='^',xerr=Pl_se,ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='Data',fillstyle='full')
 ax2.set_xticks([0,0.05,0.1,0.15])
 ax2.set_xticklabels(['0','0.05','0.1','0.15'])
-ax3.errorbar(cppt.Pt_hat,zml+1,fmt='o',xerr=np.ones(n)*np.sqrt(model.mse_resid),ecolor=blue,elinewidth=0.5,markerfacecolor=blue,markeredgecolor='white',ms=3,capsize=2,label='from $c_P$',markeredgewidth=0.5)
-ax3.scatter(Ps_mean+Pl_mean,zs,marker='^',s=100,c=blue,zorder=1,label='LVISF')
+ax3.scatter(cppt.Pt_hat,zml,marker='o',c=blue,edgecolors='white',s=7,label='from $c_P$',zorder=3,lw=0.7)
+ax3.fill_betweenx(zml,cppt.Pt_hat-np.sqrt(model.mse_resid),cppt.Pt_hat+np.sqrt(model.mse_resid),color=blue,alpha=0.25,zorder=2)
+ax3.errorbar(Ps_mean+Pl_mean,zs,fmt='^',xerr=np.sqrt(Ps_se**2+Pl_se**2),ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='LVISF',fillstyle='full')
 ax3.set_xticks([0,1,2,3])
 ax3.legend(fontsize=12,borderpad=0.2,handletextpad=0.4)
 [ax.tick_params(labelleft=False) for ax in (ax2,ax3)]
+[ax.set_xlim([-0.2,3.4]) for ax in (ax1,ax3)]
 [ax.tick_params(axis='both', which='major', labelsize=12) for ax in (ax1,ax2,ax3)]
-[ax.axhline(bnd,c=black,ls='--',lw=1) for ax in (ax1,ax2,ax3)]
+[ax.axhline(bnd,c=black,ls='--',lw=1,zorder=10) for ax in (ax1,ax2,ax3)]
 plt.savefig('invP_pocdata.pdf')
 plt.close()
 
@@ -1069,10 +1070,11 @@ for g in gammas:
     ax2.errorbar(td['Pl']['x'],zml,fmt='o',xerr=td['Pl']['xerr'],ecolor=sky,elinewidth=0.5,c=sky,ms=2,capsize=2,label='OI',markeredgewidth=0.5)
     ax2.set_xticks([0,0.05,0.1,0.15])
     ax2.set_xticklabels(['0','0.05','0.1','0.15'])
-    ax3.errorbar(cppt.Pt_hat,zml,fmt='o',xerr=np.ones(n)*np.sqrt(model.mse_resid),ecolor=blue,elinewidth=0.5,c=blue,ms=2,capsize=2,label='from $c_P$',markeredgewidth=0.5)
+    ax3.scatter(cppt.Pt_hat,zml,marker='o',c=blue,s=3,label='from $c_P$',zorder=3,lw=0.7)
+    ax3.fill_betweenx(zml,cppt.Pt_hat-np.sqrt(model.mse_resid),cppt.Pt_hat+np.sqrt(model.mse_resid),color=blue,alpha=0.25,zorder=2)
     ax3.errorbar(Pt_xh,zml,fmt='o',xerr=Pt_xhe,ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,label=invname,fillstyle='none',zorder=3,markeredgewidth=0.5)
     ax3.set_xticks([0,1,2,3])
-    [ax.legend(fontsize=12,borderpad=0.2) for ax in (ax1,ax2,ax3)]
+    [ax.legend(fontsize=12,borderpad=0.2,handletextpad=0.4,loc='lower right') for ax in (ax1,ax2,ax3)]
     [ax.tick_params(labelleft=False) for ax in (ax2,ax3)]
     [ax.tick_params(axis='both',which='major',labelsize=12) for ax in (ax1,ax2,ax3)]
     [ax.axhline(bnd,c=black,ls='--',lw=1) for ax in (ax1,ax2,ax3)]
