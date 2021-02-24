@@ -1331,19 +1331,32 @@ kb_flux_u = kbfluxes['msf_u']
 estapa_flux = estapafluxes['flux']
 estapa_flux_u = estapafluxes['flux_u']
 
-fig,ax = plt.subplots(1,1)
-ax.invert_yaxis()
-ax.set_xlabel('POC Flux (mmol m$^{-2}$ d$^{-1}$)',fontsize=14)
-ax.set_ylabel('Depth (m)',fontsize=14)
-ax.set_ylim(top=0,bottom=zmax+dz*2)
-eb1 = ax.errorbar(flxd['wt_Pt']['gammas'][0.02]['xh'],zml,fmt='o',xerr=flxd['wt_Pt']['gammas'][0.02]['xhe'],ecolor=blue,elinewidth=0.5,c=blue,ms=3,capsize=2,label='This study (I2)',fillstyle='none',markeredgewidth=0.5)
+fig, (ax1,ax2) = plt.subplots(1,2)
+ax1.set_ylabel('Depth (m)',fontsize=14)
+fig.text(0.5, 0.03, 'POC Flux (mmol m$^{-2}$ d$^{-1}$)',fontsize=14,ha='center', va='center')
+for ax in (ax1,ax2):
+    ax.invert_yaxis()
+    ax.axhline(bnd,c='k',ls='--',lw=0.5)
+    ax.set_ylim(top=0,bottom=zmax+dz*2)
+
+eb1 = ax1.errorbar(flxd['ws_Ps']['gammas'][0.02]['xh'],zml,fmt='o',xerr=flxd['ws_Ps']['gammas'][0.02]['xhe'],ecolor=blue,elinewidth=0.5,c=blue,ms=3,capsize=2,label=flxnames['ws_Ps'],fillstyle='none',markeredgewidth=0.5)
 eb1[-1][0].set_linestyle('--')
-ax.axhline(bnd,c='k',ls='--',lw=0.5)
-eb1a = ax.errorbar(kb_flux,kb_depths+2.5,fmt='^',xerr=kb_flux_u,ecolor=green,elinewidth=0.5,c=green,ms=6,capsize=2,label='Buesseler et al. (2020)\nTh, 5-51 µm',markeredgewidth=0.5)
-eb1a[-1][0].set_linestyle(':')
-eb2a = ax.errorbar(estapa_flux,estapa_depths,fmt='^',xerr=estapa_flux_u,ecolor=vermillion,elinewidth=0.5,c=vermillion,ms=6,capsize=2,label='Estapa et al. (2021)\nSediment Traps',markeredgewidth=0.5)
-eb2a[-1][0].set_linestyle(':')
-ax.legend(loc='lower right',fontsize=10)
+ax1.axhline(bnd,c='k',ls='--',lw=0.5)
+eb2 = ax1.errorbar(flxd['wl_Pl']['gammas'][0.02]['xh'],zml,fmt='o',xerr=flxd['wl_Pl']['gammas'][0.02]['xhe'],ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,label=flxnames['wl_Pl'],fillstyle='none',markeredgewidth=0.5)
+eb2[-1][0].set_linestyle(':')
+ax1.legend(loc='lower right',fontsize=10)
+ax1.annotate('A',xy=(0.91, 0.94),xycoords='axes fraction',fontsize=16)
+
+ax2.tick_params(labelleft=False)
+eb3 = ax2.errorbar(flxd['wt_Pt']['gammas'][0.02]['xh'],zml,fmt='o',xerr=flxd['wt_Pt']['gammas'][0.02]['xhe'],ecolor=sky,elinewidth=0.5,c=sky,ms=3,capsize=2,label='$w_TP_T$',fillstyle='none',markeredgewidth=0.5)
+eb3[-1][0].set_linestyle('--')
+eb4 = ax2.errorbar(kb_flux,kb_depths,fmt='^',xerr=kb_flux_u,ecolor=green,elinewidth=1.5,c=green,ms=4,capsize=2,label='Th, 5-51 µm',markeredgewidth=1.5)
+eb4[-1][0].set_linestyle(':')
+eb5 = ax2.errorbar(estapa_flux,estapa_depths,fmt='^',xerr=estapa_flux_u,ecolor=vermillion,elinewidth=1.5,c=vermillion,ms=4,capsize=2,label='Sediment Traps',markeredgewidth=1.5)
+eb5[-1][0].set_linestyle(':')
+ax2.legend(loc='lower right',fontsize=10)
+ax2.annotate('B',xy=(0.91, 0.94),xycoords='axes fraction',fontsize=16)
+
 plt.savefig('invP_fluxcompare_gam002.pdf')
 plt.close()
 
