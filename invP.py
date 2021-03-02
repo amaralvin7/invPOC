@@ -58,8 +58,7 @@ Ps_se = df.SSF_se/mm
 Pl_mean = df.LSF_mean/mm
 Pl_se = df.LSF_se/mm
 
-#gammas = [0.02, 0.05, 0.1, 0.5, 1] #multiplier for weighting model errors
-gammas = [0.02, 1]
+gammas = [0.02, 0.05, 0.1, 0.5, 1] #multiplier for weighting model errors
 
 bnd = 112.5 #boundary that separates LEZ from UMZ
 depthranges = ((h,bnd),(bnd,zmax)) #for integration
@@ -646,7 +645,7 @@ ax1.set_xticks([0,1,2,3])
 ax2.errorbar(Pl_mean,zs,fmt='^',xerr=Pl_se,ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='Data',fillstyle='full')
 ax2.set_xticks([0,0.05,0.1,0.15])
 ax2.set_xticklabels(['0','0.05','0.1','0.15'])
-ax3.scatter(cppt.Pt_hat,zml,marker='o',c=blue,edgecolors='white',s=7,label='from $c_P$',zorder=3,lw=0.7)
+ax3.scatter(cppt.Pt_hat,zml,marker='o',c=blue,edgecolors='white',s=7,label='from $c_p$',zorder=3,lw=0.7)
 ax3.fill_betweenx(zml,cppt.Pt_hat-np.sqrt(model.mse_resid),cppt.Pt_hat+np.sqrt(model.mse_resid),color=blue,alpha=0.25,zorder=2)
 ax3.errorbar(Ps_mean+Pl_mean,zs,fmt='^',xerr=np.sqrt(Ps_se**2+Pl_se**2),ecolor=blue,elinewidth=1,c=blue,ms=10,capsize=5,label='LVISF',fillstyle='full')
 ax3.set_xticks([0,1,2,3])
@@ -873,7 +872,7 @@ for g in gammas:
             #POC, Ps + Pl = Pt
             else: #because this isn't a tracer in the state vector, doesn't play nice with our Fnf function
                 Pti = cppt.Pt_hat[vidxPt.index(f'Pt_{d}')] #value of Pt at gridpoint d
-                eq = Psi + Pli - Pti
+                eq = Pti - (Psi + Pli)
             Fnf(eq,i,d)
         FCoFT = np.matmul(np.matmul(F,Coln),F.T)
         FCoFT_cond = np.linalg.cond(FCoFT)
@@ -1071,7 +1070,7 @@ for g in gammas:
     ax2.errorbar(td['Pl']['x'],zml,fmt='o',xerr=td['Pl']['xerr'],ecolor=sky,elinewidth=0.5,c=sky,ms=2,capsize=2,label='OI',markeredgewidth=0.5)
     ax2.set_xticks([0,0.05,0.1,0.15])
     ax2.set_xticklabels(['0','0.05','0.1','0.15'])
-    ax3.scatter(cppt.Pt_hat,zml,marker='o',c=blue,s=3,label='from $c_P$',zorder=3,lw=0.7)
+    ax3.scatter(cppt.Pt_hat,zml,marker='o',c=blue,s=3,label='from $c_p$',zorder=3,lw=0.7)
     ax3.fill_betweenx(zml,cppt.Pt_hat-np.sqrt(model.mse_resid),cppt.Pt_hat+np.sqrt(model.mse_resid),color=blue,alpha=0.25,zorder=2)
     ax3.errorbar(Pt_xh,zml,fmt='o',xerr=Pt_xhe,ecolor=orange,elinewidth=0.5,c=orange,ms=3,capsize=2,label=invname,fillstyle='none',zorder=3,markeredgewidth=0.5)
     ax3.set_xticks([0,1,2])

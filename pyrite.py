@@ -402,7 +402,7 @@ class PyriteModelRun():
                 Pti = self.model.Pt_mean_nonlinear[
                     (self.model.equation_elements.index(f'POCT_{depth}')
                      - self.model.nte)]
-                eq = Psi + Pli - Pti
+                eq = Pti - (Psi + Pli)
             
             return eq
             
@@ -712,7 +712,7 @@ class PyritePlotter:
             label='LVISF', fillstyle='full')           
         ax3.scatter(
             self.model.Pt_mean_nonlinear, self.model.GRID, marker='o',
-            c=self.BLUE, edgecolors=self.WHITE, s=7, label='from $c_P$',
+            c=self.BLUE, edgecolors=self.WHITE, s=7, label='from $c_p$',
             zorder=3, lw=0.7)
         ax3.fill_betweenx(
             self.model.GRID,
@@ -761,7 +761,7 @@ class PyritePlotter:
         #         xerr=np.ones(self.model.N_GRID_POINTS)*np.sqrt(
         #             self.model.cp_Pt_regression_nonlinear.mse_resid),
         #         ecolor=self.BLUE, elinewidth=0.5, c=self.BLUE, ms=2,capsize=2,
-        #         label='from $c_P$',markeredgewidth=0.5)
+        #         label='from $c_p$',markeredgewidth=0.5)
         #     [ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4)
         #      for ax in (ax1,ax2,ax3)]
         
