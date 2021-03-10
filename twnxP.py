@@ -701,7 +701,7 @@ Pt_xh, Pt_xhe = np.zeros(n), np.zeros(n)
 for i in np.arange(0,n):
     pswi, plwi = "_".join(['Ps',str(i)]), "_".join(['Pl',str(i)])
     ps, pl = sym.symbols(f'{pswi} {plwi}')
-    Pt_xh[i], Pt_xhe = symfunceval(ps+pl)
+    Pt_xh[i], Pt_xhe[i] = symfunceval(ps+pl)
 
 #PDF and CDF calculations
 xg = np.linspace(-2,2,100)
