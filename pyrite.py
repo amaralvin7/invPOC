@@ -245,6 +245,7 @@ class PyriteModel:
         self.nse = len(self.xo)  # number of state elements
         
         self.Co = np.zeros((self.nse, self.nse))
+        self.Co_log = np.zeros((self.nse, self.nse))
         
         tracer_cov_matrices = [t.cov_matrices for t in self.tracers]
         tracer_cov_matrices = list(
@@ -256,7 +257,7 @@ class PyriteModel:
         
         for i, row in enumerate(self.Co):
             for j, val in enumerate(row):
-                self.Co[i,j] = np.log(1 + val/(self.xo[i]*self.xo[j]))
+                self.Co_log[i,j] = np.log(1 + val/(self.xo[i]*self.xo[j]))
      
     def define_equation_elements(self):
         
@@ -348,7 +349,9 @@ class PyriteModelRun():
         
         self.define_model_error_matrix()
         self.ATI()
+            
         self.calculate_total_POC()
+        self.calculate_residuals()
         
     def __repr__(self):
         
@@ -364,6 +367,15 @@ class PyriteModelRun():
                          self.model.cp_PT_regression_nonlinear.mse_resid)
         
         self.Cf = splinalg.block_diag(Cf_Ps_Pl, Cf_PT)
+    
+    def slice_by_tracer(self, to_slice, tracer):
+        
+        start_index = [i for i, el in enumerate(self.model.state_elements) 
+                       if tracer in el][0]
+        sliced = to_slice[
+            start_index:start_index + self.model.N_GRID_POINTS]
+        
+        return sliced
     
     def eval_symbolic_func(self, y, err=True, cov=True):
         
@@ -389,9 +401,10 @@ class PyriteModelRun():
         if err==False:
             return result        
         else:
-            cvm = self.cvm[np.ix_(x_indices, x_indices)]
             variance_sym = 0  # symbolic expression for variance of y
             derivs = [y.diff(x) for x in x_symbolic]
+            cvm = self.cvm[ # sub-CVM corresponding to state elements in y
+                np.ix_(x_indices, x_indices)]  
             for i, row in enumerate(cvm):
                 for j, _ in enumerate(row):
                     if i > j:
@@ -493,7 +506,7 @@ class PyriteModelRun():
         
         def calculate_xkp1(xk, F, f):
             
-            CoFT = self.model.Co @ F.T
+            CoFT = self.model.Co_log @ F.T
             FCoFT = F @ CoFT
             FCoFTpCfi = np.linalg.inv(FCoFT + self.Cf)
             xkp1 = (self.model.xo_log
@@ -519,7 +532,8 @@ class PyriteModelRun():
                 Cf = self.Cf[:self.model.nte,:self.model.nte]
             else:
                 Cf = self.Cf           
-            cost = ((xk - self.model.xo_log).T @ np.linalg.inv(self.model.Co)
+            cost = ((xk - self.model.xo_log).T
+                    @ np.linalg.inv(self.model.Co_log)
                     @ (xk - self.model.xo_log) + f.T @ np.linalg.inv(Cf) @ f)            
             self.cost_evolution.append(cost)
                     
@@ -551,10 +565,10 @@ class PyriteModelRun():
         def unlog_state_estimates():
             
             F, xkp1, CoFT, FCoFTpCfi = find_solution()
-            I = np.identity(self.model.Co.shape[0])
+            I = np.identity(self.model.Co_log.shape[0])
                 
-            Ckp1 = ((I - CoFT @ FCoFTpCfi @ F) @ self.model.Co
-                    @ (I - F.T @ FCoFTpCfi @ F @ self.model.Co))
+            Ckp1 = ((I - CoFT @ FCoFTpCfi @ F) @ self.model.Co_log
+                    @ (I - F.T @ FCoFTpCfi @ F @ self.model.Co_log))
             
             expected_vals_log = xkp1
             variances_log = np.diag(Ckp1)
@@ -576,15 +590,6 @@ class PyriteModelRun():
         
             return xhat, xhat_e
         
-        def slice_by_tracer(to_slice, tracer):
-            
-            start_index = [i for i, el in enumerate(self.model.state_elements) 
-                           if tracer in el][0]
-            sliced = to_slice[
-                start_index:start_index + self.model.N_GRID_POINTS]
-            
-            return sliced
-        
         def unpack_state_estimates():
             
             xhat, xhat_e = unlog_state_estimates()
@@ -592,8 +597,8 @@ class PyriteModelRun():
             for tracer in self.model.tracers:
                 t = f'{tracer.species}{tracer.sf}'
                 self.results['tracers'][t] = {
-                    'est': slice_by_tracer(xhat, t),
-                    'err': slice_by_tracer(xhat_e, t)}
+                    'est': self.slice_by_tracer(xhat, t),
+                    'err': self.slice_by_tracer(xhat_e, t)}
              
             for param in self.model.params:
                 p = param.name
@@ -611,6 +616,10 @@ class PyriteModelRun():
                     self.results['params'][p] = {'est': xhat[i],
                                                  'err': xhat_e[i]}
 
+            self.xhat = xhat
+            
+            return
+
         unpack_state_estimates()
     
     def calculate_total_POC(self):
@@ -618,11 +627,20 @@ class PyriteModelRun():
         self.PT = {'est':[], 'err':[]}
         
         for i in range(0, self.model.N_GRID_POINTS):
-            ps_str, pl_str = f'POCS_{i}', f'POCL_{i}'
+            ps_str = f'POCS_{i}'
+            pl_str = f'POCL_{i}'
             ps, pl = sym.symbols(f'{ps_str} {pl_str}')
             pt_est, pt_err = self.eval_symbolic_func(ps + pl)
             self.PT['est'].append(pt_est)
             self.PT['err'].append(pt_err)
+        
+        return
+        
+    def calculate_residuals(self):
+
+        x_residuals = self.xhat - self.model.xo
+        norm_x_residuals  = x_residuals/np.sqrt(np.diag(self.model.Co))
+        self.x_resids = norm_x_residuals
         
         return
       
@@ -644,6 +662,7 @@ class PyritePlotter:
             self.plot_cost_and_convergence(run)
             self.plot_params(run)
             self.plot_poc_profiles(run)
+            self.plot_residual_pdfs(run)
 
     def define_colors(self):
 
@@ -874,14 +893,20 @@ class PyritePlotter:
         ax2.set_xticks([0,0.05,0.1,0.15])
         ax2.set_xticklabels(['0','0.05','0.1','0.15'])
         ax3.set_xticks([0,1,2])
-        
-        [ax.tick_params(labelleft=False) for ax in (ax2,ax3)]
-        [ax.set_xlim([-0.2,3.4]) for ax in (ax1,ax3)]
-        [ax.tick_params(
-            axis='both', which='major', labelsize=12) for ax in (ax1,ax2,ax3)]
-        [ax.axhline(
-            self.model.BOUNDARY, c=self.BLACK, ls='--', lw=1, zorder=10
-            ) for ax in (ax1,ax2,ax3)]
+    
+        for ax in (ax1, ax2, ax3):            
+            ax.invert_yaxis()
+            ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH+30)
+            ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
+                      loc='lower right')
+            ax.tick_params(axis='both', which='major', labelsize=12)
+            ax.axhline(self.model.BOUNDARY, c=self.BLACK, ls='--' , lw=1,
+                       zorder=10)
+            if ax in (ax2, ax3):
+                ax.tick_params(labelleft=False)
+            if ax in (ax1, ax3):
+                ax.set_xlim([-0.2,3.4])
+
         plt.savefig('out/poc_data.pdf')
         plt.close()
         
@@ -961,10 +986,6 @@ class PyritePlotter:
         ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)',fontsize=14)
         ax1.set_ylabel('Depth (m)',fontsize=14)
         
-        [ax.invert_yaxis() for ax in (ax1, ax2, ax3)]
-        [ax.set_ylim(
-            top=0, bottom=self.model.MAX_DEPTH+30) for ax in (ax1, ax2, ax3)]
-        
         if run.gamma == 1:
              invname = 'I1'
         elif run.gamma == 0.02:
@@ -1023,20 +1044,35 @@ class PyritePlotter:
         ax2.set_xticks([0,0.05,0.1,0.15])
         ax2.set_xticklabels(['0','0.05','0.1','0.15'])
         ax3.set_xticks([0,1,2])
-
-        [ax.legend(
-            fontsize=12, borderpad=0.2, handletextpad=0.4, loc='lower right')
-            for ax in (ax1,ax2,ax3)]
-        [ax.tick_params(labelleft=False) for ax in (ax2, ax3)]
-        [ax.tick_params(
-            axis='both', which='major', labelsize=12) for ax in (ax1,ax2,ax3)]
-        [ax.axhline(
-            self.model.BOUNDARY, c=self.BLACK, ls='--' ,lw=1)
-            for ax in (ax1,ax2,ax3)]
+       
+        for ax in (ax1, ax2, ax3):            
+            ax.invert_yaxis()
+            ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH+30)
+            ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
+                      loc='lower right')
+            ax.tick_params(axis='both', which='major', labelsize=12)
+            ax.axhline(self.model.BOUNDARY, c=self.BLACK, ls='--' , lw=1)
+            if ax in (ax2, ax3):
+                ax.tick_params(labelleft=False)
         
         plt.savefig(f'out/POCprofs_gam{str(run.gamma).replace(".","")}.pdf')
         plt.close()
-
+    
+    def plot_residual_pdfs(self, run):
+        
+        fig, [ax1,ax2] = plt.subplots(1, 2, tight_layout=True)
+        fig.subplots_adjust(wspace=0.5)
+        ax1.set_ylabel('Probability Density', fontsize=16)
+        ax1.set_xlabel(r'$\frac{\^x_{i}-x_{o,i}}{\sigma_{o,i}}$', fontsize=24)
+        ax1.hist(run.x_resids, density=True, bins=20, color=self.BLUE)
+        #ax2.hist(pdfn,density=True,bins=20,color=blue)
+        #ax2.set_xlabel(r'$\frac{f(\^x)_{i}}{\sigma_{f(\^x)_{i}}}$',fontsize=24)
+        for ax in (ax1, ax2):
+            ax.set_xlim([-1,1])
+        plt.savefig(f'out/pdfs_gam{str(run.gamma).replace(".","")}.pdf')
+        plt.close()        
+        
+        
 if __name__ == '__main__':
 
     start_time = time.time()
