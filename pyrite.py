@@ -376,6 +376,98 @@ class PyriteModelRun():
             start_index:start_index + self.model.N_GRID_POINTS]
         
         return sliced
+
+    def equation_builder(self, species, depth):
+
+        Psi, Psip1, Psim1, Psim2 = sym.symbols(
+            'POCS_0 POCS_1 POCS_-1 POCS_-2')
+        Pli, Plip1, Plim1, Plim2 = sym.symbols(
+            'POCL_0 POCL_1 POCL_-1 POCL_-2')
+        Bm2i, B2pi, Bm1si, Bm1li, P30i, Lpi, wsi, wli, = sym.symbols(
+            'Bm2 B2p Bm1s Bm1l P30 Lp ws wl')
+        
+        h = self.model.MIXED_LAYER_DEPTH
+        depth = int(depth)
+        
+        if species == 'POCS':
+            if depth == 0:
+                eq = P30i + Bm2i*Pli - (wsi/h + Bm1si + B2pi*Psi)*Psi
+            else:
+                if (depth == 1 or depth == 2):
+                    multiply_by = Psip1 - Psim1
+                else:
+                    multiply_by = 3*Psi - 4*Psim1 + Psim2
+                eq = (P30i*sym.exp(-(self.model.GRID[depth] - h)/(Lpi))
+                      + (Bm2i*Pli) - (Bm1si + B2pi*Psi)*Psi
+                      - wsi/(2*self.model.GRID_STEP)*multiply_by)
+        elif species == 'POCL':
+            if depth == 0:
+                eq = B2pi*Psi**2 - (wli/h + Bm2i + Bm1li)*Pli
+            else:
+                if (depth == 1 or depth == 2):
+                    multiply_by = Plip1 - Plim1
+                else:
+                    multiply_by = 3*Pli - 4*Plim1 + Plim2
+                eq = (B2pi*Psi**2 - (Bm2i + Bm1li)*Pli
+                      - wli/(2*self.model.GRID_STEP)*multiply_by)
+        else: 
+            Pti = self.model.PT_mean_nonlinear[
+                (self.model.equation_elements.index(f'POCT_{depth}')
+                 - self.model.nte)]
+            eq = Pti - (Psi + Pli)
+        
+        return eq
+        
+    def extract_equation_variables(self, y, depth, v, in_ATI=False):
+        
+        x_symbolic = y.free_symbols
+        x_numerical = []
+        x_indices = []
+            
+        for x in x_symbolic:
+            if '_' in x.name:  # if it's a tracer
+                tracer, relative_depth = x.name.split('_')
+                real_depth = str(int(depth) + int(relative_depth))
+                element = '_'.join([tracer, real_depth])
+            else:  # if it's a parameter
+                param = eval(f'self.model.{x.name}')
+                if param.dv:
+                    zone = self.model.which_zone(depth)
+                    element = '_'.join([param.name, zone])
+                else:
+                    element = param.name
+            element_index = self.model.state_elements.index(element)
+            x_indices.append(element_index)
+            if in_ATI:
+                x_numerical.append(np.exp(v[element_index]))
+            else:
+                x_numerical.append(v[element_index])
+
+        return(x_symbolic, x_numerical, x_indices)
+    
+    def evaluate_model_equations(self, v, in_ATI=False):
+        
+        f = np.zeros(len(self.Cf))
+        if in_ATI:
+            F = np.zeros((len(self.Cf), self.model.nse))
+        
+        for i, element in enumerate(self.model.equation_elements):
+            species, depth = element.split('_')
+            y = self.equation_builder(species, depth)
+            x_sym, x_num, x_ind = self.extract_equation_variables(
+                y, depth, v, in_ATI=in_ATI)
+            f[i] = sym.lambdify(x_sym, y)(*x_num)
+            if in_ATI:
+                for j, x in enumerate(x_sym):
+                    dy = y.diff(x)*x  # dy/d(ln(x)) = x*dy/dx
+                    dx_sym, dx_num, _ = self.extract_equation_variables(
+                        dy, depth, v, in_ATI=True)
+                    F[i,x_ind[j]] = sym.lambdify(dx_sym, dy)(*dx_num)
+        
+        if in_ATI:
+            return F, f
+        else:
+            return f
     
     def eval_symbolic_func(self, y, err=True, cov=True):
         
@@ -420,89 +512,6 @@ class PyriteModelRun():
             return result, error
         
     def ATI(self):
-
-        def equation_builder(species, depth):
-
-            Psi, Psip1, Psim1, Psim2 = sym.symbols(
-                'POCS_0 POCS_1 POCS_-1 POCS_-2')
-            Pli, Plip1, Plim1, Plim2 = sym.symbols(
-                'POCL_0 POCL_1 POCL_-1 POCL_-2')
-            Bm2i, B2pi, Bm1si, Bm1li, P30i, Lpi, wsi, wli, = sym.symbols(
-                'Bm2 B2p Bm1s Bm1l P30 Lp ws wl')
-            
-            h = self.model.MIXED_LAYER_DEPTH
-            depth = int(depth)
-            
-            if species == 'POCS':
-                if depth == 0:
-                    eq = P30i + Bm2i*Pli - (wsi/h + Bm1si + B2pi*Psi)*Psi
-                else:
-                    if (depth == 1 or depth == 2):
-                        multiply_by = Psip1 - Psim1
-                    else:
-                        multiply_by = 3*Psi - 4*Psim1 + Psim2
-                    eq = (P30i*sym.exp(-(self.model.GRID[depth] - h)/(Lpi))
-                          + (Bm2i*Pli) - (Bm1si + B2pi*Psi)*Psi
-                          - wsi/(2*self.model.GRID_STEP)*multiply_by)
-            elif species == 'POCL':
-                if depth == 0:
-                    eq = B2pi*Psi**2 - (wli/h + Bm2i + Bm1li)*Pli
-                else:
-                    if (depth == 1 or depth == 2):
-                        multiply_by = Plip1 - Plim1
-                    else:
-                        multiply_by = 3*Pli - 4*Plim1 + Plim2
-                    eq = (B2pi*Psi**2 - (Bm2i + Bm1li)*Pli
-                          - wli/(2*self.model.GRID_STEP)*multiply_by)
-            else: 
-                Pti = self.model.PT_mean_nonlinear[
-                    (self.model.equation_elements.index(f'POCT_{depth}')
-                     - self.model.nte)]
-                eq = Pti - (Psi + Pli)
-            
-            return eq
-            
-        def extract_equation_variables(y, depth, xk):
-            
-            x_symbolic = y.free_symbols
-            x_numerical = []
-            x_indices = []
-                
-            for x in x_symbolic:
-                if '_' in x.name:  # if it's a tracer
-                    tracer, relative_depth = x.name.split('_')
-                    real_depth = str(int(depth) + int(relative_depth))
-                    element = '_'.join([tracer, real_depth])
-                else:  # if it's a parameter
-                    param = eval(f'self.model.{x.name}')
-                    if param.dv:
-                        zone = self.model.which_zone(depth)
-                        element = '_'.join([param.name, zone])
-                    else:
-                        element = param.name
-                element_index = self.model.state_elements.index(element)
-                x_indices.append(element_index)
-                x_numerical.append(np.exp(xk[element_index]))
-
-            return(x_symbolic, x_numerical, x_indices)
-        
-        def evaluate_jacobian_and_model_equations(xk):
-            
-            F = np.zeros((len(self.Cf), self.model.nse))  # jacobian matrix
-            f = np.zeros(len(self.Cf))  # vector of model equations
-            
-            for i, element in enumerate(self.model.equation_elements):
-                species, depth = element.split('_')
-                y = equation_builder(species, depth)
-                x_sym, x_num, x_ind = extract_equation_variables(y, depth, xk)
-                f[i] = sym.lambdify(x_sym, y)(*x_num)
-                for j, x in enumerate(x_sym):
-                    dy = y.diff(x)*x  # dy/d(ln(x)) = x*dy/dx
-                    dx_sym, dx_num, _ = extract_equation_variables(
-                        dy, depth, xk)
-                    F[i,x_ind[j]] = sym.lambdify(dx_sym, dy)(*dx_num)   
-            
-            return F, f
         
         def calculate_xkp1(xk, F, f):
             
@@ -550,7 +559,7 @@ class PyriteModelRun():
             xkp1 = np.ones(len(xk))  # at iteration k+1
                         
             for _ in range(0, max_iterations):
-                F, f = evaluate_jacobian_and_model_equations(xk)
+                F, f = self.evaluate_model_equations(xk, in_ATI=True)
                 xkp1, CoFT, FCoFTpCfi = calculate_xkp1(xk, F, f)
                 calculate_cost(xk, f)
                 self.converged = check_convergence(xk, xkp1)
@@ -558,7 +567,7 @@ class PyriteModelRun():
                     break
                 xk = xkp1
             
-            self.n_iterations = len(self.cost_evolution) - 1
+            self.n_iterations = len(self.cost_evolution)
             
             return F, xkp1, CoFT, FCoFTpCfi  
          
@@ -641,6 +650,10 @@ class PyriteModelRun():
         x_residuals = self.xhat - self.model.xo
         norm_x_residuals  = x_residuals/np.sqrt(np.diag(self.model.Co))
         self.x_resids = norm_x_residuals
+
+        f_residuals = self.evaluate_model_equations(self.xhat)
+        norm_f_residuals = f_residuals/np.sqrt(np.diag(self.Cf))
+        self.f_resids = norm_f_residuals
         
         return
       
@@ -1065,13 +1078,13 @@ class PyritePlotter:
         ax1.set_ylabel('Probability Density', fontsize=16)
         ax1.set_xlabel(r'$\frac{\^x_{i}-x_{o,i}}{\sigma_{o,i}}$', fontsize=24)
         ax1.hist(run.x_resids, density=True, bins=20, color=self.BLUE)
-        #ax2.hist(pdfn,density=True,bins=20,color=blue)
-        #ax2.set_xlabel(r'$\frac{f(\^x)_{i}}{\sigma_{f(\^x)_{i}}}$',fontsize=24)
+        ax2.hist(run.f_resids, density=True, bins=20, color=self.BLUE)
+        ax2.set_xlabel(r'$\frac{f(\^x)_{i}}{\sigma_{f(\^x)_{i}}}$',
+                        fontsize=24)
         for ax in (ax1, ax2):
             ax.set_xlim([-1,1])
         plt.savefig(f'out/pdfs_gam{str(run.gamma).replace(".","")}.pdf')
         plt.close()        
-        
         
 if __name__ == '__main__':
 
