@@ -46,7 +46,7 @@ class PyriteModel:
         self.define_params()
         self.process_cp_data()
         
-        self.LEZ = Zone(self, op.lt, 'LEZ')  # euphotic zone
+        self.LEZ = Zone(self, op.lt, 'LEZ')  # lower euphotic zone
         self.UMZ = Zone(self, op.gt, 'UMZ')  # upper mesopelagic zone
         self.zones = (self.LEZ, self.UMZ)
         
@@ -153,7 +153,19 @@ class PyriteModel:
             exog=dict(cp=self.cp_mean)).predicted_mean
 
     def objective_interpolation(self):
-        
+
+        def R_matrix(list1, list2):
+
+            m = len(list1)
+            n = len(list2)
+            R = np.zeros((m,n))
+
+            for i in np.arange(0,m):
+                for j in np.arange(0,n):
+                    R[i,j] = np.exp(-np.abs(list1[i]-list2[j])/L)
+
+            return R
+
         for tracer in self.tracers:
             
             tracer_data_oi = pd.DataFrame(columns=tracer.data.columns)
@@ -169,18 +181,6 @@ class PyriteModel:
                     tracer.data['depth'].between(min_depth, max_depth)]
                 
                 sample_depths, conc, conc_e = zone_data.T.values
-                
-                def R_matrix(array1, array2):
-                    
-                    m = len(array1)
-                    n = len(array2)
-                    R = np.zeros((m,n))
-                    
-                    for i in np.arange(0,m):
-                        for j in np.arange(0,n):
-                            R[i,j] = np.exp(-np.abs(array1[i]-array2[j])/L)
-                    
-                    return R
                 
                 Rxxmm = R_matrix(sample_depths, sample_depths)
                 Rxxnn = R_matrix(zone.depths, zone.depths)
@@ -265,12 +265,6 @@ class PyriteModel:
         
         for i in range(0,self.N_GRID_POINTS):
             self.equation_elements.append(f'POCT_{i}')  
-            
-    def which_zone(self, depth):
-        
-        if int(depth) in self.LEZ.indices:
-            return 'LEZ'
-        return 'UMZ'
             
     def pickle_model(self):
 
@@ -357,14 +351,20 @@ class PyriteModelRun():
         
         return 'PyriteModelRun(gamma={self.gamma})'
 
+    def which_zone(self, depth):
+
+        if int(depth) in self.model.LEZ.indices:
+            return 'LEZ'
+        return 'UMZ'
+
     def define_model_error_matrix(self):
         
         Cf_Ps_Pl = np.zeros((self.model.nte, self.model.nte))
         Cf_PT = np.zeros((self.model.N_GRID_POINTS, self.model.N_GRID_POINTS))
         
         np.fill_diagonal(Cf_Ps_Pl, (self.model.P30.prior**2)*self.gamma)
-        np.fill_diagonal(Cf_PT,
-                         self.model.cp_PT_regression_nonlinear.mse_resid)
+        np.fill_diagonal(
+            Cf_PT,self.model.cp_PT_regression_nonlinear.mse_resid)
         
         self.Cf = splinalg.block_diag(Cf_Ps_Pl, Cf_PT)
     
@@ -432,7 +432,7 @@ class PyriteModelRun():
             else:  # if it's a parameter
                 param = eval(f'self.model.{x.name}')
                 if param.dv:
-                    zone = self.model.which_zone(depth)
+                    zone = self.which_zone(depth)
                     element = '_'.join([param.name, zone])
                 else:
                     element = param.name
@@ -443,7 +443,7 @@ class PyriteModelRun():
             else:
                 x_numerical.append(v[element_index])
 
-        return(x_symbolic, x_numerical, x_indices)
+        return x_symbolic, x_numerical, x_indices
     
     def evaluate_model_equations(self, v, in_ATI=False):
         
@@ -546,7 +546,6 @@ class PyriteModelRun():
                     @ (xk - self.model.xo_log) + f.T @ np.linalg.inv(Cf) @ f)            
             self.cost_evolution.append(cost)
                     
-            return
         
         def find_solution():
             
@@ -626,8 +625,6 @@ class PyriteModelRun():
                                                  'err': xhat_e[i]}
 
             self.xhat = xhat
-            
-            return
 
         unpack_state_estimates()
     
@@ -643,8 +640,6 @@ class PyriteModelRun():
             self.PT['est'].append(pt_est)
             self.PT['err'].append(pt_err)
         
-        return
-        
     def calculate_residuals(self):
 
         x_residuals = self.xhat - self.model.xo
@@ -654,8 +649,6 @@ class PyriteModelRun():
         f_residuals = self.evaluate_model_equations(self.xhat)
         norm_f_residuals = f_residuals/np.sqrt(np.diag(self.Cf))
         self.f_resids = norm_f_residuals
-        
-        return
       
 class PyritePlotter:
 
@@ -925,7 +918,7 @@ class PyritePlotter:
         
     def plot_cost_and_convergence(self, run):
         
-        k = run.n_iterations + 1
+        k = run.n_iterations
         
         fig, ax = plt.subplots(1)
         ax.plot(np.arange(0, k), run.convergence_evolution,
