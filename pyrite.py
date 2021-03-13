@@ -139,17 +139,17 @@ class PyriteModel:
         self.poc_cp_df['cp'] = self.poc_cp_df.apply(
             lambda x: cp_bycast.at[x['depth']-1, x['ctd_cast']], axis=1)
 
-        self.cp_PT_regression_nonlinear = smf.ols(
+        self.cp_Pt_regression_nonlinear = smf.ols(
             formula='Pt ~ np.log(cp)', data=self.poc_cp_df).fit()
-        self.cp_PT_regression_linear = smf.ols(
+        self.cp_Pt_regression_linear = smf.ols(
             formula='Pt ~ cp', data=self.poc_cp_df).fit()
 
         cp_bycast_to_mean = cp_bycast.loc[self.GRID-1,
                                           cast_match_table['ctd_cast']]
         self.cp_mean = cp_bycast_to_mean.mean(axis=1)
-        self.PT_mean_nonlinear = self.cp_PT_regression_nonlinear.get_prediction(
+        self.Pt_mean_nonlinear = self.cp_Pt_regression_nonlinear.get_prediction(
             exog=dict(cp=self.cp_mean)).predicted_mean
-        self.PT_mean_linear = self.cp_PT_regression_linear.get_prediction(
+        self.Pt_mean_linear = self.cp_Pt_regression_linear.get_prediction(
             exog=dict(cp=self.cp_mean)).predicted_mean
 
     def objective_interpolation(self):
@@ -317,7 +317,7 @@ class Zone:
     
     def calculate_length_scales(self, fraction):
 
-        Pt = self.model.PT_mean_nonlinear[self.indices]
+        Pt = self.model.Pt_mean_nonlinear[self.indices]
         n_lags = int(np.ceil(len(Pt)*fraction))
         self.grid_steps = np.arange(
             0, (n_lags + 1)*self.model.GRID_STEP, self.model.GRID_STEP)
@@ -338,14 +338,13 @@ class PyriteModelRun():
         
         self.model = model
         self.gamma = gamma
-        self.results = {'tracers': {},
-                        'params': {}}
         
         self.define_model_error_matrix()
         self.ATI()
             
         self.calculate_total_POC()
         self.calculate_residuals()
+        self.calculate_inventories()
         
     def __repr__(self):
         
@@ -360,13 +359,13 @@ class PyriteModelRun():
     def define_model_error_matrix(self):
         
         Cf_Ps_Pl = np.zeros((self.model.nte, self.model.nte))
-        Cf_PT = np.zeros((self.model.N_GRID_POINTS, self.model.N_GRID_POINTS))
+        Cf_Pt = np.zeros((self.model.N_GRID_POINTS, self.model.N_GRID_POINTS))
         
         np.fill_diagonal(Cf_Ps_Pl, (self.model.P30.prior**2)*self.gamma)
         np.fill_diagonal(
-            Cf_PT,self.model.cp_PT_regression_nonlinear.mse_resid)
+            Cf_Pt,self.model.cp_Pt_regression_nonlinear.mse_resid)
         
-        self.Cf = splinalg.block_diag(Cf_Ps_Pl, Cf_PT)
+        self.Cf = splinalg.block_diag(Cf_Ps_Pl, Cf_Pt)
     
     def slice_by_tracer(self, to_slice, tracer):
         
@@ -411,7 +410,7 @@ class PyriteModelRun():
                 eq = (B2pi*Psi**2 - (Bm2i + Bm1li)*Pli
                       - wli/(2*self.model.GRID_STEP)*multiply_by)
         else: 
-            Pti = self.model.PT_mean_nonlinear[
+            Pti = self.model.Pt_mean_nonlinear[
                 (self.model.equation_elements.index(f'POCT_{depth}')
                  - self.model.nte)]
             eq = Pti - (Psi + Pli)
@@ -479,14 +478,14 @@ class PyriteModelRun():
             x_indices.append(self.model.state_elements.index(x.name))
             if '_' in x.name:  # if it varies with depth
                 element, depth = x.name.split('_')
-                if element in self.results['tracers']:  # if it's a tracer
+                if element in self.tracer_results:  # if it's a tracer
                     x_numerical.append(
-                        self.results['tracers'][element]['est'][int(depth)])
+                        self.tracer_results[element]['est'][int(depth)])
                 else:  #  if it's a depth-varying parameter
                     x_numerical.append(
-                        self.results['params'][element]['est'][depth])
+                        self.param_results[element]['est'][depth])
             else:  # if it's a depth-independent parameter
-                x_numerical.append(self.results['params'][element]['est'])
+                x_numerical.append(self.param_results[element]['est'])
 
         result = sym.lambdify(x_symbolic, y)(*x_numerical)
         
@@ -602,27 +601,29 @@ class PyriteModelRun():
             
             xhat, xhat_e = unlog_state_estimates()
             
+            self.tracer_results = {}
             for tracer in self.model.tracers:
                 t = f'{tracer.species}{tracer.sf}'
-                self.results['tracers'][t] = {
+                self.tracer_results[t] = {
                     'est': self.slice_by_tracer(xhat, t),
                     'err': self.slice_by_tracer(xhat_e, t)}
-             
+
+            self.param_results = {}
             for param in self.model.params:
                 p = param.name
                 if param.dv:
-                    self.results['params'][p] = {
+                    self.param_results[p] = {
                         zone.label: {} for zone in self.model.zones}
                     for zone in self.model.zones:
                         z = zone.label
                         zone_param = '_'.join([p, z])
                         i = self.model.state_elements.index(zone_param)
-                        self.results['params'][p][z] = {'est': xhat[i],
-                                                        'err': xhat_e[i]}
+                        self.param_results[p][z] = {'est': xhat[i],
+                                                    'err': xhat_e[i]}
                 else:
                     i = self.model.state_elements.index(p)
-                    self.results['params'][p] = {'est': xhat[i],
-                                                 'err': xhat_e[i]}
+                    self.param_results[p] = {'est': xhat[i],
+                                             'err': xhat_e[i]}
 
             self.xhat = xhat
 
@@ -630,15 +631,15 @@ class PyriteModelRun():
     
     def calculate_total_POC(self):
         
-        self.PT = {'est':[], 'err':[]}
+        self.Pt = {'est':[], 'err':[]}
         
         for i in range(0, self.model.N_GRID_POINTS):
-            ps_str = f'POCS_{i}'
-            pl_str = f'POCL_{i}'
-            ps, pl = sym.symbols(f'{ps_str} {pl_str}')
-            pt_est, pt_err = self.eval_symbolic_func(ps + pl)
-            self.PT['est'].append(pt_est)
-            self.PT['err'].append(pt_err)
+            Ps_str = f'POCS_{i}'
+            Pl_str = f'POCL_{i}'
+            Ps, Pl = sym.symbols(f'{Ps_str} {Pl_str}')
+            Pt_est, Pt_err = self.eval_symbolic_func(Ps + Pl)
+            self.Pt['est'].append(Pt_est)
+            self.Pt['err'].append(Pt_err)
         
     def calculate_residuals(self):
 
@@ -649,7 +650,42 @@ class PyriteModelRun():
         f_residuals = self.evaluate_model_equations(self.xhat)
         norm_f_residuals = f_residuals/np.sqrt(np.diag(self.Cf))
         self.f_resids = norm_f_residuals
-      
+        
+        for t in self.tracer_results.keys():
+            self.tracer_results[t]['resids'] = self.slice_by_tracer(
+                f_residuals, t)
+    
+    def calculate_inventories(self):
+        
+        self.inventories = {}
+        self.integrated_resids = {}
+        
+        for zone in self.model.zones:            
+            z = zone.label
+            self.inventories[z] = {} 
+            self.integrated_resids[z] = {}
+            if z == 'LEZ':                
+                dz_0 = self.model.GRID_STEP/2                
+                dz_N = self.model.GRID_STEP
+            else:
+                dz_0 = self.model.GRID_STEP                
+                dz_N = self.model.GRID_STEP/2                
+            for t in self.tracer_results.keys():               
+                inventory = 0
+                int_resids = 0
+                for i, di in enumerate(zone.indices):
+                    if i == 0:
+                        dz = dz_0
+                    elif i == len(zone.indices) - 1:
+                        dz = dz_N
+                    else:
+                        dz = self.model.GRID_STEP
+                    tracer_sym = sym.symbols(f'{t}_{di}')
+                    inventory += tracer_sym*dz
+                    int_resids += (self.tracer_results[t]['resids'][di]*dz)
+                self.inventories[z][t] = self.eval_symbolic_func(inventory)
+                self.integrated_resids[z][t] = int_resids
+                            
 class PyritePlotter:
 
     def __init__(self, pickled_model):
@@ -659,8 +695,8 @@ class PyritePlotter:
 
         self.define_colors()
         self.plot_hydrography()
-        self.plot_cp_PT_regression()
-        self.compare_PT_estimates()
+        self.plot_cp_Pt_regression()
+        self.compare_Pt_estimates()
         self.plot_zone_length_scales()
         self.plot_poc_data()
         
@@ -739,13 +775,13 @@ class PyritePlotter:
         plt.savefig('out/hydrography.pdf')
         plt.close()
 
-    def plot_cp_PT_regression(self):
+    def plot_cp_Pt_regression(self):
 
         cp = self.model.poc_cp_df['cp']
         Pt = self.model.poc_cp_df['Pt']
         depths = self.model.poc_cp_df['depth']
-        linear_regression = self.model.cp_PT_regression_linear
-        nonlinear_regression = self.model.cp_PT_regression_nonlinear
+        linear_regression = self.model.cp_Pt_regression_linear
+        nonlinear_regression = self.model.cp_Pt_regression_nonlinear
         logarithmic = {linear_regression: False, nonlinear_regression: True}
 
         colormap = plt.cm.viridis_r
@@ -785,7 +821,7 @@ class PyritePlotter:
             plt.savefig(f'out/cpptfit_log{logarithmic[fit]}.pdf')
             plt.close()
 
-    def compare_PT_estimates(self):
+    def compare_Pt_estimates(self):
 
         fig,ax = plt.subplots(1,1)
         fig.subplots_adjust(wspace=0.5)  
@@ -795,25 +831,25 @@ class PyritePlotter:
         ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH+30)
                   
         ax.scatter(
-            self.model.PT_mean_nonlinear, self.model.GRID, marker='o',
+            self.model.Pt_mean_nonlinear, self.model.GRID, marker='o',
             c=self.BLUE, s=7, label='non-linear', zorder=3, lw=0.7)
         ax.fill_betweenx(
             self.model.GRID,
-            (self.model.PT_mean_nonlinear
-             - np.sqrt(self.model.cp_PT_regression_nonlinear.mse_resid)),
-            (self.model.PT_mean_nonlinear
-             + np.sqrt(self.model.cp_PT_regression_nonlinear.mse_resid)),
+            (self.model.Pt_mean_nonlinear
+             - np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
+            (self.model.Pt_mean_nonlinear
+             + np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
             color=self.BLUE, alpha=0.25)
         
         ax.scatter(
-            self.model.PT_mean_linear, self.model.GRID, marker='o',
+            self.model.Pt_mean_linear, self.model.GRID, marker='o',
             c=self.ORANGE, s=7, label='linear', zorder=3, lw=0.7)
         ax.fill_betweenx(
             self.model.GRID,
-            (self.model.PT_mean_linear
-             - np.sqrt(self.model.cp_PT_regression_linear.mse_resid)),
-            (self.model.PT_mean_linear
-             + np.sqrt(self.model.cp_PT_regression_linear.mse_resid)),
+            (self.model.Pt_mean_linear
+             - np.sqrt(self.model.cp_Pt_regression_linear.mse_resid)),
+            (self.model.Pt_mean_linear
+             + np.sqrt(self.model.cp_Pt_regression_linear.mse_resid)),
             color=self.ORANGE, alpha=0.25)
         
         ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
@@ -822,7 +858,7 @@ class PyritePlotter:
         ax.tick_params(axis='both', which='major', labelsize=12)
         ax.axhline(self.model.BOUNDARY, c=self.BLACK, ls='--', lw=1)
         
-        plt.savefig('out/PT_estimate_comparison.pdf')
+        plt.savefig('out/Pt_estimate_comparison.pdf')
         plt.close()        
         
     def plot_zone_length_scales(self):
@@ -877,15 +913,15 @@ class PyritePlotter:
             label='LVISF', fillstyle='full')
            
         ax3.scatter(
-            self.model.PT_mean_nonlinear, self.model.GRID, marker='o',
+            self.model.Pt_mean_nonlinear, self.model.GRID, marker='o',
             c=self.BLUE, edgecolors=self.WHITE, s=7, label='from $c_p$',
             zorder=3, lw=0.7)
         ax3.fill_betweenx(
             self.model.GRID,
-            (self.model.PT_mean_nonlinear
-             - np.sqrt(self.model.cp_PT_regression_nonlinear.mse_resid)),
-            (self.model.PT_mean_nonlinear
-             + np.sqrt(self.model.cp_PT_regression_nonlinear.mse_resid)),
+            (self.model.Pt_mean_nonlinear
+             - np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
+            (self.model.Pt_mean_nonlinear
+             + np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
             color=self.BLUE, alpha=0.25, zorder=2)
         ax3.errorbar(
             self.model.Ps.data['conc'] + self.model.Pl.data['conc'],
@@ -955,13 +991,13 @@ class PyritePlotter:
                     capsize=6, label='Prior', markeredgewidth=1.5)
             if param.dv: 
                 ax.errorbar(
-                    2, run.results['params'][p]['LEZ']['est'],
-                    yerr=run.results['params'][p]['LEZ']['err'], fmt='o',
+                    2, run.param_results[p]['LEZ']['est'],
+                    yerr=run.param_results[p]['LEZ']['err'], fmt='o',
                     c=self.GREEN, ms=9, elinewidth=1.5, ecolor=self.GREEN,
                     capsize=6, label='LEZ', markeredgewidth=1.5)
                 ax.errorbar(
-                     3, run.results['params'][p]['UMZ']['est'],
-                     yerr=run.results['params'][p]['UMZ']['err'], fmt='o',
+                     3, run.param_results[p]['UMZ']['est'],
+                     yerr=run.param_results[p]['UMZ']['err'], fmt='o',
                      c=self.ORANGE, ms=9, elinewidth=1.5,
                      ecolor=self.ORANGE, capsize=6, label='UMZ',
                      markeredgewidth=1.5)
@@ -971,8 +1007,8 @@ class PyritePlotter:
                         ncol=3, fontsize=12, frameon=False)
             else:
                 ax.errorbar(
-                    3, run.results['params'][p]['est'],
-                    yerr=run.results['params'][p]['err'], fmt='o',
+                    3, run.param_results[p]['est'],
+                    yerr=run.param_results[p]['err'], fmt='o',
                     c=self.RADISH, ms=9, elinewidth=1.5,
                     ecolor=self.RADISH, capsize=6, markeredgewidth=1.5)
             ax.tick_params(bottom=False,labelbottom=False)
@@ -1009,8 +1045,8 @@ class PyritePlotter:
             elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
             label='OI', markeredgewidth=0.5)
         ax1.errorbar(
-            run.results['tracers']['POCS']['est'], self.model.GRID, fmt='o',
-            xerr=run.results['tracers']['POCS']['err'], ecolor=self.ORANGE,
+            run.tracer_results['POCS']['est'], self.model.GRID, fmt='o',
+            xerr=run.tracer_results['POCS']['err'], ecolor=self.ORANGE,
             elinewidth=0.5, c=self.ORANGE, ms=3, capsize=2, label=invname,
             fillstyle='none', zorder=3, markeredgewidth=0.5)
         
@@ -1025,24 +1061,24 @@ class PyritePlotter:
             elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
             label='OI', markeredgewidth=0.5)
         ax2.errorbar(
-            run.results['tracers']['POCL']['est'], self.model.GRID, fmt='o',
-            xerr=run.results['tracers']['POCL']['err'], ecolor=self.ORANGE,
+            run.tracer_results['POCL']['est'], self.model.GRID, fmt='o',
+            xerr=run.tracer_results['POCL']['err'], ecolor=self.ORANGE,
             elinewidth=0.5, c=self.ORANGE, ms=3, capsize=2, label=invname,
             fillstyle='none', zorder=3, markeredgewidth=0.5)
         
         ax3.scatter(
-            self.model.PT_mean_nonlinear, self.model.GRID, marker='o',
+            self.model.Pt_mean_nonlinear, self.model.GRID, marker='o',
             c=self.BLUE, edgecolors=self.BLUE, s=3, label='from $c_p$',
             zorder=3, lw=0.7)
         ax3.fill_betweenx(
             self.model.GRID,
-            (self.model.PT_mean_nonlinear
-             - np.sqrt(self.model.cp_PT_regression_nonlinear.mse_resid)),
-            (self.model.PT_mean_nonlinear 
-             + np.sqrt(self.model.cp_PT_regression_nonlinear.mse_resid)),
+            (self.model.Pt_mean_nonlinear
+             - np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
+            (self.model.Pt_mean_nonlinear 
+             + np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
             color=self.BLUE,alpha=0.25,zorder=2)
         ax3.errorbar(
-            run.PT['est'], self.model.GRID, fmt='o', xerr=run.PT['err'],
+            run.Pt['est'], self.model.GRID, fmt='o', xerr=run.Pt['err'],
             ecolor=self.ORANGE, elinewidth=0.5, c=self.ORANGE, ms=3, capsize=2,
             label=invname, fillstyle='none', zorder=3, markeredgewidth=0.5)
         
