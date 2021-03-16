@@ -44,11 +44,9 @@ class PyriteModel:
         self.load_data()
         self.define_tracers()
         self.define_params()
+        self.define_fluxes()
         self.process_cp_data()
-        
-        self.LEZ = Zone(self, op.lt, 'LEZ')  # lower euphotic zone
-        self.UMZ = Zone(self, op.gt, 'UMZ')  # upper mesopelagic zone
-        self.zones = (self.LEZ, self.UMZ)
+        self.define_zones()
         
         self.objective_interpolation()
         self.define_prior_vector_and_cov_matrix()
@@ -98,6 +96,32 @@ class PyriteModel:
 
         self.params = (self.ws, self.wl, self.B2p, self.Bm2, self.Bm1s,
                              self.Bm1l, self.P30, self.Lp)
+    
+    def define_fluxes(self):
+        
+        self.sink_S = Flux('sink_S', '$w_SP_S$', 'POCS', 'ws', ('POCS',))
+        self.sink_L = Flux('sink_L', '$w_LP_L$', 'POCL', 'wl', ('POCL',))
+        self.sink_T = Flux('sink_T', '$w_TP_T$', 'POCT', 'wt', ('POCT',))
+        self.sinkdiv_S = Flux(
+            'sinkdiv_S', '$\\frac{d}{dz}w_SP_S$', 'POCS', 'ws', ('POCS',))
+        self.sinkdiv_L = Flux(
+            'sinkdiv_L', '$\\frac{d}{dz}w_LP_L$', 'POCL', 'wl', ('POCL',))
+        self.remin_S = Flux(
+            'remin_S', '$\\beta_{-1,S}P_S$', 'POCS', 'Bm1s', ('POCS',))
+        self.remin_L = Flux(
+            'remin_L', '$\\beta_{-1,L}P_L$', 'POCL', 'Bm1l', ('POCL',))
+        self.aggregation = Flux(
+            'aggregation', '$\\beta^,_2P^2_S$', 'POCS', 'B2p',
+            ('POCS', 'POCL'))
+        self.disaggregation = Flux(
+            'disaggregation', '$\\beta_{-2}P_L$', 'POCL', 'Bm2',
+            ('POCS', 'POCL'))
+        self.production = Flux(
+            'production', '${\.P_S}$', 'POCS', None, ('POCS',))
+        
+        self.fluxes = (self.sink_S, self.sink_L, self.sink_T, self.sinkdiv_S,
+                       self.sinkdiv_L, self.remin_S, self.remin_L,
+                       self.aggregation, self.disaggregation, self.production)
 
     def process_npp_data(self):
         
@@ -124,6 +148,12 @@ class PyriteModel:
         Lp_prior_e = npp_regression.bse[1]/npp_regression.params[1]**2
         
         return P30_prior, P30_prior_e, Lp_prior, Lp_prior_e
+    
+    def define_zones(self):
+        
+        self.LEZ = Zone(self, op.lt, 'LEZ')  # lower euphotic zone
+        self.UMZ = Zone(self, op.gt, 'UMZ')  # upper mesopelagic zone
+        self.zones = (self.LEZ, self.UMZ)
 
     def process_cp_data(self):
 
@@ -332,6 +362,16 @@ class Zone:
         self.length_scale_fit = b + m*self.grid_steps
         self.fit_rsquared = acf_regression.rsquared
 
+class Flux:
+    
+    def __init__(self, name, label, tracer, param, wrt):
+        
+        self.name = name
+        self.label = label
+        self.tracer = tracer
+        self.wrt = wrt
+        self.param = param
+        
 class PyriteModelRun():
     
     def __init__(self, model, gamma):
@@ -345,7 +385,8 @@ class PyriteModelRun():
         self.calculate_total_POC()
         self.calculate_residuals()
         self.calculate_inventories()
-        
+        self.calculate_fluxes()
+
     def __repr__(self):
         
         return 'PyriteModelRun(gamma={self.gamma})'
@@ -483,9 +524,9 @@ class PyriteModelRun():
                         self.tracer_results[element]['est'][int(depth)])
                 else:  #  if it's a depth-varying parameter
                     x_numerical.append(
-                        self.param_results[element]['est'][depth])
+                        self.param_results[element][depth]['est'])
             else:  # if it's a depth-independent parameter
-                x_numerical.append(self.param_results[element]['est'])
+                x_numerical.append(self.param_results[x.name]['est'])
 
         result = sym.lambdify(x_symbolic, y)(*x_numerical)
         
@@ -685,7 +726,64 @@ class PyriteModelRun():
                     int_resids += (self.tracer_results[t]['resids'][di]*dz)
                 self.inventories[z][t] = self.eval_symbolic_func(inventory)
                 self.integrated_resids[z][t] = int_resids
-                            
+    
+    def calculate_fluxes(self):
+        
+        self.flux_results = {}
+        MLD = self.model.MIXED_LAYER_DEPTH
+        
+        for flux in self.model.fluxes:
+            f = flux.name
+            self.flux_results[f]= {'est': [], 'err': []}
+            if 'div' in f:               
+                for i in range(0, self.model.N_GRID_POINTS):
+                    z = self.which_zone(i)
+                    pwi = f'{flux.param}_{z}'
+                    twi = f'{flux.tracer}_{i}'
+                    w, Pi = sym.symbols(f'{pwi} {twi}')
+                    if i == 0:   
+                        y = w*Pi/MLD
+                    elif (i == 1 or i == 2):
+                        twip1 = f'{flux.tracer}_{i+1}'
+                        twim1 = f'{flux.tracer}_{i-1}'
+                        Pip1, Pim1 = sym.symbols(f'{twip1} {twim1}')
+                        y = w*(Pip1 - Pim1)/(2*self.model.GRID_STEP)
+                    else:
+                        twim1 = f'{flux.tracer}_{i-1}'
+                        twim2 = f'{flux.tracer}_{i-2}'
+                        Pim1, Pim2 = sym.symbols(f'{twim1} {twim2}')
+                        y = w*(3*Pi -4*Pim1 + Pim2)/(2*self.model.GRID_STEP)
+                    est, err = self.eval_symbolic_func(y)
+                    self.flux_results[f]['est'].append(est)
+                    self.flux_results[f]['err'].append(err)
+            else:
+                for i in range(0, self.model.N_GRID_POINTS):
+                    if f == 'production':
+                        p30, lp = sym.symbols('P30 Lp')
+                        y = p30*sym.exp(-(self.model.GRID[i] - MLD)/lp)
+                    else:
+                        z = self.which_zone(i)
+                        if f == 'sink_T':
+                            wsi = f'ws_{z}'
+                            wli = f'wl_{z}'
+                            Psi = f'POCS_{i}'
+                            Pli = f'POCL_{i}'
+                            ws, wl, Ps, Pl = sym.symbols(
+                                f'{wsi} {wli} {Psi} {Pli}')
+                            y = ws*Ps + wl*Pl
+                        else:
+                            if f == 'aggregation':
+                                order = 2
+                            else:
+                                order = 1                            
+                            pwi = f'{flux.param}_{z}'
+                            twi = f'{flux.tracer}_{i}'
+                            p, t = sym.symbols(f'{pwi} {twi}')
+                            y = p*t**order
+                    est, err = self.eval_symbolic_func(y)
+                    self.flux_results[f]['est'].append(est)
+                    self.flux_results[f]['err'].append(err)
+                           
 class PyritePlotter:
 
     def __init__(self, pickled_model):
@@ -705,6 +803,8 @@ class PyritePlotter:
             self.plot_params(run)
             self.plot_poc_profiles(run)
             self.plot_residual_pdfs(run)
+            self.plot_sinking_fluxes(run)
+            self.plot_volumetric_fluxes(run)
 
     def define_colors(self):
 
@@ -1113,6 +1213,133 @@ class PyritePlotter:
         for ax in (ax1, ax2):
             ax.set_xlim([-1,1])
         plt.savefig(f'out/pdfs_gam{str(run.gamma).replace(".","")}.pdf')
+        plt.close()
+    
+    def plot_sinking_fluxes(self, run):
+        
+        th_fluxes = pd.read_excel(
+            'pyrite_data.xlsx',sheet_name='thorium_fluxes')
+        th_depths = th_fluxes['depth']
+        th_flux = th_fluxes['msf']
+        th_flux_u = th_fluxes['msf_u']
+        st_fluxes = pd.read_excel('pyrite_data.xlsx', sheet_name='trap_fluxes')
+        st_depths = st_fluxes['depth']
+        st_flux = st_fluxes['flux']
+        st_flux_u = st_fluxes['flux_u']
+        
+        fig, (ax1,ax2) = plt.subplots(1, 2)
+        ax1.set_ylabel('Depth (m)',fontsize=14)
+        fig.text(
+            0.5, 0.03, 'POC Flux (mmol m$^{-2}$ d$^{-1}$)',
+            fontsize=14, ha='center', va='center')
+        for ax in (ax1,ax2):
+            ax.invert_yaxis()
+            ax.axhline(self.model.BOUNDARY, c=self.BLACK, ls='--', lw=0.5)
+            ax.set_ylim(
+                top=0, bottom=self.model.MAX_DEPTH+self.model.GRID_STEP*2)
+        
+        eb1 = ax1.errorbar(
+            run.flux_results['sink_S']['est'], self.model.GRID, fmt='o',
+            xerr=run.flux_results['sink_S']['err'], ecolor=self.BLUE,
+            elinewidth=0.5, c=self.BLUE, ms=3, capsize=2,
+            label=self.model.sink_S.label,fillstyle='none',
+            markeredgewidth=0.5)
+        eb1[-1][0].set_linestyle('--')
+        ax1.axhline(self.model.BOUNDARY, c='k', ls='--', lw=0.5)
+        eb2 = ax1.errorbar(
+            run.flux_results['sink_L']['est'], self.model.GRID, fmt='o',
+            xerr=run.flux_results['sink_L']['err'], ecolor=self.ORANGE,
+            elinewidth=0.5, c=self.ORANGE, ms=3, capsize=2,
+            label=self.model.sink_L.label,fillstyle='none',
+            markeredgewidth=0.5)
+        eb2[-1][0].set_linestyle(':')
+        ax1.legend(loc='lower right',fontsize=10)
+        ax1.annotate(
+            'A', xy=(0.91, 0.94), xycoords='axes fraction', fontsize=16)
+        
+        ax2.tick_params(labelleft=False)
+        eb3 = ax2.errorbar(
+            run.flux_results['sink_T']['est'], self.model.GRID, fmt='o',
+            xerr=run.flux_results['sink_T']['err'], ecolor=self.SKY,
+            elinewidth=0.5, c=self.SKY, ms=3, capsize=2,
+            label=self.model.sink_T.label,fillstyle='none',
+            markeredgewidth=0.5)
+        eb3[-1][0].set_linestyle('--')
+        eb4 = ax2.errorbar(
+            th_flux, th_depths, fmt='^', xerr=th_flux_u,
+            ecolor=self.GREEN, elinewidth=1.5, c=self.GREEN, ms=4, capsize=2,
+            label='$^{234}$Th-based', markeredgewidth=1.5)
+        eb4[-1][0].set_linestyle(':')
+        eb5 = ax2.errorbar(
+            st_flux, st_depths, fmt='^', xerr=st_flux_u,
+            ecolor=self.VERMILLION, elinewidth=1.5, c=self.VERMILLION, ms=4,
+            capsize=2, label='Sediment Traps', markeredgewidth=1.5)
+        eb5[-1][0].set_linestyle(':')
+        ax2.legend(loc='lower right', fontsize=10)
+        ax2.annotate(
+            'B', xy=(0.91, 0.94), xycoords='axes fraction', fontsize=16)
+        
+        plt.savefig(f'out/sinkfluxes_gam{str(run.gamma).replace(".","")}.pdf')
+        plt.close()  
+
+    def plot_volumetric_fluxes(self, run):
+        
+        fig,((ax1,ax2),(ax3,ax4)) = plt.subplots(2,2)
+        fig.subplots_adjust(left=0.15,bottom=0.15,wspace=0.1)
+        c1 = self.BLUE
+        c2 = self.ORANGE
+        axs = (ax1,ax2,ax3,ax4)
+        panels = ('A', 'B', 'C', 'D')
+        fig.text(0.5, 0.05, 'Volumetric POC Flux (mmol m$^{-3}$ d$^{-1}$)',
+                 fontsize=14, ha='center', va='center')
+        fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center',
+                 va='center', rotation='vertical')
+        
+        pairs = (('sinkdiv_S', 'sinkdiv_L'), ('remin_S', 'aggregation'),
+                 ('remin_L', 'disaggregation'), ('production',))
+        
+        
+        for i,pr in enumerate(pairs):
+            ax = axs[i]
+         
+            eb1 = ax.errorbar(
+                run.flux_results[pr[0]]['est'], self.model.GRID, fmt='o',
+                xerr=run.flux_results[pr[0]]['err'], ecolor=c1,
+                elinewidth=0.5, c=c1, ms=1.5, capsize=2,
+                label=eval(f'self.model.{pr[0]}.label'), fillstyle='none',
+                markeredgewidth=0.5)
+            eb1[-1][0].set_linestyle('--')
+
+            
+            if len(pr) > 1: #if it's actually a pair
+                eb2 = ax.errorbar(
+                    run.flux_results[pr[1]]['est'], self.model.GRID, fmt='o',
+                    xerr=run.flux_results[pr[1]]['err'], ecolor=c2,
+                    elinewidth=0.5, c=c2, ms=1.5, capsize=2,
+                    label=eval(f'self.model.{pr[1]}.label'), fillstyle='none',
+                    markeredgewidth=0.5)
+                eb2[-1][0].set_linestyle(':')
+
+            if pr[0] == 'production':
+                df = self.model.DATA['npp']
+                H = self.model.MIXED_LAYER_DEPTH
+                npp = df.loc[df['target_depth'] >= H]['npp']
+                depth = df.loc[df['target_depth'] >= H]['target_depth']
+                ax.scatter(npp/self.model.MOLAR_MASS_C, depth, c=c2,
+                           alpha=0.5, label='NPP', s=10)
+                
+            ax.legend(loc='lower right',fontsize=12)
+            ax.annotate(panels[i], xy=(0.9, 0.8), xycoords='axes fraction',
+                        fontsize=12)
+            ax.axhline(self.model.BOUNDARY, c=self.BLACK, ls='--', lw=0.5)
+            ax.set_yticks([0,100,200,300,400,500])
+            if i % 2:
+                ax.tick_params(labelleft=False)
+            ax.invert_yaxis()
+            ax.set_ylim(
+                top=0, bottom=self.model.MAX_DEPTH+self.model.GRID_STEP)
+        plt.savefig(
+            f'out/fluxes_volumetric_gam{str(run.gamma).replace(".","")}.pdf')
         plt.close()        
         
 if __name__ == '__main__':
