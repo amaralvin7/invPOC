@@ -23,11 +23,17 @@ import operator as op
 import itertools
 import scipy.linalg as splinalg
 import sympy as sym
+import matplotlib.ticker as ticker
+from matplotlib.lines import Line2D
+import matplotlib as mpl
+import sys
 
 class PyriteModel:
 
-    def __init__(self, gammas=[0.02], pickle_into='out/pyrite_Amaral21a.pkl'):
-        
+    def __init__(self, gammas=[0.02, 0.05, 0.1, 0.5, 1],
+                 pickle_into='out/pyrite_Amaral21a.pkl'):
+
+        self.gammas = gammas
         self.pickled = pickle_into
         self.MIXED_LAYER_DEPTH = 30
         self.MAX_DEPTH = 500
@@ -49,10 +55,11 @@ class PyriteModel:
         self.define_zones()
         
         self.objective_interpolation()
-        self.define_prior_vector_and_cov_matrix()
+        xo, xo_log, Co, Co_log = self.define_prior_vector_and_cov_matrix()
         self.define_equation_elements()
         
-        self.model_runs = [PyriteModelRun(self, g) for g in gammas]
+        self.model_runs = [
+            PyriteModelRun(self, xo, xo_log, Co, Co_log, g) for g in gammas]
 
         self.pickle_model()
 
@@ -99,25 +106,25 @@ class PyriteModel:
     
     def define_fluxes(self):
         
-        self.sink_S = Flux('sink_S', '$w_SP_S$', 'POCS', 'ws', ('POCS',))
-        self.sink_L = Flux('sink_L', '$w_LP_L$', 'POCL', 'wl', ('POCL',))
-        self.sink_T = Flux('sink_T', '$w_TP_T$', 'POCT', 'wt', ('POCT',))
+        self.sink_S = Flux('sink_S', '$w_SP_S$', 'POCS', 'ws')
+        self.sink_L = Flux('sink_L', '$w_LP_L$', 'POCL', 'wl')
+        self.sink_T = Flux('sink_T', '$w_TP_T$', 'POCT', 'wt')
         self.sinkdiv_S = Flux(
-            'sinkdiv_S', '$\\frac{d}{dz}w_SP_S$', 'POCS', 'ws', ('POCS',))
+            'sinkdiv_S', '$\\frac{d}{dz}w_SP_S$', 'POCS', 'ws', wrt=('POCS',))
         self.sinkdiv_L = Flux(
-            'sinkdiv_L', '$\\frac{d}{dz}w_LP_L$', 'POCL', 'wl', ('POCL',))
+            'sinkdiv_L', '$\\frac{d}{dz}w_LP_L$', 'POCL', 'wl', wrt=('POCL',))
         self.remin_S = Flux(
-            'remin_S', '$\\beta_{-1,S}P_S$', 'POCS', 'Bm1s', ('POCS',))
+            'remin_S', '$\\beta_{-1,S}P_S$', 'POCS', 'Bm1s', wrt=('POCS',))
         self.remin_L = Flux(
-            'remin_L', '$\\beta_{-1,L}P_L$', 'POCL', 'Bm1l', ('POCL',))
+            'remin_L', '$\\beta_{-1,L}P_L$', 'POCL', 'Bm1l', wrt=('POCL',))
         self.aggregation = Flux(
             'aggregation', '$\\beta^,_2P^2_S$', 'POCS', 'B2p',
-            ('POCS', 'POCL'))
+            wrt=('POCS', 'POCL'))
         self.disaggregation = Flux(
             'disaggregation', '$\\beta_{-2}P_L$', 'POCL', 'Bm2',
-            ('POCS', 'POCL'))
+            wrt=('POCS', 'POCL'))
         self.production = Flux(
-            'production', '${\.P_S}$', 'POCS', None, ('POCS',))
+            'production', '${\.P_S}$', 'POCS', None, wrt=('POCS',))
         
         self.fluxes = (self.sink_S, self.sink_L, self.sink_T, self.sinkdiv_S,
                        self.sinkdiv_L, self.remin_S, self.remin_L,
@@ -177,8 +184,9 @@ class PyriteModel:
         cp_bycast_to_mean = cp_bycast.loc[self.GRID-1,
                                           cast_match_table['ctd_cast']]
         self.cp_mean = cp_bycast_to_mean.mean(axis=1)
-        self.Pt_mean_nonlinear = self.cp_Pt_regression_nonlinear.get_prediction(
-            exog=dict(cp=self.cp_mean)).predicted_mean
+        self.Pt_mean_nonlinear = (
+            self.cp_Pt_regression_nonlinear.get_prediction(
+                exog=dict(cp=self.cp_mean)).predicted_mean)
         self.Pt_mean_linear = self.cp_Pt_regression_linear.get_prediction(
             exog=dict(cp=self.cp_mean)).predicted_mean
 
@@ -268,26 +276,27 @@ class PyriteModel:
                 param_priors.append(p.prior)
                 param_priors_var.append(p.prior_e**2)
                 self.state_elements.append(f'{p.name}')
-        self.npe = len(param_priors)  # number of parameter elements
 
-        self.xo = np.concatenate((tracer_priors,param_priors))
-        self.xo_log = np.log(self.xo)  
-        self.nse = len(self.xo)  # number of state elements
+        xo = np.concatenate((tracer_priors,param_priors))
+        xo_log = np.log(xo)  
+        self.nse = len(xo)  # number of state elements
         
-        self.Co = np.zeros((self.nse, self.nse))
-        self.Co_log = np.zeros((self.nse, self.nse))
+        Co = np.zeros((self.nse, self.nse))
+        Co_log = np.zeros((self.nse, self.nse))
         
         tracer_cov_matrices = [t.cov_matrices for t in self.tracers]
         tracer_cov_matrices = list(
             itertools.chain.from_iterable(tracer_cov_matrices))
         
-        self.Co[:self.nte, :self.nte] = splinalg.block_diag(
+        Co[:self.nte, :self.nte] = splinalg.block_diag(
             *tracer_cov_matrices)
-        np.fill_diagonal(self.Co[self.nte:, self.nte:], param_priors_var)
+        np.fill_diagonal(Co[self.nte:, self.nte:], param_priors_var)
         
-        for i, row in enumerate(self.Co):
+        for i, row in enumerate(Co):
             for j, val in enumerate(row):
-                self.Co_log[i,j] = np.log(1 + val/(self.xo[i]*self.xo[j]))
+                Co_log[i,j] = np.log(1 + val/(xo[i]*xo[j]))
+        
+        return xo, xo_log, Co, Co_log
      
     def define_equation_elements(self):
         
@@ -340,6 +349,7 @@ class Zone:
         self.label = label
         
         self.calculate_length_scales(0.25)
+        self.set_integration_intervals()
 
     def __repr__(self):
 
@@ -361,35 +371,52 @@ class Zone:
         self.length_scale = -1/m
         self.length_scale_fit = b + m*self.grid_steps
         self.fit_rsquared = acf_regression.rsquared
+    
+    def set_integration_intervals(self):
+        
+        intervals = np.ones(len(self.depths))*self.model.GRID_STEP
+        
+        if self.label == 'LEZ':
+            intervals[0] = self.model.GRID_STEP/2
+        else:
+            intervals[-1] = self.model.GRID_STEP/2
+        
+        self.integration_intervals = intervals
 
 class Flux:
     
-    def __init__(self, name, label, tracer, param, wrt):
+    def __init__(self, name, label, tracer, param, wrt=None):
         
         self.name = name
         self.label = label
         self.tracer = tracer
-        self.wrt = wrt
         self.param = param
+        self.wrt = wrt
+    
+    def __repr__(self):
+
+        return f'Flux({self.name})'
         
 class PyriteModelRun():
     
-    def __init__(self, model, gamma):
+    def __init__(self, model, xo, xo_log, Co, Co_log, gamma):
         
         self.model = model
         self.gamma = gamma
         
-        self.define_model_error_matrix()
-        self.ATI()
+        Cf = self.define_model_error_matrix()
+        xhat = self.ATI(xo_log, Co_log, Cf)
             
         self.calculate_total_POC()
-        self.calculate_residuals()
-        self.calculate_inventories()
-        self.calculate_fluxes()
+        self.calculate_residuals(xo, Co, xhat, Cf)
+        inventories = self.calculate_inventories()
+        fluxes_sym = self.calculate_fluxes()
+        flux_names, integrated_fluxes = self.integrate_fluxes(fluxes_sym)
+        self.calculate_timescales(inventories, flux_names, integrated_fluxes)
 
     def __repr__(self):
         
-        return 'PyriteModelRun(gamma={self.gamma})'
+        return f'PyriteModelRun(gamma={self.gamma})'
 
     def which_zone(self, depth):
 
@@ -406,7 +433,9 @@ class PyriteModelRun():
         np.fill_diagonal(
             Cf_Pt,self.model.cp_Pt_regression_nonlinear.mse_resid)
         
-        self.Cf = splinalg.block_diag(Cf_Ps_Pl, Cf_Pt)
+        Cf = splinalg.block_diag(Cf_Ps_Pl, Cf_Pt)
+        
+        return Cf
     
     def slice_by_tracer(self, to_slice, tracer):
         
@@ -487,9 +516,9 @@ class PyriteModelRun():
     
     def evaluate_model_equations(self, v, in_ATI=False):
         
-        f = np.zeros(len(self.Cf))
+        f = np.zeros(len(self.model.equation_elements))
         if in_ATI:
-            F = np.zeros((len(self.Cf), self.model.nse))
+            F = np.zeros((len(self.model.equation_elements), self.model.nse))
         
         for i, element in enumerate(self.model.equation_elements):
             species, depth = element.split('_')
@@ -502,8 +531,7 @@ class PyriteModelRun():
                     dy = y.diff(x)*x  # dy/d(ln(x)) = x*dy/dx
                     dx_sym, dx_num, _ = self.extract_equation_variables(
                         dy, depth, v, in_ATI=True)
-                    F[i,x_ind[j]] = sym.lambdify(dx_sym, dy)(*dx_num)
-        
+                    F[i,x_ind[j]] = sym.lambdify(dx_sym, dy)(*dx_num)      
         if in_ATI:
             return F, f
         else:
@@ -551,15 +579,14 @@ class PyriteModelRun():
             
             return result, error
         
-    def ATI(self):
+    def ATI(self, xo_log, Co_log, Cf):
         
         def calculate_xkp1(xk, F, f):
             
-            CoFT = self.model.Co_log @ F.T
+            CoFT = Co_log @ F.T
             FCoFT = F @ CoFT
-            FCoFTpCfi = np.linalg.inv(FCoFT + self.Cf)
-            xkp1 = (self.model.xo_log
-                    + CoFT @ FCoFTpCfi @ (F @ (xk - self.model.xo_log) - f))
+            FCoFTpCfi = np.linalg.inv(FCoFT + Cf)
+            xkp1 = (xo_log + CoFT @ FCoFTpCfi @ (F @ (xk - xo_log) - f))
                     
             return xkp1, CoFT, FCoFTpCfi
             
@@ -575,17 +602,11 @@ class PyriteModelRun():
             return converged
         
         def calculate_cost(xk, f):
+                      
+            cost = ((xk - xo_log).T @ np.linalg.inv(Co_log) @ (xk - xo_log)
+                    + f.T @ np.linalg.inv(Cf) @ f)
             
-            if self.gamma == 0:
-                f = f[:self.model.nte]
-                Cf = self.Cf[:self.model.nte,:self.model.nte]
-            else:
-                Cf = self.Cf           
-            cost = ((xk - self.model.xo_log).T
-                    @ np.linalg.inv(self.model.Co_log)
-                    @ (xk - self.model.xo_log) + f.T @ np.linalg.inv(Cf) @ f)            
-            self.cost_evolution.append(cost)
-                    
+            self.cost_evolution.append(cost)                    
         
         def find_solution():
             
@@ -594,7 +615,7 @@ class PyriteModelRun():
             self.convergence_evolution = []
             self.converged = False
                                       
-            xk = self.model.xo_log  # estimate of state vector at iteration k
+            xk = xo_log  # estimate of state vector at iteration k
             xkp1 = np.ones(len(xk))  # at iteration k+1
                         
             for _ in range(0, max_iterations):
@@ -613,10 +634,10 @@ class PyriteModelRun():
         def unlog_state_estimates():
             
             F, xkp1, CoFT, FCoFTpCfi = find_solution()
-            I = np.identity(self.model.Co_log.shape[0])
+            I = np.identity(Co_log.shape[0])
                 
-            Ckp1 = ((I - CoFT @ FCoFTpCfi @ F) @ self.model.Co_log
-                    @ (I - F.T @ FCoFTpCfi @ F @ self.model.Co_log))
+            Ckp1 = ((I - CoFT @ FCoFTpCfi @ F) @ Co_log
+                    @ (I - F.T @ FCoFTpCfi @ F @ Co_log))
             
             expected_vals_log = xkp1
             variances_log = np.diag(Ckp1)
@@ -666,9 +687,9 @@ class PyriteModelRun():
                     self.param_results[p] = {'est': xhat[i],
                                              'err': xhat_e[i]}
 
-            self.xhat = xhat
+            return xhat
 
-        unpack_state_estimates()
+        return unpack_state_estimates()        
     
     def calculate_total_POC(self):
         
@@ -682,14 +703,14 @@ class PyriteModelRun():
             self.Pt['est'].append(Pt_est)
             self.Pt['err'].append(Pt_err)
         
-    def calculate_residuals(self):
+    def calculate_residuals(self, xo, Co, xhat, Cf):
 
-        x_residuals = self.xhat - self.model.xo
-        norm_x_residuals  = x_residuals/np.sqrt(np.diag(self.model.Co))
+        x_residuals = xhat - xo
+        norm_x_residuals  = x_residuals/np.sqrt(np.diag(Co))
         self.x_resids = norm_x_residuals
 
-        f_residuals = self.evaluate_model_equations(self.xhat)
-        norm_f_residuals = f_residuals/np.sqrt(np.diag(self.Cf))
+        f_residuals = self.evaluate_model_equations(xhat)
+        norm_f_residuals = f_residuals/np.sqrt(np.diag(Cf))
         self.f_resids = norm_f_residuals
         
         for t in self.tracer_results.keys():
@@ -700,41 +721,38 @@ class PyriteModelRun():
         
         self.inventories = {}
         self.integrated_resids = {}
+        inventory_sym = {}
         
         for zone in self.model.zones:            
             z = zone.label
+            dz = zone.integration_intervals
             self.inventories[z] = {} 
             self.integrated_resids[z] = {}
-            if z == 'LEZ':                
-                dz_0 = self.model.GRID_STEP/2                
-                dz_N = self.model.GRID_STEP
-            else:
-                dz_0 = self.model.GRID_STEP                
-                dz_N = self.model.GRID_STEP/2                
+            inventory_sym[z] = {}               
             for t in self.tracer_results.keys():               
                 inventory = 0
                 int_resids = 0
                 for i, di in enumerate(zone.indices):
-                    if i == 0:
-                        dz = dz_0
-                    elif i == len(zone.indices) - 1:
-                        dz = dz_N
-                    else:
-                        dz = self.model.GRID_STEP
                     tracer_sym = sym.symbols(f'{t}_{di}')
-                    inventory += tracer_sym*dz
-                    int_resids += (self.tracer_results[t]['resids'][di]*dz)
+                    inventory += tracer_sym*dz[i]
+                    int_resids += (self.tracer_results[t]['resids'][di]*dz[i])
                 self.inventories[z][t] = self.eval_symbolic_func(inventory)
                 self.integrated_resids[z][t] = int_resids
+                inventory_sym[z][t] = inventory
+                
+        return inventory_sym
     
     def calculate_fluxes(self):
         
-        self.flux_results = {}
+        self.flux_profiles = {}
         MLD = self.model.MIXED_LAYER_DEPTH
+        fluxes_sym = {}
         
         for flux in self.model.fluxes:
             f = flux.name
-            self.flux_results[f]= {'est': [], 'err': []}
+            self.flux_profiles[f]= {'est': [], 'err': []}
+            if flux.wrt:
+                fluxes_sym[f] = []               
             if 'div' in f:               
                 for i in range(0, self.model.N_GRID_POINTS):
                     z = self.which_zone(i)
@@ -754,8 +772,10 @@ class PyriteModelRun():
                         Pim1, Pim2 = sym.symbols(f'{twim1} {twim2}')
                         y = w*(3*Pi -4*Pim1 + Pim2)/(2*self.model.GRID_STEP)
                     est, err = self.eval_symbolic_func(y)
-                    self.flux_results[f]['est'].append(est)
-                    self.flux_results[f]['err'].append(err)
+                    self.flux_profiles[f]['est'].append(est)
+                    self.flux_profiles[f]['err'].append(err)
+                    if flux.wrt:
+                        fluxes_sym[f].append(y)
             else:
                 for i in range(0, self.model.N_GRID_POINTS):
                     if f == 'production':
@@ -780,36 +800,85 @@ class PyriteModelRun():
                             twi = f'{flux.tracer}_{i}'
                             p, t = sym.symbols(f'{pwi} {twi}')
                             y = p*t**order
+                    if flux.wrt:
+                        fluxes_sym[f].append(y)
                     est, err = self.eval_symbolic_func(y)
-                    self.flux_results[f]['est'].append(est)
-                    self.flux_results[f]['err'].append(err)
-                           
+                    self.flux_profiles[f]['est'].append(est)
+                    self.flux_profiles[f]['err'].append(err) 
+            
+        return fluxes_sym
+    
+    def integrate_fluxes(self, fluxes_sym):
+        
+        fluxes = fluxes_sym.keys()
+        flux_integrals_sym = {}
+        self.flux_integrals = {}
+        
+        for zone in self.model.zones:
+            z = zone.label
+            dz = zone.integration_intervals
+            flux_integrals_sym[z] = {}
+            self.flux_integrals[z] = {}
+            for f in fluxes:
+                zone_expressions = [fluxes_sym[f][i] for i in zone.indices]
+                to_integrate = 0
+                for i, ex in enumerate(zone_expressions):
+                    to_integrate += ex*dz[i]
+                flux_integrals_sym[z][f] = to_integrate
+                self.flux_integrals[z][f] = self.eval_symbolic_func(
+                    to_integrate)
+                
+        return fluxes, flux_integrals_sym
+    
+    def calculate_timescales(self, inventory_sym, fluxes, flux_integrals_sym):
+        
+        self.timescales = {}
+        
+        for zone in self.model.zones:
+            z = zone.label
+            self.timescales[z] = {}
+            for tracer in inventory_sym[z].keys():
+                self.timescales[z][tracer] = {}
+                for flux in fluxes:
+                    if tracer in eval(f'self.model.{flux}.wrt'):
+                        self.timescales[z][tracer][flux] = (
+                            self.eval_symbolic_func(
+                                inventory_sym[z][tracer]
+                                /flux_integrals_sym[z][flux]))
+                                                   
 class PyritePlotter:
 
     def __init__(self, pickled_model):
-
+        
         with open(pickled_model, 'rb') as file:
             self.model = pickle.load(file)
 
         self.define_colors()
-        self.plot_hydrography()
-        self.plot_cp_Pt_regression()
-        self.compare_Pt_estimates()
-        self.plot_zone_length_scales()
-        self.plot_poc_data()
+        self.hydrography()
+        self.cp_Pt_regression()
+        self.Pt_estimate_comparison()
+        self.zone_length_scales()
+        self.poc_data()
         
         for run in self.model.model_runs:
-            self.plot_cost_and_convergence(run)
-            self.plot_params(run)
-            self.plot_poc_profiles(run)
-            self.plot_residual_pdfs(run)
-            self.plot_sinking_fluxes(run)
-            self.plot_volumetric_fluxes(run)
+            self.cost_and_convergence(run)
+            self.params(run)
+            self.poc_profiles(run)
+            self.residual_pdfs(run)
+            self.sinking_fluxes(run)
+            self.volumetric_fluxes(run)
+            if run.gamma == 0.02:
+                self.param_comparison(run)
+        
+        self.integrated_residuals()
+        self.param_sensitivity()
+        self.param_relative_errors()
 
+        self.write_output_old()
+        
     def define_colors(self):
 
         self.BLACK = '#000000'
-        self.WHITE = '#FFFFFF'
         self.ORANGE = '#E69F00'
         self.SKY = '#56B4E9'
         self.GREEN = '#009E73'
@@ -817,8 +886,13 @@ class PyritePlotter:
         self.BLUE = '#0072B2'
         self.VERMILLION = '#D55E00'
         self.RADISH = '#CC79A7'
+        self.WHITE = '#FFFFFF'
+        
+        self.colors = (
+            self.BLACK, self.ORANGE, self.SKY, self.GREEN, self.YELLOW,
+            self.BLUE, self.VERMILLION, self.RADISH)
 
-    def plot_hydrography(self):
+    def hydrography(self):
 
         hydro_df = self.model.DATA['hydrography']
 
@@ -875,7 +949,7 @@ class PyritePlotter:
         plt.savefig('out/hydrography.pdf')
         plt.close()
 
-    def plot_cp_Pt_regression(self):
+    def cp_Pt_regression(self):
 
         cp = self.model.poc_cp_df['cp']
         Pt = self.model.poc_cp_df['Pt']
@@ -895,7 +969,7 @@ class PyritePlotter:
             cbar.set_label('Depth (m)\n', rotation=270, labelpad=20,
                            fontsize=14)
             ax.scatter(cp, Pt, norm=norm, edgecolors=self.BLACK, c=depths,
-                       s=40, marker='o', cmap=colormap)
+                       s=40, marker='o', cmap=colormap, label='_none')
             ax.set_ylabel('$P_T$ (mmol m$^{-3}$)',fontsize=14)
             ax.set_xlabel('$c_p$ (m$^{-1}$)',fontsize=14)
             x_fit = np.arange(0.01,0.14,0.0001)
@@ -921,9 +995,9 @@ class PyritePlotter:
             plt.savefig(f'out/cpptfit_log{logarithmic[fit]}.pdf')
             plt.close()
 
-    def compare_Pt_estimates(self):
+    def Pt_estimate_comparison(self):
 
-        fig,ax = plt.subplots(1,1)
+        fig, ax = plt.subplots(1,1)
         fig.subplots_adjust(wspace=0.5)  
         ax.set_xlabel('$P_{T}$ (mmol m$^{-3}$)',fontsize=14)
         ax.set_ylabel('Depth (m)',fontsize=14)        
@@ -961,7 +1035,7 @@ class PyritePlotter:
         plt.savefig('out/Pt_estimate_comparison.pdf')
         plt.close()        
         
-    def plot_zone_length_scales(self):
+    def zone_length_scales(self):
         
         zones = {'LEZ': {'color': self.GREEN,
                         'text_coords': (0,-1.7),
@@ -986,7 +1060,7 @@ class PyritePlotter:
         plt.savefig('out/length_scales.pdf')
         plt.close()
         
-    def plot_poc_data(self):
+    def poc_data(self):
         
         fig,[ax1,ax2,ax3] = plt.subplots(1,3,tight_layout=True)
         fig.subplots_adjust(wspace=0.5)  
@@ -1028,19 +1102,20 @@ class PyritePlotter:
             self.model.SAMPLE_DEPTHS, fmt='^', ms=10, c=self.BLUE,
             xerr=np.sqrt(self.model.Ps.data['conc_e']**2
                          + self.model.Pl.data['conc_e']**2),
-            zorder=1, label='LVISF', capsize=5, fillstyle='full')
-        ax3.legend(fontsize=12, borderpad=0.2, handletextpad=0.4)
+            zorder=1, label='LVISF', capsize=5, fillstyle='full',
+            elinewidth=1)
         
         ax1.set_xticks([0,1,2,3])
         ax2.set_xticks([0,0.05,0.1,0.15])
         ax2.set_xticklabels(['0','0.05','0.1','0.15'])
-        ax3.set_xticks([0,1,2])
+        ax3.set_xticks([0,1,2,3])
+        ax3.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
+                  loc='lower right')
     
         for ax in (ax1, ax2, ax3):            
             ax.invert_yaxis()
             ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH+30)
-            ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
-                      loc='lower right')
+
             ax.tick_params(axis='both', which='major', labelsize=12)
             ax.axhline(self.model.BOUNDARY, c=self.BLACK, ls='--' , lw=1,
                        zorder=10)
@@ -1052,7 +1127,7 @@ class PyritePlotter:
         plt.savefig('out/poc_data.pdf')
         plt.close()
         
-    def plot_cost_and_convergence(self, run):
+    def cost_and_convergence(self, run):
         
         k = run.n_iterations
         
@@ -1075,9 +1150,9 @@ class PyritePlotter:
         plt.savefig(f'out/cost_gam{str(run.gamma).replace(".","")}.pdf')
         plt.close()
 
-    def plot_params(self, run):
+    def params(self, run):
         
-        fig,([ax1,ax2,ax3,ax4],[ax5,ax6,ax7,ax8]) = plt.subplots(2,4)
+        fig, ([ax1,ax2,ax3,ax4],[ax5,ax6,ax7,ax8]) = plt.subplots(2,4)
         fig.subplots_adjust(wspace=0.8, hspace=0.4)
         axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8]
         for i, param in enumerate(self.model.params):
@@ -1118,7 +1193,7 @@ class PyritePlotter:
         plt.savefig(f'out/params_gam{str(run.gamma).replace(".","")}.pdf')
         plt.close()
             
-    def plot_poc_profiles(self, run):
+    def poc_profiles(self, run):
 
         fig,[ax1,ax2,ax3] = plt.subplots(1,3,tight_layout=True)
         fig.subplots_adjust(wspace=0.5)  
@@ -1179,8 +1254,9 @@ class PyritePlotter:
             color=self.BLUE,alpha=0.25,zorder=2)
         ax3.errorbar(
             run.Pt['est'], self.model.GRID, fmt='o', xerr=run.Pt['err'],
-            ecolor=self.ORANGE, elinewidth=0.5, c=self.ORANGE, ms=3, capsize=2,
-            label=invname, fillstyle='none', zorder=3, markeredgewidth=0.5)
+            ecolor=self.ORANGE, elinewidth=0.5, c=self.ORANGE, ms=3,
+            capsize=2, label=invname, fillstyle='none', zorder=3,
+            markeredgewidth=0.5)
         
         ax1.set_xticks([0,1,2,3])
         ax2.set_xticks([0,0.05,0.1,0.15])
@@ -1200,7 +1276,7 @@ class PyritePlotter:
         plt.savefig(f'out/POCprofs_gam{str(run.gamma).replace(".","")}.pdf')
         plt.close()
     
-    def plot_residual_pdfs(self, run):
+    def residual_pdfs(self, run):
         
         fig, [ax1,ax2] = plt.subplots(1, 2, tight_layout=True)
         fig.subplots_adjust(wspace=0.5)
@@ -1215,14 +1291,15 @@ class PyritePlotter:
         plt.savefig(f'out/pdfs_gam{str(run.gamma).replace(".","")}.pdf')
         plt.close()
     
-    def plot_sinking_fluxes(self, run):
+    def sinking_fluxes(self, run):
         
         th_fluxes = pd.read_excel(
             'pyrite_data.xlsx',sheet_name='thorium_fluxes')
         th_depths = th_fluxes['depth']
         th_flux = th_fluxes['msf']
         th_flux_u = th_fluxes['msf_u']
-        st_fluxes = pd.read_excel('pyrite_data.xlsx', sheet_name='trap_fluxes')
+        st_fluxes = pd.read_excel(
+            'pyrite_data.xlsx', sheet_name='trap_fluxes')
         st_depths = st_fluxes['depth']
         st_flux = st_fluxes['flux']
         st_flux_u = st_fluxes['flux_u']
@@ -1239,16 +1316,16 @@ class PyritePlotter:
                 top=0, bottom=self.model.MAX_DEPTH+self.model.GRID_STEP*2)
         
         eb1 = ax1.errorbar(
-            run.flux_results['sink_S']['est'], self.model.GRID, fmt='o',
-            xerr=run.flux_results['sink_S']['err'], ecolor=self.BLUE,
+            run.flux_profiles['sink_S']['est'], self.model.GRID, fmt='o',
+            xerr=run.flux_profiles['sink_S']['err'], ecolor=self.BLUE,
             elinewidth=0.5, c=self.BLUE, ms=3, capsize=2,
             label=self.model.sink_S.label,fillstyle='none',
             markeredgewidth=0.5)
         eb1[-1][0].set_linestyle('--')
         ax1.axhline(self.model.BOUNDARY, c='k', ls='--', lw=0.5)
         eb2 = ax1.errorbar(
-            run.flux_results['sink_L']['est'], self.model.GRID, fmt='o',
-            xerr=run.flux_results['sink_L']['err'], ecolor=self.ORANGE,
+            run.flux_profiles['sink_L']['est'], self.model.GRID, fmt='o',
+            xerr=run.flux_profiles['sink_L']['err'], ecolor=self.ORANGE,
             elinewidth=0.5, c=self.ORANGE, ms=3, capsize=2,
             label=self.model.sink_L.label,fillstyle='none',
             markeredgewidth=0.5)
@@ -1259,8 +1336,8 @@ class PyritePlotter:
         
         ax2.tick_params(labelleft=False)
         eb3 = ax2.errorbar(
-            run.flux_results['sink_T']['est'], self.model.GRID, fmt='o',
-            xerr=run.flux_results['sink_T']['err'], ecolor=self.SKY,
+            run.flux_profiles['sink_T']['est'], self.model.GRID, fmt='o',
+            xerr=run.flux_profiles['sink_T']['err'], ecolor=self.SKY,
             elinewidth=0.5, c=self.SKY, ms=3, capsize=2,
             label=self.model.sink_T.label,fillstyle='none',
             markeredgewidth=0.5)
@@ -1282,39 +1359,39 @@ class PyritePlotter:
         plt.savefig(f'out/sinkfluxes_gam{str(run.gamma).replace(".","")}.pdf')
         plt.close()  
 
-    def plot_volumetric_fluxes(self, run):
+    def volumetric_fluxes(self, run):
         
-        fig,((ax1,ax2),(ax3,ax4)) = plt.subplots(2,2)
+        fig, ((ax1,ax2),(ax3,ax4)) = plt.subplots(2,2)
         fig.subplots_adjust(left=0.15,bottom=0.15,wspace=0.1)
         c1 = self.BLUE
         c2 = self.ORANGE
         axs = (ax1,ax2,ax3,ax4)
         panels = ('A', 'B', 'C', 'D')
         fig.text(0.5, 0.05, 'Volumetric POC Flux (mmol m$^{-3}$ d$^{-1}$)',
-                 fontsize=14, ha='center', va='center')
+                  fontsize=14, ha='center', va='center')
         fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center',
-                 va='center', rotation='vertical')
+                  va='center', rotation='vertical')
         
         pairs = (('sinkdiv_S', 'sinkdiv_L'), ('remin_S', 'aggregation'),
-                 ('remin_L', 'disaggregation'), ('production',))
+                  ('remin_L', 'disaggregation'), ('production',))
         
         
         for i,pr in enumerate(pairs):
             ax = axs[i]
          
             eb1 = ax.errorbar(
-                run.flux_results[pr[0]]['est'], self.model.GRID, fmt='o',
-                xerr=run.flux_results[pr[0]]['err'], ecolor=c1,
+                run.flux_profiles[pr[0]]['est'], self.model.GRID, fmt='o',
+                xerr=run.flux_profiles[pr[0]]['err'], ecolor=c1,
                 elinewidth=0.5, c=c1, ms=1.5, capsize=2,
                 label=eval(f'self.model.{pr[0]}.label'), fillstyle='none',
                 markeredgewidth=0.5)
             eb1[-1][0].set_linestyle('--')
 
             
-            if len(pr) > 1: #if it's actually a pair
+            if len(pr) > 1:
                 eb2 = ax.errorbar(
-                    run.flux_results[pr[1]]['est'], self.model.GRID, fmt='o',
-                    xerr=run.flux_results[pr[1]]['err'], ecolor=c2,
+                    run.flux_profiles[pr[1]]['est'], self.model.GRID, fmt='o',
+                    xerr=run.flux_profiles[pr[1]]['err'], ecolor=c2,
                     elinewidth=0.5, c=c2, ms=1.5, capsize=2,
                     label=eval(f'self.model.{pr[1]}.label'), fillstyle='none',
                     markeredgewidth=0.5)
@@ -1326,7 +1403,7 @@ class PyritePlotter:
                 npp = df.loc[df['target_depth'] >= H]['npp']
                 depth = df.loc[df['target_depth'] >= H]['target_depth']
                 ax.scatter(npp/self.model.MOLAR_MASS_C, depth, c=c2,
-                           alpha=0.5, label='NPP', s=10)
+                            alpha=0.5, label='NPP', s=10)
                 
             ax.legend(loc='lower right',fontsize=12)
             ax.annotate(panels[i], xy=(0.9, 0.8), xycoords='axes fraction',
@@ -1340,13 +1417,293 @@ class PyritePlotter:
                 top=0, bottom=self.model.MAX_DEPTH+self.model.GRID_STEP)
         plt.savefig(
             f'out/fluxes_volumetric_gam{str(run.gamma).replace(".","")}.pdf')
-        plt.close()        
+        plt.close()
+    
+    def write_output_old(self):
+        
+        iflxs = [f for f in self.model.fluxes if f.wrt]
+        
+        for run in self.model.model_runs:
+
+            with open ('out/invP_out.txt','a') as file:
+                print(f'########################################\nGAMMA = {run.gamma}\n########################################',file=file)
+                for i, dr in enumerate(((30,112.5),(112.5,500))):
+                    z ='LEZ' if not i else 'UMZ'
+                    print(f'~~~~~~~ Depth range: {dr} ~~~~~~~',file=file)
+                    print('---- Integrated fluxes ----',file=file)
+                    for f in iflxs:
+                        print(f"{f.name}: {run.flux_integrals[z][f.name][0]:.3f} ± {run.flux_integrals[z][f.name][1]:.3f}", file=file)
+                    print(f'Ps Residuals: {run.integrated_resids[z]["POCS"]:.3f} \nPl Residuals: {run.integrated_resids[z]["POCL"]:.3f}',file=file)
+                    print('---- Timescales ----',file=file)
+                    for f in iflxs:
+                        if 'agg' not in f.name:
+                            sf = 'POCS' if 'POCS' in f.wrt else 'POCL'
+                            print(f"{f.name}: {run.timescales[z][sf][f.name][0]:.3f} ± {run.timescales[z][sf][f.name][1]:.3f}",file=file)
+                        else:
+                            for t in (('Ps','POCS'),('Pl','POCL')):
+                                print(f"{f.name} ({t[0]}): {run.timescales[z][t[1]][f.name][0]:.3f} ± {run.timescales[z][t[1]][f.name][1]:.3f}",file=file)
+                    print(f'Ps Inventory: {run.inventories[z]["POCS"][0]:.3f} ± {run.inventories[z]["POCS"][1]:.3f}\nPl Inventory: {run.inventories[z]["POCL"][0]:.3f} ± {run.inventories[z]["POCL"][1]:.3f}',file=file)
+        
+    
+    def param_comparison(self, run):
+        
+        LEZ, UMZ = self.model.zones
+        dpy = self.model.DAYS_PER_YEAR
+        Ps_LEZ_mean = run.tracer_results['POCS']['est'][LEZ.indices].mean()
+        Ps_UMZ_mean = run.tracer_results['POCS']['est'][UMZ.indices].mean()
+        B2_EX_LEZ = run.param_results['B2p']['LEZ']['est']*Ps_LEZ_mean
+        B2_EX_UMZ = run.param_results['B2p']['UMZ']['est']*Ps_UMZ_mean
+        
+        data = {'EXP':{'B2':{'EZ':(B2_EX_LEZ,),'MZ':(B2_EX_UMZ,)},
+                        'Bm2':{
+                            'EZ':(run.param_results['Bm2']['LEZ']['est'],
+                                  run.param_results['Bm2']['LEZ']['err']),
+                            'MZ':(run.param_results['Bm2']['UMZ']['est'],
+                                  run.param_results['Bm2']['UMZ']['err'])},
+                        'Bm1s':{
+                            'EZ':(run.param_results['Bm1s']['LEZ']['est'],
+                                  run.param_results['Bm1s']['LEZ']['err']),
+                            'MZ':(run.param_results['Bm1s']['UMZ']['est'],
+                                  run.param_results['Bm1s']['UMZ']['err'])}},
+                'MOSP':{'B2':{'BZ':(0.8/dpy,0.9/dpy)},
+                        'Bm2':{'BZ':(400/dpy,10000/dpy)},
+                        'Bm1s':{'BZ':(1.7/dpy,0.9/dpy)}},
+                'MNABE':{'B2':{'MZ':{'t1':(2/dpy,0.2/dpy),
+                                      't2':(12/dpy,1/dpy),
+                                      't3':(76/dpy,9/dpy)}},
+                          'Bm2':{'MZ':{'t1':(156/dpy,17/dpy),
+                                      't2':(321/dpy,32/dpy),
+                                      't3':(524/dpy,74/dpy)}},
+                          'Bm1s':{'MZ':{'t1':(13/dpy,1/dpy),
+                                        't2':(32/dpy,2/dpy),
+                                        't3':(596/dpy,6/dpy)}}},
+                'MNWA':{'B2':{'EZ':{'lo':(9/dpy,24/dpy),'hi':(11/dpy,30/dpy)},
+                              'MZ':{'lo':(13/dpy,50/dpy),'hi':(18/dpy,89/dpy)}
+                                },
+                        'Bm2':{
+                            'EZ':{'lo':(2280/dpy,10000/dpy),
+                                  'hi':(2690/dpy,10000/dpy)},
+                            'MZ':{'lo':(870/dpy,5000/dpy),
+                                  'hi':(1880/dpy,10000/dpy)}},
+                        'Bm1s':{'EZ':{'lo':(70/dpy,137/dpy),
+                                      'hi':(798/dpy,7940/dpy)},
+                                'MZ':{'lo':(113/dpy,10000/dpy),
+                                      'hi':(1766/dpy,10000000/dpy)}}}}
+        
+        fig, ([ax1,ax2,ax3], [ax4,ax5,ax6]) = plt.subplots(
+            2,3,tight_layout=True)
+        axs = [ax1,ax2,ax3,ax4,ax5]
+        for ax in axs:
+            ax.tick_params(bottom=False,labelbottom=False)
+            ax.set_yscale('log')
+            # next line from https://stackoverflow.com/questions/21920233/
+            ax.yaxis.set_major_formatter(
+                ticker.FuncFormatter(lambda y, _: '{:g}'.format(y)))
+        ax1.set_ylabel('Estimate (d$^{-1}$)', fontsize=14)
+        ax1.set_title('$\\beta_{-1,S}$', fontsize=14)
+        ax2.set_title('$\\beta_{-2}$',fontsize=14)
+        ax3.set_title('$\\beta_2$',fontsize=14)
+        ax4.set_ylabel('Error (d$^{-1}$)', fontsize=14)
+        ax6.axis('off')
+        
+        study_colors = {'EXP':self.GREEN, 'MOSP':self.BLUE,
+                        'MNABE':self.ORANGE, 'MNWA':self.RADISH}
+        zone_shapes = {'EZ':'s', 'MZ':'^', 'BZ':'d'}
+        axs_dict = {ax1:{'ylim':(0.001, 10), 'panel':'A'},
+                    ax2:{'ylim':(0.1, 10), 'panel':'B'},
+                    ax3:{'ylim':(0.001, 1), 'panel':'C'},
+                    ax4:{'ylim':(0.001, 100000), 'panel':'D'},
+                    ax5:{'ylim':(0.01, 100), 'panel':'E'}}
+        
+        for (ax,p) in ((ax1,'Bm1s'), (ax2,'Bm2'), (ax3,'B2')):
+            ct = 0
+            for s in data.keys():
+                c = study_colors[s]
+                for z, vals in data[s][p].items():
+                    m = zone_shapes[z]
+                    if type(vals) == dict:
+                        for k in vals.keys():
+                            ax.scatter(
+                                ct, data[s][p][z][k][0], s=60, marker=m, c=c,
+                                edgecolors=self.BLACK, lw=0.5)
+                            if p != 'B2':
+                                axs[axs.index(ax)+3].scatter(
+                                    ct, data[s][p][z][k][1], s=60, marker=m,
+                                    c=c, edgecolors=self.BLACK, lw=0.5)
+                            ct += 1
+                    else:
+                        ax.scatter(
+                            ct, data[s][p][z][0], s=60, marker=m, c=c,
+                            edgecolors=self.BLACK, lw=0.5)
+                        if p != 'B2':
+                            axs[axs.index(ax)+3].scatter(
+                                ct, data[s][p][z][1], s=60, marker=m, c=c,
+                                edgecolors=self.BLACK, lw=0.5)
+                        ct += 1
+        leg_elements = [
+            Line2D([0], [0], marker=zone_shapes['EZ'], c=self.WHITE,
+                   label='Euphotic Zone', markerfacecolor=self.WHITE,
+                   markeredgecolor=self.BLACK, ms=9, lw=0.5),
+            Line2D([0], [0], marker=zone_shapes['MZ'], c=self.WHITE,
+                   label='Mesopelagic Zone', markerfacecolor=self.WHITE,
+                   markeredgecolor=self.BLACK,ms=9,lw=0.5),
+            Line2D([0], [0], marker=zone_shapes['BZ'], c=self.WHITE,
+                   label='Bathypelagic Zone', markerfacecolor=self.WHITE,
+                   markeredgecolor=self.BLACK, ms=9, lw=0.5),
+            Line2D([0], [0], marker='o', c=self.WHITE,
+                   label='This study (I2)\nStation P',
+                   markerfacecolor=self.GREEN, ms=9),
+            Line2D([0], [0], marker='o', c=self.WHITE,
+                   label='Murnane (1994)\nStation P',
+                   markerfacecolor=self.BLUE, ms=9),
+            Line2D([0], [0], marker='o', c=self.WHITE,
+                   label='Murnane et al. (1996)\nNABE',
+                   markerfacecolor=self.ORANGE, ms=9),
+            Line2D([0], [0], marker='o', c=self.WHITE,
+                   label='Murnane et al. (1994)\nNWAO',
+                   markerfacecolor=self.RADISH, ms=9)]
+        ax6.legend(handles=leg_elements, loc='center', fontsize=10,
+                   frameon=False)
+        for ax in axs:
+            ax.set_ylim(axs_dict[ax]['ylim'])
+            ax.annotate(axs_dict[ax]['panel'], xy=(0.82, 0.05),
+                        xycoords='axes fraction', fontsize=14)
+        plt.savefig('out/compare_params.pdf')
+        plt.close()
+    
+    def integrated_residuals(self):
+        
+        fig, ax = plt.subplots()
+        ax.set_xticks([k for k in list(range(0, len(self.model.model_runs)))])
+        ax.set_xticklabels(self.model.gammas)
+        ax.set_yticks(list(range(-11, 2)))
+        ax.grid(axis='y', zorder=1)
+        plt.subplots_adjust(bottom=0.1)
+        tracerdict = {'POCS':{'marker':'s', 'label': self.model.Ps.label},
+                      'POCL':{'marker':'^', 'label': self.model.Pl.label}}
+        zone_colors = {'LEZ':self.GREEN, 'UMZ':self.ORANGE}
+        for t in tracerdict.keys():
+            m = tracerdict[t]['marker']
+            l = tracerdict[t]['label']
+            for z in zone_colors.keys():
+                j=0
+                c = zone_colors[z]
+                for run in self.model.model_runs:
+                    ax.scatter(
+                        j, run.integrated_resids[z][t], marker=m, c=c, s=64,
+                        label=f'{l}$^{{{z}}}$', zorder=2)
+                    j += 1
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        ax.legend(by_label.values(), by_label.keys(), fontsize=12)
+        ax.set_ylabel('Integrated Residuals (mmol m$^{-2}$ d$^{-1}$)',
+                      fontsize=14)
+        ax.set_xlabel('$\gamma$', fontsize=14)
+        plt.savefig('out/intresids.pdf')
+        plt.close()
+        
+    def param_sensitivity(self):
+
+        fig, ([ax1,ax2,ax3],[ax4,ax5,ax6],[ax7,ax8,ax9]) = plt.subplots(
+            3, 3, figsize=(8, 8))
+        fig.subplots_adjust(wspace=0.3, hspace=0.8)
+        axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax9]
+        axs[-1].axis('off')
+        for i, param in enumerate(self.model.params):
+            p = param.name
+            ax = axs[i]
+            ax.set_title(param.label,fontsize=14)
+            if param.dv:
+                ax.axvline(9, ls='--', c=self.BLACK, lw=1)
+                j = 0
+                for zone in self.model.zones:
+                    z = zone.label
+                    c = self.GREEN if z == 'LEZ' else self.ORANGE
+                    for run in self.model.model_runs:
+                        ax.errorbar(
+                            j*2, run.param_results[p][z]['est'],
+                            yerr=run.param_results[p][z]['err'], fmt='o', c=c,
+                            ms=8, elinewidth=1.5, ecolor=c, capsize=6,
+                            label=z, markeredgewidth=1.5)
+                        j += 1
+                    ax.set_xticks([k*2 for k in list(
+                        range(0, len(self.model.model_runs)*2))])
+                    ax.get_xaxis().set_major_formatter(
+                        mpl.ticker.ScalarFormatter())
+                    ax.set_xticklabels(self.model.gammas + self.model.gammas,
+                                       rotation=60)
+                if i == 5:
+                    handles, labels = ax.get_legend_handles_labels()
+                    by_label = dict(zip(labels, handles))
+                    ax.legend(by_label.values(), by_label.keys(),
+                              loc='upper center', bbox_to_anchor=(0.5,-1),
+                              ncol=1, fontsize=12, frameon=False)
+            else:
+                j = 0
+                for run in self.model.model_runs:
+                    ax.errorbar(j*3, run.param_results[p]['est'],
+                                yerr=run.param_results[p]['err'] ,fmt='o',
+                                c=self.RADISH, ms=8, elinewidth=1.5,
+                                ecolor=self.RADISH, capsize=6,
+                                markeredgewidth=1.5)
+                    j += 1
+                ax.set_xticks([k*3 for k in list(
+                    range(0, len(self.model.model_runs)))])
+                ax.get_xaxis().set_major_formatter(
+                    mpl.ticker.ScalarFormatter())
+                ax.set_xticklabels(self.model.gammas, rotation=60)
+        plt.savefig('out/sensitivity_params.pdf')
+        plt.close()
+        
+    def param_relative_errors(self):
+
+        mod = self.model
+        fig, ax = plt.subplots(1, 1)
+        plt.subplots_adjust(top=0.8)
+        tset_list = [param.label for param in mod.params]
+        for i, param in enumerate(mod.params):
+            p = param.name
+            if param.dv:
+                for zone in self.model.zones:
+                    z = zone.label
+                    if z == 'LEZ':
+                        m = '^'
+                        ls = '--'
+                    else:
+                        m = 'o'
+                        ls = ':'
+                    relativeerror = [
+                        r.param_results[p][z]['err']
+                        /r.param_results[p][z]['est'] for r in mod.model_runs]
+                    ax.plot(
+                        mod.gammas, relativeerror, m, c=self.colors[i],
+                        label=f'{param.label}', fillstyle='none', ls=ls)
+            else:
+                relativeerror = [
+                    r.param_results[p]['err']
+                    /r.param_results[p]['est'] for r in mod.model_runs]
+                ax.plot(mod.gammas, relativeerror, 'x', c=self.colors[i],
+                        label=f'{param.label}', ls='-.')
+        ax.set_xscale('log')
+        ax.set_xticks(mod.gammas)
+        leg_elements = [
+            Line2D([0], [0], marker='o', ls='none', color=self.colors[i],
+                   label=tset_list[i]) for i,_ in enumerate(tset_list)]
+        ax.legend(
+            handles=leg_elements, loc='lower center',
+            bbox_to_anchor=(0.49, 1), ncol=4, fontsize=12, frameon=False)
+        ax.set_xlabel('$\gamma$', fontsize=14)
+        ax.set_ylabel('Relative Error', fontsize=14)
+        ax.get_xaxis().set_major_formatter(mpl.ticker.ScalarFormatter())
+        plt.savefig('out/paramrelerror.pdf')
+        plt.close()
         
 if __name__ == '__main__':
 
+    sys.setrecursionlimit(100000)
     start_time = time.time()
     model = PyriteModel()
-    plotter = PyritePlotter('out/pyrite_Amaral21a.pkl')
+    #plotter = PyritePlotter('out/pyrite_Amaral21a.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
 
