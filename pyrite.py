@@ -1295,8 +1295,8 @@ class PyritePlotter:
         th_fluxes = pd.read_excel(
             'pyrite_data.xlsx',sheet_name='thorium_fluxes')
         th_depths = th_fluxes['depth']
-        th_flux = th_fluxes['msf']
-        th_flux_u = th_fluxes['msf_u']
+        th_flux = th_fluxes['flux']
+        th_flux_u = th_fluxes['flux_u']
         st_fluxes = pd.read_excel(
             'pyrite_data.xlsx', sheet_name='trap_fluxes')
         st_depths = st_fluxes['depth']
