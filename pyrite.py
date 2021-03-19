@@ -69,15 +69,14 @@ class PyriteModel:
                     
     def load_data(self):
         
-        self.DATA = pd.read_excel('pyrite_data.xlsx',sheet_name=None)
-        self.SAMPLE_DEPTHS = self.DATA['poc_means']['depth']
-        self.N_SAMPLE_DEPTHS = len(self.SAMPLE_DEPTHS)
+        self.data = pd.read_excel('pyrite_data.xlsx',sheet_name=None)
+        self.sample_depths = self.data['poc_means']['depth']
     
     def define_tracers(self):
         
-        self.Ps = Tracer('POC', 'S', '$P_S$', self.DATA['poc_means'][
+        self.Ps = Tracer('POC', 'S', '$P_S$', self.data['poc_means'][
             ['depth', 'SSF_mean', 'SSF_se']])
-        self.Pl = Tracer('POC', 'L', '$P_L$', self.DATA['poc_means'][
+        self.Pl = Tracer('POC', 'L', '$P_L$', self.data['poc_means'][
             ['depth', 'LSF_mean', 'LSF_se']])
 
         self.tracers = (self.Ps, self.Pl)
@@ -132,7 +131,7 @@ class PyriteModel:
 
     def process_npp_data(self):
         
-        npp_data_raw = self.DATA['npp']
+        npp_data_raw = self.data['npp']
         npp_data_clean = npp_data_raw.loc[(npp_data_raw['npp'] > 0)]
         
         MIXED_LAYER_UPPER_BOUND, MIXED_LAYER_LOWER_BOUND = 28, 35
@@ -164,11 +163,11 @@ class PyriteModel:
 
     def process_cp_data(self):
 
-        cast_match_table = self.DATA['cast_match']
+        cast_match_table = self.data['cast_match']
         cast_match_dict = dict(zip(cast_match_table['pump_cast'],
                                    cast_match_table['ctd_cast']))
-        poc_discrete = self.DATA['poc_discrete']
-        cp_bycast = self.DATA['cp_bycast']
+        poc_discrete = self.data['poc_discrete']
+        cp_bycast = self.data['cp_bycast']
         self.poc_cp_df = poc_discrete.copy()
 
         self.poc_cp_df['ctd_cast'] = self.poc_cp_df.apply(
@@ -894,7 +893,7 @@ class PyritePlotter:
 
     def hydrography(self):
 
-        hydro_df = self.model.DATA['hydrography']
+        hydro_df = self.model.data['hydrography']
 
         fig = plt.figure()
         host = host_subplot(111, axes_class=AA.Axes, figure=fig)
@@ -1099,7 +1098,7 @@ class PyritePlotter:
             color=self.BLUE, alpha=0.25, zorder=2)
         ax3.errorbar(
             self.model.Ps.data['conc'] + self.model.Pl.data['conc'],
-            self.model.SAMPLE_DEPTHS, fmt='^', ms=10, c=self.BLUE,
+            self.model.sample_depths, fmt='^', ms=10, c=self.BLUE,
             xerr=np.sqrt(self.model.Ps.data['conc_e']**2
                          + self.model.Pl.data['conc_e']**2),
             zorder=1, label='LVISF', capsize=5, fillstyle='full',
@@ -1398,7 +1397,7 @@ class PyritePlotter:
                 eb2[-1][0].set_linestyle(':')
 
             if pr[0] == 'production':
-                df = self.model.DATA['npp']
+                df = self.model.data['npp']
                 H = self.model.MIXED_LAYER_DEPTH
                 npp = df.loc[df['target_depth'] >= H]['npp']
                 depth = df.loc[df['target_depth'] >= H]['target_depth']
