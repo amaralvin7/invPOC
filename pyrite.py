@@ -873,7 +873,7 @@ class PyritePlotter:
         self.param_sensitivity()
         self.param_relative_errors()
 
-        self.write_output_old()
+        self.write_output()
         
     def define_colors(self):
 
@@ -1418,31 +1418,56 @@ class PyritePlotter:
             f'out/fluxes_volumetric_gam{str(run.gamma).replace(".","")}.pdf')
         plt.close()
     
-    def write_output_old(self):
-        
-        iflxs = [f for f in self.model.fluxes if f.wrt]
-        
-        for run in self.model.model_runs:
-
-            with open ('out/invP_out.txt','a') as file:
-                print(f'########################################\nGAMMA = {run.gamma}\n########################################',file=file)
-                for i, dr in enumerate(((30,112.5),(112.5,500))):
-                    z ='LEZ' if not i else 'UMZ'
-                    print(f'~~~~~~~ Depth range: {dr} ~~~~~~~',file=file)
-                    print('---- Integrated fluxes ----',file=file)
-                    for f in iflxs:
-                        print(f"{f.name}: {run.flux_integrals[z][f.name][0]:.3f} ± {run.flux_integrals[z][f.name][1]:.3f}", file=file)
-                    print(f'Ps Residuals: {run.integrated_resids[z]["POCS"]:.3f} \nPl Residuals: {run.integrated_resids[z]["POCL"]:.3f}',file=file)
-                    print('---- Timescales ----',file=file)
-                    for f in iflxs:
-                        if 'agg' not in f.name:
-                            sf = 'POCS' if 'POCS' in f.wrt else 'POCL'
-                            print(f"{f.name}: {run.timescales[z][sf][f.name][0]:.3f} ± {run.timescales[z][sf][f.name][1]:.3f}",file=file)
-                        else:
-                            for t in (('Ps','POCS'),('Pl','POCL')):
-                                print(f"{f.name} ({t[0]}): {run.timescales[z][t[1]][f.name][0]:.3f} ± {run.timescales[z][t[1]][f.name][1]:.3f}",file=file)
-                    print(f'Ps Inventory: {run.inventories[z]["POCS"][0]:.3f} ± {run.inventories[z]["POCS"][1]:.3f}\nPl Inventory: {run.inventories[z]["POCL"][0]:.3f} ± {run.inventories[z]["POCL"][1]:.3f}',file=file)
-        
+    def write_output(self):
+                
+        file = 'out/invP_out.txt'
+        with open (file,'w') as f:
+            for run in self.model.model_runs:
+                print('#################################', file=f)
+                print(f'GAMMA = {run.gamma}', file=f)
+                print('#################################', file=f)
+                print('+++++++++++++++++++++++++++', file=f)
+                print('Parameter Estimates', file=f)
+                print('+++++++++++++++++++++++++++', file=f)
+                for param in self.model.params:
+                    p = param.name
+                    if param.dv:
+                        for z in self.model.zones:
+                            est = run.param_results[p][z.label]['est']
+                            err = run.param_results[p][z.label]['err']
+                            print(f'{p} ({z.label}): {est:.3f} ± {err:.3f}',
+                                  file=f)
+                    else:
+                        est = run.param_results[p]['est']
+                        err = run.param_results[p]['err']
+                        print(f'{p}: {est:.3f} ± {err:.3f}', file=f)
+                print('+++++++++++++++++++++++++++', file=f)
+                print('Tracer Inventories', file=f)
+                print('+++++++++++++++++++++++++++', file=f)
+                for z in self.model.zones:
+                    print(f'--------{z.label}--------', file=f)
+                    for t in run.inventories[z.label].keys():
+                        est, err = run.inventories[z.label][t]                       
+                        print(f'{t}: {est:.0f} ± {err:.0f}', file=f)
+                print('+++++++++++++++++++++++++++', file=f)
+                print('Integrated Fluxes', file=f)
+                print('+++++++++++++++++++++++++++', file=f)
+                for z in self.model.zones:
+                    print(f'--------{z.label}--------', file=f)
+                    for flux in run.flux_integrals[z.label].keys():
+                        est, err = run.flux_integrals[z.label][flux]                       
+                        print(f'{flux}: {est:.2f} ± {err:.2f}', file=f)
+                print('+++++++++++++++++++++++++++', file=f)
+                print('Timescales', file=f)
+                print('+++++++++++++++++++++++++++', file=f)
+                for z in self.model.zones:
+                    print(f'--------{z.label}--------', file=f)
+                    for t in run.integrated_resids[z.label].keys():
+                        print(f'***{t}***', file=f)
+                        for flux in run.timescales[z.label][t].keys():
+                            est, err = run.timescales[z.label][t][flux] 
+                            print(f'{flux}: {est:.3f} ± {err:.3f}',
+                                  file=f)        
     
     def param_comparison(self, run):
         
