@@ -626,8 +626,6 @@ class PyriteModelRun():
                     break
                 xk = xkp1
             
-            self.n_iterations = len(self.cost_evolution)
-            
             return F, xkp1, CoFT, FCoFTpCfi  
          
         def unlog_state_estimates():
@@ -647,7 +645,7 @@ class PyriteModelRun():
                 *(np.exp(variances_log) - 1))
             
             self.cvm = np.zeros(  # covaraince matrix of posterior estimates
-                (self.model.nse, self.model.nse))
+                (len(xhat), len(xhat)))
             
             for i, row in enumerate(self.cvm):
                 for j, _ in enumerate(row):
@@ -1128,7 +1126,7 @@ class PyritePlotter:
         
     def cost_and_convergence(self, run):
         
-        k = run.n_iterations
+        k = len(run.cost_evolution)
         
         fig, ax = plt.subplots(1)
         ax.plot(np.arange(0, k), run.convergence_evolution,
