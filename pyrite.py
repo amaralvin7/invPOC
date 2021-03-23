@@ -58,8 +58,21 @@ class PyriteModel:
         xo, xo_log, Co, Co_log = self.define_prior_vector_and_cov_matrix()
         self.define_equation_elements()
         
-        self.model_runs = [
-            PyriteModelRun(self, xo, xo_log, Co, Co_log, g) for g in gammas]
+        self.model_runs = []
+        for g in gammas:
+            run = PyriteModelRun(g)
+            Cf = self.define_model_error_matrix(g)
+            xhat = self.ATI(xo_log, Co_log, Cf, run)
+                
+            self.calculate_total_POC(run)
+            self.calculate_residuals(xo, Co, xhat, Cf, run)
+            inventories = self.calculate_inventories(run)
+            fluxes_sym = self.calculate_fluxes(run)
+            flux_names, integrated_fluxes = self.integrate_fluxes(
+                fluxes_sym, run)
+            self.calculate_timescales(
+                inventories, flux_names, integrated_fluxes, run)
+            self.model_runs.append(run)
 
         self.pickle_model()
 
@@ -302,7 +315,419 @@ class PyriteModel:
         self.equation_elements = self.state_elements[:self.nte]
         
         for i in range(0,self.N_GRID_POINTS):
-            self.equation_elements.append(f'POCT_{i}')  
+            self.equation_elements.append(f'POCT_{i}')
+
+    def which_zone(self, depth):
+
+        if int(depth) in self.LEZ.indices:
+            return 'LEZ'
+        return 'UMZ'
+
+    def define_model_error_matrix(self, g):
+        
+        Cf_Ps_Pl = np.zeros((self.nte, self.nte))
+        Cf_Pt = np.zeros((self.N_GRID_POINTS, self.N_GRID_POINTS))
+        
+        np.fill_diagonal(Cf_Ps_Pl, (self.P30.prior**2)*g)
+        np.fill_diagonal(Cf_Pt,self.cp_Pt_regression_nonlinear.mse_resid)
+        
+        Cf = splinalg.block_diag(Cf_Ps_Pl, Cf_Pt)
+        
+        return Cf
+    
+    def slice_by_tracer(self, to_slice, tracer):
+        
+        start_index = [i for i, el in enumerate(self.state_elements) 
+                       if tracer in el][0]
+        sliced = to_slice[
+            start_index:start_index + self.N_GRID_POINTS]
+        
+        return sliced
+
+    def equation_builder(self, species, depth):
+
+        Psi, Psip1, Psim1, Psim2 = sym.symbols(
+            'POCS_0 POCS_1 POCS_-1 POCS_-2')
+        Pli, Plip1, Plim1, Plim2 = sym.symbols(
+            'POCL_0 POCL_1 POCL_-1 POCL_-2')
+        Bm2i, B2pi, Bm1si, Bm1li, P30i, Lpi, wsi, wli, = sym.symbols(
+            'Bm2 B2p Bm1s Bm1l P30 Lp ws wl')
+        
+        h = self.MIXED_LAYER_DEPTH
+        depth = int(depth)
+        
+        if species == 'POCS':
+            if depth == 0:
+                eq = P30i + Bm2i*Pli - (wsi/h + Bm1si + B2pi*Psi)*Psi
+            else:
+                if (depth == 1 or depth == 2):
+                    multiply_by = Psip1 - Psim1
+                else:
+                    multiply_by = 3*Psi - 4*Psim1 + Psim2
+                eq = (P30i*sym.exp(-(self.GRID[depth] - h)/(Lpi))
+                      + (Bm2i*Pli) - (Bm1si + B2pi*Psi)*Psi
+                      - wsi/(2*self.GRID_STEP)*multiply_by)
+        elif species == 'POCL':
+            if depth == 0:
+                eq = B2pi*Psi**2 - (wli/h + Bm2i + Bm1li)*Pli
+            else:
+                if (depth == 1 or depth == 2):
+                    multiply_by = Plip1 - Plim1
+                else:
+                    multiply_by = 3*Pli - 4*Plim1 + Plim2
+                eq = (B2pi*Psi**2 - (Bm2i + Bm1li)*Pli
+                      - wli/(2*self.GRID_STEP)*multiply_by)
+        else: 
+            Pti = self.Pt_mean_nonlinear[
+                (self.equation_elements.index(f'POCT_{depth}')
+                 - self.nte)]
+            eq = Pti - (Psi + Pli)
+        
+        return eq
+        
+    def extract_equation_variables(self, y, depth, v, in_ATI=False):
+        
+        x_symbolic = y.free_symbols
+        x_numerical = []
+        x_indices = []
+            
+        for x in x_symbolic:
+            if '_' in x.name:  # if it's a tracer
+                tracer, relative_depth = x.name.split('_')
+                real_depth = str(int(depth) + int(relative_depth))
+                element = '_'.join([tracer, real_depth])
+            else:  # if it's a parameter
+                param = eval(f'self.{x.name}')
+                if param.dv:
+                    zone = self.which_zone(depth)
+                    element = '_'.join([param.name, zone])
+                else:
+                    element = param.name
+            element_index = self.state_elements.index(element)
+            x_indices.append(element_index)
+            if in_ATI:
+                x_numerical.append(np.exp(v[element_index]))
+            else:
+                x_numerical.append(v[element_index])
+
+        return x_symbolic, x_numerical, x_indices
+    
+    def evaluate_model_equations(self, v, in_ATI=False):
+        
+        f = np.zeros(len(self.equation_elements))
+        if in_ATI:
+            F = np.zeros((len(self.equation_elements), self.nse))
+        
+        for i, element in enumerate(self.equation_elements):
+            species, depth = element.split('_')
+            y = self.equation_builder(species, depth)
+            x_sym, x_num, x_ind = self.extract_equation_variables(
+                y, depth, v, in_ATI=in_ATI)
+            f[i] = sym.lambdify(x_sym, y)(*x_num)
+            if in_ATI:
+                for j, x in enumerate(x_sym):
+                    dy = y.diff(x)*x  # dy/d(ln(x)) = x*dy/dx
+                    dx_sym, dx_num, _ = self.extract_equation_variables(
+                        dy, depth, v, in_ATI=True)
+                    F[i,x_ind[j]] = sym.lambdify(dx_sym, dy)(*dx_num)      
+        if in_ATI:
+            return F, f
+        else:
+            return f
+    
+    def eval_symbolic_func(self, run, y, err=True, cov=True):
+        
+        x_symbolic = y.free_symbols
+        x_numerical = []
+        x_indices = []
+
+        for x in x_symbolic:
+            x_indices.append(self.state_elements.index(x.name))
+            if '_' in x.name:  # if it varies with depth
+                element, depth = x.name.split('_')
+                if element in run.tracer_results:  # if it's a tracer
+                    x_numerical.append(
+                        run.tracer_results[element]['est'][int(depth)])
+                else:  #  if it's a depth-varying parameter
+                    x_numerical.append(
+                        run.param_results[element][depth]['est'])
+            else:  # if it's a depth-independent parameter
+                x_numerical.append(run.param_results[x.name]['est'])
+
+        result = sym.lambdify(x_symbolic, y)(*x_numerical)
+        
+        if err==False:
+            return result        
+        else:
+            variance_sym = 0  # symbolic expression for variance of y
+            derivs = [y.diff(x) for x in x_symbolic]
+            cvm = run.cvm[ # sub-CVM corresponding to state elements in y
+                np.ix_(x_indices, x_indices)]  
+            for i, row in enumerate(cvm):
+                for j, _ in enumerate(row):
+                    if i > j:
+                        continue
+                    elif i == j:
+                        variance_sym += (derivs[i]**2)*cvm[i,j]
+                    else:
+                        if cov:
+                            variance_sym += 2*derivs[i]*derivs[j]*cvm[i,j]
+            variance = sym.lambdify(x_symbolic, variance_sym)(*x_numerical)
+            error = np.sqrt(variance)
+            
+            return result, error
+        
+    def ATI(self, xo_log, Co_log, Cf, run):
+        
+        def calculate_xkp1(xk, F, f):
+            
+            CoFT = Co_log @ F.T
+            FCoFT = F @ CoFT
+            FCoFTpCfi = np.linalg.inv(FCoFT + Cf)
+            xkp1 = (xo_log + CoFT @ FCoFTpCfi @ (F @ (xk - xo_log) - f))
+                    
+            return xkp1, CoFT, FCoFTpCfi
+            
+        def check_convergence(xk, xkp1):
+            
+            converged = False
+            max_change_limit = 0.01 
+            change = np.abs((np.exp(xkp1) - np.exp(xk))/np.exp(xk))
+            run.convergence_evolution.append(np.max(change))
+            if np.max(change) < max_change_limit:
+                converged = True
+            
+            return converged
+        
+        def calculate_cost(xk, f):
+                      
+            cost = ((xk - xo_log).T @ np.linalg.inv(Co_log) @ (xk - xo_log)
+                    + f.T @ np.linalg.inv(Cf) @ f)
+            
+            run.cost_evolution.append(cost)                    
+        
+        def find_solution():
+            
+            max_iterations = 25
+                                      
+            xk = xo_log  # estimate of state vector at iteration k
+            xkp1 = np.ones(len(xk))  # at iteration k+1
+                        
+            for _ in range(0, max_iterations):
+                F, f = self.evaluate_model_equations(xk, in_ATI=True)
+                xkp1, CoFT, FCoFTpCfi = calculate_xkp1(xk, F, f)
+                calculate_cost(xk, f)
+                run.converged = check_convergence(xk, xkp1)
+                if run.converged:
+                    break
+                xk = xkp1
+            
+            return F, xkp1, CoFT, FCoFTpCfi  
+         
+        def unlog_state_estimates():
+            
+            F, xkp1, CoFT, FCoFTpCfi = find_solution()
+            I = np.identity(Co_log.shape[0])
+                
+            Ckp1 = ((I - CoFT @ FCoFTpCfi @ F) @ Co_log
+                    @ (I - F.T @ FCoFTpCfi @ F @ Co_log))
+            
+            expected_vals_log = xkp1
+            variances_log = np.diag(Ckp1)
+            
+            xhat = np.exp(expected_vals_log + variances_log/2)
+            xhat_e = np.sqrt(
+                np.exp(2*expected_vals_log + variances_log)
+                *(np.exp(variances_log) - 1))
+            
+            run.cvm = np.zeros(  # covaraince matrix of posterior estimates
+                (len(xhat), len(xhat)))
+            
+            for i, row in enumerate(run.cvm):
+                for j, _ in enumerate(row):
+                    ei, ej = expected_vals_log[i], expected_vals_log[j]
+                    vi, vj = variances_log[i], variances_log[j]
+                    run.cvm[i,j] = (np.exp(ei + ej)*np.exp((vi + vj)/2)
+                                      *(np.exp(Ckp1[i,j]) - 1))
+        
+            return xhat, xhat_e
+        
+        def unpack_state_estimates():
+            
+            xhat, xhat_e = unlog_state_estimates()
+            
+            for tracer in self.tracers:
+                t = f'{tracer.species}{tracer.sf}'
+                run.tracer_results[t] = {
+                    'est': self.slice_by_tracer(xhat, t),
+                    'err': self.slice_by_tracer(xhat_e, t)}
+
+            for param in self.params:
+                p = param.name
+                if param.dv:
+                    run.param_results[p] = {
+                        zone.label: {} for zone in self.zones}
+                    for zone in self.zones:
+                        z = zone.label
+                        zone_param = '_'.join([p, z])
+                        i = self.state_elements.index(zone_param)
+                        run.param_results[p][z] = {'est': xhat[i],
+                                                   'err': xhat_e[i]}
+                else:
+                    i = self.state_elements.index(p)
+                    run.param_results[p] = {'est': xhat[i],
+                                            'err': xhat_e[i]}
+
+            return xhat
+
+        return unpack_state_estimates()        
+    
+    def calculate_total_POC(self, run):      
+        
+        for i in range(0, self.N_GRID_POINTS):
+            Ps_str = f'POCS_{i}'
+            Pl_str = f'POCL_{i}'
+            Ps, Pl = sym.symbols(f'{Ps_str} {Pl_str}')
+            Pt_est, Pt_err = self.eval_symbolic_func(run, Ps + Pl)
+            run.Pt_results['est'].append(Pt_est)
+            run.Pt_results['err'].append(Pt_err)
+        
+    def calculate_residuals(self, xo, Co, xhat, Cf, run):
+
+        x_residuals = xhat - xo
+        norm_x_residuals  = x_residuals/np.sqrt(np.diag(Co))
+        run.x_resids = norm_x_residuals
+
+        f_residuals = self.evaluate_model_equations(xhat)
+        norm_f_residuals = f_residuals/np.sqrt(np.diag(Cf))
+        run.f_resids = norm_f_residuals
+        
+        for t in run.tracer_results.keys():
+            run.tracer_results[t]['resids'] = self.slice_by_tracer(
+                f_residuals, t)
+    
+    def calculate_inventories(self, run):
+        
+        inventory_sym = {}
+        
+        for zone in self.zones:            
+            z = zone.label
+            dz = zone.integration_intervals
+            run.inventories[z] = {} 
+            run.integrated_resids[z] = {}
+            inventory_sym[z] = {}               
+            for t in run.tracer_results.keys():               
+                inventory = 0
+                int_resids = 0
+                for i, di in enumerate(zone.indices):
+                    tracer_sym = sym.symbols(f'{t}_{di}')
+                    inventory += tracer_sym*dz[i]
+                    int_resids += (run.tracer_results[t]['resids'][di]*dz[i])
+                run.inventories[z][t] = self.eval_symbolic_func(run, inventory)
+                run.integrated_resids[z][t] = int_resids
+                inventory_sym[z][t] = inventory
+                
+        return inventory_sym
+    
+    def calculate_fluxes(self, run):
+        
+        MLD = self.MIXED_LAYER_DEPTH
+        fluxes_sym = {}
+        
+        for flux in self.fluxes:
+            f = flux.name
+            run.flux_profiles[f]= {'est': [], 'err': []}
+            if flux.wrt:
+                fluxes_sym[f] = []               
+            if 'div' in f:               
+                for i in range(0, self.N_GRID_POINTS):
+                    z = self.which_zone(i)
+                    pwi = f'{flux.param}_{z}'
+                    twi = f'{flux.tracer}_{i}'
+                    w, Pi = sym.symbols(f'{pwi} {twi}')
+                    if i == 0:   
+                        y = w*Pi/MLD
+                    elif (i == 1 or i == 2):
+                        twip1 = f'{flux.tracer}_{i+1}'
+                        twim1 = f'{flux.tracer}_{i-1}'
+                        Pip1, Pim1 = sym.symbols(f'{twip1} {twim1}')
+                        y = w*(Pip1 - Pim1)/(2*self.GRID_STEP)
+                    else:
+                        twim1 = f'{flux.tracer}_{i-1}'
+                        twim2 = f'{flux.tracer}_{i-2}'
+                        Pim1, Pim2 = sym.symbols(f'{twim1} {twim2}')
+                        y = w*(3*Pi -4*Pim1 + Pim2)/(2*self.GRID_STEP)
+                    est, err = self.eval_symbolic_func(run, y)
+                    run.flux_profiles[f]['est'].append(est)
+                    run.flux_profiles[f]['err'].append(err)
+                    if flux.wrt:
+                        fluxes_sym[f].append(y)
+            else:
+                for i in range(0, self.N_GRID_POINTS):
+                    if f == 'production':
+                        p30, lp = sym.symbols('P30 Lp')
+                        y = p30*sym.exp(-(self.GRID[i] - MLD)/lp)
+                    else:
+                        z = self.which_zone(i)
+                        if f == 'sink_T':
+                            wsi = f'ws_{z}'
+                            wli = f'wl_{z}'
+                            Psi = f'POCS_{i}'
+                            Pli = f'POCL_{i}'
+                            ws, wl, Ps, Pl = sym.symbols(
+                                f'{wsi} {wli} {Psi} {Pli}')
+                            y = ws*Ps + wl*Pl
+                        else:
+                            if f == 'aggregation':
+                                order = 2
+                            else:
+                                order = 1                            
+                            pwi = f'{flux.param}_{z}'
+                            twi = f'{flux.tracer}_{i}'
+                            p, t = sym.symbols(f'{pwi} {twi}')
+                            y = p*t**order
+                    if flux.wrt:
+                        fluxes_sym[f].append(y)
+                    est, err = self.eval_symbolic_func(run, y)
+                    run.flux_profiles[f]['est'].append(est)
+                    run.flux_profiles[f]['err'].append(err) 
+            
+        return fluxes_sym
+    
+    def integrate_fluxes(self, fluxes_sym, run):
+        
+        fluxes = fluxes_sym.keys()
+        flux_integrals_sym = {}
+        
+        for zone in self.zones:
+            z = zone.label
+            dz = zone.integration_intervals
+            flux_integrals_sym[z] = {}
+            run.flux_integrals[z] = {}
+            for f in fluxes:
+                zone_expressions = [fluxes_sym[f][i] for i in zone.indices]
+                to_integrate = 0
+                for i, ex in enumerate(zone_expressions):
+                    to_integrate += ex*dz[i]
+                flux_integrals_sym[z][f] = to_integrate
+                run.flux_integrals[z][f] = self.eval_symbolic_func(
+                    run, to_integrate)
+                
+        return fluxes, flux_integrals_sym
+    
+    def calculate_timescales(self, inventory_sym, fluxes, flux_int_sym, run):
+        
+        for zone in self.zones:
+            z = zone.label
+            run.timescales[z] = {}
+            for tracer in inventory_sym[z].keys():
+                run.timescales[z][tracer] = {}
+                for flux in fluxes:
+                    if tracer in eval(f'self.{flux}.wrt'):
+                        run.timescales[z][tracer][flux] = (
+                            self.eval_symbolic_func(run,
+                                                    inventory_sym[z][tracer]
+                                                    /flux_int_sym[z][flux]))
             
     def pickle_model(self):
 
@@ -398,450 +823,27 @@ class Flux:
         
 class PyriteModelRun():
     
-    def __init__(self, model, xo, xo_log, Co, Co_log, gamma):
+    def __init__(self, gamma):
         
-        self.model = model
         self.gamma = gamma
-        
-        Cf = self.define_model_error_matrix()
-        xhat = self.ATI(xo_log, Co_log, Cf)
-            
-        self.calculate_total_POC()
-        self.calculate_residuals(xo, Co, xhat, Cf)
-        inventories = self.calculate_inventories()
-        fluxes_sym = self.calculate_fluxes()
-        flux_names, integrated_fluxes = self.integrate_fluxes(fluxes_sym)
-        self.calculate_timescales(inventories, flux_names, integrated_fluxes)
+        self.cost_evolution = []
+        self.convergence_evolution = []
+        self.converged = False
+        self.cvm = None
+        self.tracer_results = {}
+        self.param_results = {}
+        self.Pt_results = {'est':[], 'err':[]}
+        self.x_resids = None
+        self.f_resids = None
+        self.inventories = {}
+        self.integrated_resids = {}
+        self.flux_profiles = {}
+        self.flux_integrals = {}
+        self.timescales = {}
 
     def __repr__(self):
         
         return f'PyriteModelRun(gamma={self.gamma})'
-
-    def which_zone(self, depth):
-
-        if int(depth) in self.model.LEZ.indices:
-            return 'LEZ'
-        return 'UMZ'
-
-    def define_model_error_matrix(self):
-        
-        Cf_Ps_Pl = np.zeros((self.model.nte, self.model.nte))
-        Cf_Pt = np.zeros((self.model.N_GRID_POINTS, self.model.N_GRID_POINTS))
-        
-        np.fill_diagonal(Cf_Ps_Pl, (self.model.P30.prior**2)*self.gamma)
-        np.fill_diagonal(
-            Cf_Pt,self.model.cp_Pt_regression_nonlinear.mse_resid)
-        
-        Cf = splinalg.block_diag(Cf_Ps_Pl, Cf_Pt)
-        
-        return Cf
-    
-    def slice_by_tracer(self, to_slice, tracer):
-        
-        start_index = [i for i, el in enumerate(self.model.state_elements) 
-                       if tracer in el][0]
-        sliced = to_slice[
-            start_index:start_index + self.model.N_GRID_POINTS]
-        
-        return sliced
-
-    def equation_builder(self, species, depth):
-
-        Psi, Psip1, Psim1, Psim2 = sym.symbols(
-            'POCS_0 POCS_1 POCS_-1 POCS_-2')
-        Pli, Plip1, Plim1, Plim2 = sym.symbols(
-            'POCL_0 POCL_1 POCL_-1 POCL_-2')
-        Bm2i, B2pi, Bm1si, Bm1li, P30i, Lpi, wsi, wli, = sym.symbols(
-            'Bm2 B2p Bm1s Bm1l P30 Lp ws wl')
-        
-        h = self.model.MIXED_LAYER_DEPTH
-        depth = int(depth)
-        
-        if species == 'POCS':
-            if depth == 0:
-                eq = P30i + Bm2i*Pli - (wsi/h + Bm1si + B2pi*Psi)*Psi
-            else:
-                if (depth == 1 or depth == 2):
-                    multiply_by = Psip1 - Psim1
-                else:
-                    multiply_by = 3*Psi - 4*Psim1 + Psim2
-                eq = (P30i*sym.exp(-(self.model.GRID[depth] - h)/(Lpi))
-                      + (Bm2i*Pli) - (Bm1si + B2pi*Psi)*Psi
-                      - wsi/(2*self.model.GRID_STEP)*multiply_by)
-        elif species == 'POCL':
-            if depth == 0:
-                eq = B2pi*Psi**2 - (wli/h + Bm2i + Bm1li)*Pli
-            else:
-                if (depth == 1 or depth == 2):
-                    multiply_by = Plip1 - Plim1
-                else:
-                    multiply_by = 3*Pli - 4*Plim1 + Plim2
-                eq = (B2pi*Psi**2 - (Bm2i + Bm1li)*Pli
-                      - wli/(2*self.model.GRID_STEP)*multiply_by)
-        else: 
-            Pti = self.model.Pt_mean_nonlinear[
-                (self.model.equation_elements.index(f'POCT_{depth}')
-                 - self.model.nte)]
-            eq = Pti - (Psi + Pli)
-        
-        return eq
-        
-    def extract_equation_variables(self, y, depth, v, in_ATI=False):
-        
-        x_symbolic = y.free_symbols
-        x_numerical = []
-        x_indices = []
-            
-        for x in x_symbolic:
-            if '_' in x.name:  # if it's a tracer
-                tracer, relative_depth = x.name.split('_')
-                real_depth = str(int(depth) + int(relative_depth))
-                element = '_'.join([tracer, real_depth])
-            else:  # if it's a parameter
-                param = eval(f'self.model.{x.name}')
-                if param.dv:
-                    zone = self.which_zone(depth)
-                    element = '_'.join([param.name, zone])
-                else:
-                    element = param.name
-            element_index = self.model.state_elements.index(element)
-            x_indices.append(element_index)
-            if in_ATI:
-                x_numerical.append(np.exp(v[element_index]))
-            else:
-                x_numerical.append(v[element_index])
-
-        return x_symbolic, x_numerical, x_indices
-    
-    def evaluate_model_equations(self, v, in_ATI=False):
-        
-        f = np.zeros(len(self.model.equation_elements))
-        if in_ATI:
-            F = np.zeros((len(self.model.equation_elements), self.model.nse))
-        
-        for i, element in enumerate(self.model.equation_elements):
-            species, depth = element.split('_')
-            y = self.equation_builder(species, depth)
-            x_sym, x_num, x_ind = self.extract_equation_variables(
-                y, depth, v, in_ATI=in_ATI)
-            f[i] = sym.lambdify(x_sym, y)(*x_num)
-            if in_ATI:
-                for j, x in enumerate(x_sym):
-                    dy = y.diff(x)*x  # dy/d(ln(x)) = x*dy/dx
-                    dx_sym, dx_num, _ = self.extract_equation_variables(
-                        dy, depth, v, in_ATI=True)
-                    F[i,x_ind[j]] = sym.lambdify(dx_sym, dy)(*dx_num)      
-        if in_ATI:
-            return F, f
-        else:
-            return f
-    
-    def eval_symbolic_func(self, y, err=True, cov=True):
-        
-        x_symbolic = y.free_symbols
-        x_numerical = []
-        x_indices = []
-
-        for x in x_symbolic:
-            x_indices.append(self.model.state_elements.index(x.name))
-            if '_' in x.name:  # if it varies with depth
-                element, depth = x.name.split('_')
-                if element in self.tracer_results:  # if it's a tracer
-                    x_numerical.append(
-                        self.tracer_results[element]['est'][int(depth)])
-                else:  #  if it's a depth-varying parameter
-                    x_numerical.append(
-                        self.param_results[element][depth]['est'])
-            else:  # if it's a depth-independent parameter
-                x_numerical.append(self.param_results[x.name]['est'])
-
-        result = sym.lambdify(x_symbolic, y)(*x_numerical)
-        
-        if err==False:
-            return result        
-        else:
-            variance_sym = 0  # symbolic expression for variance of y
-            derivs = [y.diff(x) for x in x_symbolic]
-            cvm = self.cvm[ # sub-CVM corresponding to state elements in y
-                np.ix_(x_indices, x_indices)]  
-            for i, row in enumerate(cvm):
-                for j, _ in enumerate(row):
-                    if i > j:
-                        continue
-                    elif i == j:
-                        variance_sym += (derivs[i]**2)*cvm[i,j]
-                    else:
-                        if cov:
-                            variance_sym += 2*derivs[i]*derivs[j]*cvm[i,j]
-            variance = sym.lambdify(x_symbolic, variance_sym)(*x_numerical)
-            error = np.sqrt(variance)
-            
-            return result, error
-        
-    def ATI(self, xo_log, Co_log, Cf):
-        
-        def calculate_xkp1(xk, F, f):
-            
-            CoFT = Co_log @ F.T
-            FCoFT = F @ CoFT
-            FCoFTpCfi = np.linalg.inv(FCoFT + Cf)
-            xkp1 = (xo_log + CoFT @ FCoFTpCfi @ (F @ (xk - xo_log) - f))
-                    
-            return xkp1, CoFT, FCoFTpCfi
-            
-        def check_convergence(xk, xkp1):
-            
-            converged = False
-            max_change_limit = 0.01 
-            change = np.abs((np.exp(xkp1) - np.exp(xk))/np.exp(xk))
-            self.convergence_evolution.append(np.max(change))
-            if np.max(change) < max_change_limit:
-                converged = True
-            
-            return converged
-        
-        def calculate_cost(xk, f):
-                      
-            cost = ((xk - xo_log).T @ np.linalg.inv(Co_log) @ (xk - xo_log)
-                    + f.T @ np.linalg.inv(Cf) @ f)
-            
-            self.cost_evolution.append(cost)                    
-        
-        def find_solution():
-            
-            max_iterations = 25
-            self.cost_evolution = []
-            self.convergence_evolution = []
-            self.converged = False
-                                      
-            xk = xo_log  # estimate of state vector at iteration k
-            xkp1 = np.ones(len(xk))  # at iteration k+1
-                        
-            for _ in range(0, max_iterations):
-                F, f = self.evaluate_model_equations(xk, in_ATI=True)
-                xkp1, CoFT, FCoFTpCfi = calculate_xkp1(xk, F, f)
-                calculate_cost(xk, f)
-                self.converged = check_convergence(xk, xkp1)
-                if self.converged:
-                    break
-                xk = xkp1
-            
-            return F, xkp1, CoFT, FCoFTpCfi  
-         
-        def unlog_state_estimates():
-            
-            F, xkp1, CoFT, FCoFTpCfi = find_solution()
-            I = np.identity(Co_log.shape[0])
-                
-            Ckp1 = ((I - CoFT @ FCoFTpCfi @ F) @ Co_log
-                    @ (I - F.T @ FCoFTpCfi @ F @ Co_log))
-            
-            expected_vals_log = xkp1
-            variances_log = np.diag(Ckp1)
-            
-            xhat = np.exp(expected_vals_log + variances_log/2)
-            xhat_e = np.sqrt(
-                np.exp(2*expected_vals_log + variances_log)
-                *(np.exp(variances_log) - 1))
-            
-            self.cvm = np.zeros(  # covaraince matrix of posterior estimates
-                (len(xhat), len(xhat)))
-            
-            for i, row in enumerate(self.cvm):
-                for j, _ in enumerate(row):
-                    ei, ej = expected_vals_log[i], expected_vals_log[j]
-                    vi, vj = variances_log[i], variances_log[j]
-                    self.cvm[i,j] = (np.exp(ei + ej)*np.exp((vi + vj)/2)
-                                      *(np.exp(Ckp1[i,j]) - 1))
-        
-            return xhat, xhat_e
-        
-        def unpack_state_estimates():
-            
-            xhat, xhat_e = unlog_state_estimates()
-            
-            self.tracer_results = {}
-            for tracer in self.model.tracers:
-                t = f'{tracer.species}{tracer.sf}'
-                self.tracer_results[t] = {
-                    'est': self.slice_by_tracer(xhat, t),
-                    'err': self.slice_by_tracer(xhat_e, t)}
-
-            self.param_results = {}
-            for param in self.model.params:
-                p = param.name
-                if param.dv:
-                    self.param_results[p] = {
-                        zone.label: {} for zone in self.model.zones}
-                    for zone in self.model.zones:
-                        z = zone.label
-                        zone_param = '_'.join([p, z])
-                        i = self.model.state_elements.index(zone_param)
-                        self.param_results[p][z] = {'est': xhat[i],
-                                                    'err': xhat_e[i]}
-                else:
-                    i = self.model.state_elements.index(p)
-                    self.param_results[p] = {'est': xhat[i],
-                                             'err': xhat_e[i]}
-
-            return xhat
-
-        return unpack_state_estimates()        
-    
-    def calculate_total_POC(self):
-        
-        self.Pt = {'est':[], 'err':[]}
-        
-        for i in range(0, self.model.N_GRID_POINTS):
-            Ps_str = f'POCS_{i}'
-            Pl_str = f'POCL_{i}'
-            Ps, Pl = sym.symbols(f'{Ps_str} {Pl_str}')
-            Pt_est, Pt_err = self.eval_symbolic_func(Ps + Pl)
-            self.Pt['est'].append(Pt_est)
-            self.Pt['err'].append(Pt_err)
-        
-    def calculate_residuals(self, xo, Co, xhat, Cf):
-
-        x_residuals = xhat - xo
-        norm_x_residuals  = x_residuals/np.sqrt(np.diag(Co))
-        self.x_resids = norm_x_residuals
-
-        f_residuals = self.evaluate_model_equations(xhat)
-        norm_f_residuals = f_residuals/np.sqrt(np.diag(Cf))
-        self.f_resids = norm_f_residuals
-        
-        for t in self.tracer_results.keys():
-            self.tracer_results[t]['resids'] = self.slice_by_tracer(
-                f_residuals, t)
-    
-    def calculate_inventories(self):
-        
-        self.inventories = {}
-        self.integrated_resids = {}
-        inventory_sym = {}
-        
-        for zone in self.model.zones:            
-            z = zone.label
-            dz = zone.integration_intervals
-            self.inventories[z] = {} 
-            self.integrated_resids[z] = {}
-            inventory_sym[z] = {}               
-            for t in self.tracer_results.keys():               
-                inventory = 0
-                int_resids = 0
-                for i, di in enumerate(zone.indices):
-                    tracer_sym = sym.symbols(f'{t}_{di}')
-                    inventory += tracer_sym*dz[i]
-                    int_resids += (self.tracer_results[t]['resids'][di]*dz[i])
-                self.inventories[z][t] = self.eval_symbolic_func(inventory)
-                self.integrated_resids[z][t] = int_resids
-                inventory_sym[z][t] = inventory
-                
-        return inventory_sym
-    
-    def calculate_fluxes(self):
-        
-        self.flux_profiles = {}
-        MLD = self.model.MIXED_LAYER_DEPTH
-        fluxes_sym = {}
-        
-        for flux in self.model.fluxes:
-            f = flux.name
-            self.flux_profiles[f]= {'est': [], 'err': []}
-            if flux.wrt:
-                fluxes_sym[f] = []               
-            if 'div' in f:               
-                for i in range(0, self.model.N_GRID_POINTS):
-                    z = self.which_zone(i)
-                    pwi = f'{flux.param}_{z}'
-                    twi = f'{flux.tracer}_{i}'
-                    w, Pi = sym.symbols(f'{pwi} {twi}')
-                    if i == 0:   
-                        y = w*Pi/MLD
-                    elif (i == 1 or i == 2):
-                        twip1 = f'{flux.tracer}_{i+1}'
-                        twim1 = f'{flux.tracer}_{i-1}'
-                        Pip1, Pim1 = sym.symbols(f'{twip1} {twim1}')
-                        y = w*(Pip1 - Pim1)/(2*self.model.GRID_STEP)
-                    else:
-                        twim1 = f'{flux.tracer}_{i-1}'
-                        twim2 = f'{flux.tracer}_{i-2}'
-                        Pim1, Pim2 = sym.symbols(f'{twim1} {twim2}')
-                        y = w*(3*Pi -4*Pim1 + Pim2)/(2*self.model.GRID_STEP)
-                    est, err = self.eval_symbolic_func(y)
-                    self.flux_profiles[f]['est'].append(est)
-                    self.flux_profiles[f]['err'].append(err)
-                    if flux.wrt:
-                        fluxes_sym[f].append(y)
-            else:
-                for i in range(0, self.model.N_GRID_POINTS):
-                    if f == 'production':
-                        p30, lp = sym.symbols('P30 Lp')
-                        y = p30*sym.exp(-(self.model.GRID[i] - MLD)/lp)
-                    else:
-                        z = self.which_zone(i)
-                        if f == 'sink_T':
-                            wsi = f'ws_{z}'
-                            wli = f'wl_{z}'
-                            Psi = f'POCS_{i}'
-                            Pli = f'POCL_{i}'
-                            ws, wl, Ps, Pl = sym.symbols(
-                                f'{wsi} {wli} {Psi} {Pli}')
-                            y = ws*Ps + wl*Pl
-                        else:
-                            if f == 'aggregation':
-                                order = 2
-                            else:
-                                order = 1                            
-                            pwi = f'{flux.param}_{z}'
-                            twi = f'{flux.tracer}_{i}'
-                            p, t = sym.symbols(f'{pwi} {twi}')
-                            y = p*t**order
-                    if flux.wrt:
-                        fluxes_sym[f].append(y)
-                    est, err = self.eval_symbolic_func(y)
-                    self.flux_profiles[f]['est'].append(est)
-                    self.flux_profiles[f]['err'].append(err) 
-            
-        return fluxes_sym
-    
-    def integrate_fluxes(self, fluxes_sym):
-        
-        fluxes = fluxes_sym.keys()
-        flux_integrals_sym = {}
-        self.flux_integrals = {}
-        
-        for zone in self.model.zones:
-            z = zone.label
-            dz = zone.integration_intervals
-            flux_integrals_sym[z] = {}
-            self.flux_integrals[z] = {}
-            for f in fluxes:
-                zone_expressions = [fluxes_sym[f][i] for i in zone.indices]
-                to_integrate = 0
-                for i, ex in enumerate(zone_expressions):
-                    to_integrate += ex*dz[i]
-                flux_integrals_sym[z][f] = to_integrate
-                self.flux_integrals[z][f] = self.eval_symbolic_func(
-                    to_integrate)
-                
-        return fluxes, flux_integrals_sym
-    
-    def calculate_timescales(self, inventory_sym, fluxes, flux_integrals_sym):
-        
-        self.timescales = {}
-        
-        for zone in self.model.zones:
-            z = zone.label
-            self.timescales[z] = {}
-            for tracer in inventory_sym[z].keys():
-                self.timescales[z][tracer] = {}
-                for flux in fluxes:
-                    if tracer in eval(f'self.model.{flux}.wrt'):
-                        self.timescales[z][tracer][flux] = (
-                            self.eval_symbolic_func(
-                                inventory_sym[z][tracer]
-                                /flux_integrals_sym[z][flux]))
                                                    
 class PyritePlotter:
 
@@ -1250,10 +1252,10 @@ class PyritePlotter:
              + np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
             color=self.BLUE,alpha=0.25,zorder=2)
         ax3.errorbar(
-            run.Pt['est'], self.model.GRID, fmt='o', xerr=run.Pt['err'],
-            ecolor=self.ORANGE, elinewidth=0.5, c=self.ORANGE, ms=3,
-            capsize=2, label=invname, fillstyle='none', zorder=3,
-            markeredgewidth=0.5)
+            run.Pt_results['est'], self.model.GRID, fmt='o',
+            xerr=run.Pt_results['err'], ecolor=self.ORANGE, elinewidth=0.5,
+            c=self.ORANGE, ms=3, capsize=2, label=invname, fillstyle='none',
+            zorder=3, markeredgewidth=0.5)
         
         ax1.set_xticks([0,1,2,3])
         ax2.set_xticks([0,0.05,0.1,0.15])
