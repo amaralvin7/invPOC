@@ -31,7 +31,7 @@ import sys
 class PyriteModel:
 
     def __init__(self, gammas=[0.02, 0.05, 0.1, 0.5, 1],
-                 pickle_into='out/pyrite_Amaral21a.pkl'):
+                 pickle_into='out/Amaral21a_modelruns.pkl'):
 
         self.gammas = gammas
         self.pickled = pickle_into
@@ -53,7 +53,7 @@ class PyriteModel:
         self.define_fluxes()
         self.process_cp_data()
         self.define_zones()
-        
+
         self.objective_interpolation()
         xo, xo_log, Co, Co_log = self.define_prior_vector_and_cov_matrix()
         self.define_equation_elements()
@@ -66,12 +66,13 @@ class PyriteModel:
                 
             self.calculate_total_POC(run)
             self.calculate_residuals(xo, Co, xhat, Cf, run)
-            inventories = self.calculate_inventories(run)
-            fluxes_sym = self.calculate_fluxes(run)
-            flux_names, integrated_fluxes = self.integrate_fluxes(
-                fluxes_sym, run)
-            self.calculate_timescales(
-                inventories, flux_names, integrated_fluxes, run)
+            if str(self) != 'PyriteTwinX object':
+                inventories = self.calculate_inventories(run)
+                fluxes_sym = self.calculate_fluxes(run)
+                flux_names, integrated_fluxes = self.integrate_fluxes(
+                    fluxes_sym, run)
+                self.calculate_timescales(
+                    inventories, flux_names, integrated_fluxes, run)
             self.model_runs.append(run)
 
         self.pickle_model()
@@ -83,7 +84,6 @@ class PyriteModel:
     def load_data(self):
         
         self.data = pd.read_excel('pyrite_data.xlsx',sheet_name=None)
-        self.sample_depths = self.data['poc_means']['depth']
     
     def define_tracers(self):
         
@@ -170,8 +170,8 @@ class PyriteModel:
     
     def define_zones(self):
         
-        self.LEZ = Zone(self, op.lt, 'LEZ')  # lower euphotic zone
-        self.UMZ = Zone(self, op.gt, 'UMZ')  # upper mesopelagic zone
+        self.LEZ = GridZone(self, op.lt, 'LEZ')  # lower euphotic zone
+        self.UMZ = GridZone(self, op.gt, 'UMZ')  # upper mesopelagic zone
         self.zones = (self.LEZ, self.UMZ)
 
     def process_cp_data(self):
@@ -195,12 +195,16 @@ class PyriteModel:
 
         cp_bycast_to_mean = cp_bycast.loc[self.GRID-1,
                                           cast_match_table['ctd_cast']]
-        self.cp_mean = cp_bycast_to_mean.mean(axis=1)
-        self.Pt_mean_nonlinear = (
-            self.cp_Pt_regression_nonlinear.get_prediction(
-                exog=dict(cp=self.cp_mean)).predicted_mean)
+        cp_mean = cp_bycast_to_mean.mean(axis=1)
+        
         self.Pt_mean_linear = self.cp_Pt_regression_linear.get_prediction(
-            exog=dict(cp=self.cp_mean)).predicted_mean
+            exog=dict(cp=cp_mean)).predicted_mean
+        self.Pt_mean_nonlinear = (
+                self.cp_Pt_regression_nonlinear.get_prediction(
+                    exog=dict(cp=cp_mean)).predicted_mean)
+        
+        if str(self) != 'PyriteTwinX object':
+            self.Pt_constraint = self.Pt_mean_nonlinear
 
     def objective_interpolation(self):
 
@@ -210,8 +214,8 @@ class PyriteModel:
             n = len(list2)
             R = np.zeros((m,n))
 
-            for i in np.arange(0,m):
-                for j in np.arange(0,n):
+            for i in range(m):
+                for j in range(n):
                     R[i,j] = np.exp(-np.abs(list1[i]-list2[j])/L)
 
             return R
@@ -307,7 +311,7 @@ class PyriteModel:
         for i, row in enumerate(Co):
             for j, val in enumerate(row):
                 Co_log[i,j] = np.log(1 + val/(xo[i]*xo[j]))
-        
+
         return xo, xo_log, Co, Co_log
      
     def define_equation_elements(self):
@@ -316,6 +320,8 @@ class PyriteModel:
         
         for i in range(0,self.N_GRID_POINTS):
             self.equation_elements.append(f'POCT_{i}')
+        
+        self.nee = len(self.equation_elements)
 
     def which_zone(self, depth):
 
@@ -344,48 +350,61 @@ class PyriteModel:
         
         return sliced
 
-    def equation_builder(self, species, depth):
+    def equation_builder(self, species, depth, params_known=None):
 
         Psi, Psip1, Psim1, Psim2 = sym.symbols(
             'POCS_0 POCS_1 POCS_-1 POCS_-2')
         Pli, Plip1, Plim1, Plim2 = sym.symbols(
             'POCL_0 POCL_1 POCL_-1 POCL_-2')
-        Bm2i, B2pi, Bm1si, Bm1li, P30i, Lpi, wsi, wli, = sym.symbols(
-            'Bm2 B2p Bm1s Bm1l P30 Lp ws wl')
+        
+        if not params_known:
+            Bm2, B2p, Bm1s, Bm1l, P30, Lp, ws, wl, = sym.symbols(
+                'Bm2 B2p Bm1s Bm1l P30 Lp ws wl')
+        else:
+            z = self.which_zone(depth)
+            Bm2 = params_known['Bm2'][z]['est']
+            B2p = params_known['B2p'][z]['est']
+            Bm1s = params_known['Bm1s'][z]['est']
+            Bm1l = params_known['Bm1l'][z]['est']
+            P30 = params_known['P30']['est']
+            Lp = params_known['Lp']['est']
+            ws = params_known['ws'][z]['est']
+            wl = params_known['wl'][z]['est']
         
         h = self.MIXED_LAYER_DEPTH
         depth = int(depth)
         
         if species == 'POCS':
             if depth == 0:
-                eq = P30i + Bm2i*Pli - (wsi/h + Bm1si + B2pi*Psi)*Psi
+                eq = Bm2*Pli - (ws/h + Bm1s + B2p*Psi)*Psi
             else:
                 if (depth == 1 or depth == 2):
                     multiply_by = Psip1 - Psim1
                 else:
                     multiply_by = 3*Psi - 4*Psim1 + Psim2
-                eq = (P30i*sym.exp(-(self.GRID[depth] - h)/(Lpi))
-                      + (Bm2i*Pli) - (Bm1si + B2pi*Psi)*Psi
-                      - wsi/(2*self.GRID_STEP)*multiply_by)
+                eq = ((Bm2*Pli) - (Bm1s + B2p*Psi)*Psi
+                      - ws/(2*self.GRID_STEP)*multiply_by)
+            if not params_known:
+                eq += P30*sym.exp(-(self.GRID[depth] - h)/(Lp))
         elif species == 'POCL':
             if depth == 0:
-                eq = B2pi*Psi**2 - (wli/h + Bm2i + Bm1li)*Pli
+                eq = B2p*Psi**2 - (wl/h + Bm2 + Bm1l)*Pli
             else:
                 if (depth == 1 or depth == 2):
                     multiply_by = Plip1 - Plim1
                 else:
                     multiply_by = 3*Pli - 4*Plim1 + Plim2
-                eq = (B2pi*Psi**2 - (Bm2i + Bm1li)*Pli
-                      - wli/(2*self.GRID_STEP)*multiply_by)
-        else: 
-            Pti = self.Pt_mean_nonlinear[
+                eq = (B2p*Psi**2 - (Bm2 + Bm1l)*Pli
+                      - wl/(2*self.GRID_STEP)*multiply_by)
+        else:
+            Pti = self.Pt_constraint[
                 (self.equation_elements.index(f'POCT_{depth}')
                  - self.nte)]
             eq = Pti - (Psi + Pli)
         
         return eq
         
-    def extract_equation_variables(self, y, depth, v, in_ATI=False):
+    def extract_equation_variables(self, y, depth, v, lognormal=False):
         
         x_symbolic = y.free_symbols
         x_numerical = []
@@ -405,33 +424,43 @@ class PyriteModel:
                     element = param.name
             element_index = self.state_elements.index(element)
             x_indices.append(element_index)
-            if in_ATI:
+            if lognormal:
                 x_numerical.append(np.exp(v[element_index]))
             else:
                 x_numerical.append(v[element_index])
 
         return x_symbolic, x_numerical, x_indices
     
-    def evaluate_model_equations(self, v, in_ATI=False):
+    def evaluate_model_equations(
+            self, v, return_F=False, lognormal=False, params_known=None):
         
-        f = np.zeros(len(self.equation_elements))
-        if in_ATI:
-            F = np.zeros((len(self.equation_elements), self.nse))
-        
-        for i, element in enumerate(self.equation_elements):
+        if params_known:
+            f = np.zeros(self.nte)
+            F = np.zeros((self.nte, self.nte))
+            eq_elements = self.equation_elements[:self.nte]
+        else:
+            f = np.zeros(self.nee)
+            F = np.zeros((self.nee, self.nse))
+            eq_elements = self.equation_elements
+          
+        for i, element in enumerate(eq_elements):
             species, depth = element.split('_')
-            y = self.equation_builder(species, depth)
+            y = self.equation_builder(
+                species, depth, params_known=params_known)
             x_sym, x_num, x_ind = self.extract_equation_variables(
-                y, depth, v, in_ATI=in_ATI)
+                y, depth, v, lognormal=lognormal)
             f[i] = sym.lambdify(x_sym, y)(*x_num)
-            if in_ATI:
+            if return_F:
                 for j, x in enumerate(x_sym):
-                    dy = y.diff(x)*x  # dy/d(ln(x)) = x*dy/dx
+                    if lognormal:
+                        dy = y.diff(x)*x  # dy/d(ln(x)) = x*dy/dx
+                    else:
+                        dy = y.diff(x)
                     dx_sym, dx_num, _ = self.extract_equation_variables(
-                        dy, depth, v, in_ATI=True)
+                        dy, depth, v, lognormal=lognormal)
                     F[i,x_ind[j]] = sym.lambdify(dx_sym, dy)(*dx_num)      
-        if in_ATI:
-            return F, f
+        if return_F:
+            return f, F
         else:
             return f
     
@@ -479,7 +508,7 @@ class PyriteModel:
         
     def ATI(self, xo_log, Co_log, Cf, run):
         
-        def calculate_xkp1(xk, F, f):
+        def calculate_xkp1(xk, f, F):
             
             CoFT = Co_log @ F.T
             FCoFT = F @ CoFT
@@ -513,9 +542,10 @@ class PyriteModel:
             xk = xo_log  # estimate of state vector at iteration k
             xkp1 = np.ones(len(xk))  # at iteration k+1
                         
-            for _ in range(0, max_iterations):
-                F, f = self.evaluate_model_equations(xk, in_ATI=True)
-                xkp1, CoFT, FCoFTpCfi = calculate_xkp1(xk, F, f)
+            for _ in range(max_iterations):
+                f, F = self.evaluate_model_equations(
+                    xk, return_F=True, lognormal=True)
+                xkp1, CoFT, FCoFTpCfi = calculate_xkp1(xk, f, F)
                 calculate_cost(xk, f)
                 run.converged = check_convergence(xk, xkp1)
                 if run.converged:
@@ -584,7 +614,7 @@ class PyriteModel:
     
     def calculate_total_POC(self, run):      
         
-        for i in range(0, self.N_GRID_POINTS):
+        for i in range(self.N_GRID_POINTS):
             Ps_str = f'POCS_{i}'
             Pl_str = f'POCL_{i}'
             Ps, Pl = sym.symbols(f'{Ps_str} {Pl_str}')
@@ -640,7 +670,7 @@ class PyriteModel:
             if flux.wrt:
                 fluxes_sym[f] = []               
             if 'div' in f:               
-                for i in range(0, self.N_GRID_POINTS):
+                for i in range(self.N_GRID_POINTS):
                     z = self.which_zone(i)
                     pwi = f'{flux.param}_{z}'
                     twi = f'{flux.tracer}_{i}'
@@ -663,7 +693,7 @@ class PyriteModel:
                     if flux.wrt:
                         fluxes_sym[f].append(y)
             else:
-                for i in range(0, self.N_GRID_POINTS):
+                for i in range(self.N_GRID_POINTS):
                     if f == 'production':
                         p30, lp = sym.symbols('P30 Lp')
                         y = p30*sym.exp(-(self.GRID[i] - MLD)/lp)
@@ -763,7 +793,7 @@ class Param:
 
         return f'Param({self.name})'
 
-class Zone:
+class GridZone:
 
     def __init__(self, model, operator, label):
 
@@ -777,7 +807,7 @@ class Zone:
 
     def __repr__(self):
 
-        return f'Zone({self.label})'
+        return f'GridZone({self.label})'
     
     def calculate_length_scales(self, fraction):
 
@@ -844,36 +874,184 @@ class PyriteModelRun():
     def __repr__(self):
         
         return f'PyriteModelRun(gamma={self.gamma})'
-                                                   
-class PyritePlotter:
+
+class PyriteTwinX(PyriteModel):
+
+    def __init__(self, gammas=[0.02],
+                 pickled_model='out/Amaral21a_modelruns.pkl',
+                 pickle_into='out/Amaral21a_twinX.pkl'):
+        self.pickled_model = pickled_model
+        super().__init__(gammas, pickle_into)
+
+    def __repr__(self):
+
+        return 'PyriteTwinX object'
+  
+    def load_data(self):
+        
+        with open(self.pickled_model, 'rb') as file:
+            model = pickle.load(file)
+            
+        self.data = model.data.copy()
+        tracer_data = self.data['poc_means'].copy()
+        sample_indices = [
+            np.where(model.GRID == i)[0][0] for i in tracer_data['depth']]
+
+        self.get_target_values(model, self.gammas[0])
+        x = self.generate_pseudodata(model)
+
+        Ps_re = tracer_data['SSF_se']/tracer_data['SSF_mean']
+        Pl_re = tracer_data['LSF_se']/tracer_data['LSF_mean']
+        
+        Ps_pseudo = model.slice_by_tracer(x, 'POCS')
+        Pl_pseudo = model.slice_by_tracer(x, 'POCL')
+        self.Pt_constraint = Ps_pseudo + Pl_pseudo
+        
+        tracer_data['SSF_mean'] = Ps_pseudo[sample_indices]
+        tracer_data['LSF_mean'] = Pl_pseudo[sample_indices]
+        
+        tracer_data['SSF_se'] = tracer_data['SSF_mean']*Ps_re
+        tracer_data['LSF_se'] = tracer_data['LSF_mean']*Pl_re
+        
+        self.data['poc_means'] = tracer_data.copy()
+
+    def get_target_values(self, model, gamma):
+
+        for run in model.model_runs:
+            if run.gamma == gamma:
+                reference_run = run
+                break
+            else:
+                continue
+        
+        self.target_values = reference_run.param_results.copy()
+    
+    def generate_pseudodata(self, model):
+           
+        def generate_linear_solution():
+            
+            A = np.zeros((model.nte, model.nte))
+            b = np.zeros(model.nte)
+            element_index = model.equation_elements
+            
+            for i, element in enumerate(element_index[:model.nte]):
+                
+                species, depth = element.split('_')
+                d = int(depth)
+                z = model.which_zone(depth)
+                H = model.MIXED_LAYER_DEPTH
+                dz = model.GRID_STEP
+                
+                iPsi = element_index.index(f'POCS_{depth}')
+                iPli = element_index.index(f'POCL_{depth}')
+                
+                B2 = 0.8/model.DAYS_PER_YEAR
+                Bm2 = self.target_values['Bm2'][z]['est']
+                Bm1s = self.target_values['Bm1s'][z]['est']
+                Bm1l = self.target_values['Bm1l'][z]['est']
+                P30 = self.target_values['P30']['est']
+                Lp = self.target_values['Lp']['est']
+                ws = self.target_values['ws'][z]['est']
+                wl = self.target_values['wl'][z]['est']
+                
+                if species == 'POCS':
+                    A[i,iPli] = -Bm2
+                    b[i] = P30*np.exp(-(model.GRID[d] - H)/Lp)
+                    if d == 0:
+                        A[i, iPsi] = (ws/H)+ Bm1s + B2
+                    elif (d == 1 or d == 2):
+                        iPsip1 = element_index.index(f'POCS_{d+1}')
+                        iPsim1 = element_index.index(f'POCS_{d-1}')
+                        A[i,iPsip1] = ws/(2*dz)
+                        A[i,iPsi] = Bm1s + B2
+                        A[i,iPsim1] = -ws/(2*dz)
+                    else:
+                        iPsim1 = element_index.index(f'POCS_{d-1}')
+                        iPsim2 = element_index.index(f'POCS_{d-2}')
+                        A[i,iPsi] = (3*ws)/(2*dz) + Bm1s + B2
+                        A[i,iPsim1] = (-2*ws)/dz
+                        A[i,iPsim2] = ws/(2*dz)
+                else:       
+                    A[i,iPsi] = -B2
+                    if d == 0:
+                        A[i,iPli] = (wl/H)+ Bm1l + Bm2
+                    elif (d == 1 or d == 2):
+                        iPlip1 = element_index.index(f'POCL_{d+1}')
+                        iPlim1 = element_index.index(f'POCL_{d-1}')
+                        A[i,iPlip1] = wl/(2*dz)
+                        A[i,iPli] = Bm2 + Bm1l
+                        A[i,iPlim1] = -wl/(2*dz)
+                    else:
+                        iPlim1 = element_index.index(f'POCL_{d-1}')
+                        iPlim2 = element_index.index(f'POCL_{d-2}')           
+                        A[i,iPli] = (3*wl)/(2*dz) + Bm2 + Bm1l
+                        A[i,iPlim1] = (-2*wl)/dz
+                        A[i,iPlim2] = wl/(2*dz)
+            
+            x = np.linalg.solve(A, b)
+    
+            return x
+        
+        def generate_nonlinear_solution():
+            
+            max_iterations = 20
+            max_change_limit = 0.01
+            xk = generate_linear_solution()
+
+            P30 = self.target_values['P30']['est']
+            Lp = self.target_values['Lp']['est']
+            H = model.MIXED_LAYER_DEPTH
+            b = np.array([-P30*np.exp(-(model.GRID[i] - H)/(Lp))
+                          for i in range(model.N_GRID_POINTS)])
+            b = np.pad(b, (0, model.nte - model.N_GRID_POINTS))
+
+            for _ in range(max_iterations):
+                f, F = model.evaluate_model_equations(
+                    xk, return_F=True, params_known=self.target_values)
+                xkp1 = np.linalg.solve(F, (F @ xk - f + b))
+                change = np.abs((xkp1 - xk)/xk)
+                if np.max(change) < max_change_limit:
+                    break
+                xk = xkp1
+            
+            return xkp1
+        
+        return generate_nonlinear_solution()
+
+    def define_fluxes(self):    
+        pass
+
+    def calculate_inventories(self):        
+        pass
+
+    def calculate_fluxes(self):        
+        pass
+
+    def integrate_fluxes(self):        
+        pass
+
+    def calculate_timescales(self):        
+        pass
+
+class PlotterTwinX():
 
     def __init__(self, pickled_model):
         
         with open(pickled_model, 'rb') as file:
             self.model = pickle.load(file)
-
+        
+        if str(self.model) == 'PyriteTwinX object':
+            self.is_twinX = True
+        else:
+            self.is_twinX = False
+            
         self.define_colors()
-        self.hydrography()
-        self.cp_Pt_regression()
-        self.Pt_estimate_comparison()
-        self.zone_length_scales()
-        self.poc_data()
         
         for run in self.model.model_runs:
             self.cost_and_convergence(run)
             self.params(run)
             self.poc_profiles(run)
             self.residual_pdfs(run)
-            self.sinking_fluxes(run)
-            self.volumetric_fluxes(run)
-            if run.gamma == 0.02:
-                self.param_comparison(run)
-        
-        self.integrated_residuals()
-        self.param_sensitivity()
-        self.param_relative_errors()
-
-        self.write_output()
         
     def define_colors(self):
 
@@ -890,6 +1068,252 @@ class PyritePlotter:
         self.colors = (
             self.BLACK, self.ORANGE, self.SKY, self.GREEN, self.YELLOW,
             self.BLUE, self.VERMILLION, self.RADISH)
+
+
+    def cost_and_convergence(self, run):
+        
+        k = len(run.cost_evolution)
+        
+        fig, ax = plt.subplots(1, tight_layout=True)
+        ax.plot(np.arange(k), run.convergence_evolution,
+                marker='o', ms=3, c=self.BLUE)
+        ax.set_yscale('log')
+        ax.set_xlabel('Iteration, $k$',fontsize=16)
+        ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',
+                      fontsize=16)
+
+        filename = f'out/conv_gam{str(run.gamma).replace(".","")}'
+        if self.is_twinX:
+            filename += '_TE'
+        plt.savefig(f'{filename}.pdf')
+        plt.close()
+        
+        fig, ax = plt.subplots(1, tight_layout=True)
+        ax.plot(np.arange(k),run.cost_evolution,
+                marker='o', ms=3, c=self.BLUE)
+        ax.set_xlabel('Iteration, $k$',fontsize=16)
+        ax.set_ylabel('Cost, $J$',fontsize=16)
+        ax.set_yscale('log')
+
+        filename = f'out/cost_gam{str(run.gamma).replace(".","")}'
+        if self.is_twinX:
+            filename += '_TE'
+        plt.savefig(f'{filename}.pdf')
+        plt.close()
+
+    def params(self, run):
+        
+        tar = {True: {'LEZ':2, 'UMZ':4}, False: 3}
+        pri = {True: 2, False: 1}
+        est = {True: {True: {'LEZ':3,'UMZ':5}, False: 4},
+               False: {True: {'LEZ':2,'UMZ':3}, False: 3}}       
+        maxtick = {True: 7, False: 5}
+             
+        fig, ([ax1,ax2,ax3,ax4],[ax5,ax6,ax7,ax8]) = plt.subplots(2,4)
+        fig.subplots_adjust(wspace=0.8, hspace=0.4)
+        axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8]
+        for i, param in enumerate(self.model.params):
+            p = param.name
+            ax = axs[i]
+            ax.set_title(eval(f'self.model.{p}.label'),fontsize=14)
+            if param.dv:
+                ax.errorbar(
+                    1, eval(f'self.model.{p}.prior'),
+                    yerr=eval(f'self.model.{p}.prior_e'), fmt='o', ms=9,
+                    c=self.BLUE, elinewidth=1.5, ecolor=self.BLUE,
+                    capsize=6, label='Prior', markeredgewidth=1.5)
+                ax.errorbar(
+                    est[self.is_twinX][param.dv]['LEZ'],
+                    run.param_results[p]['LEZ']['est'],
+                    yerr=run.param_results[p]['LEZ']['err'], fmt='o',
+                    c=self.GREEN, ms=9, elinewidth=1.5, ecolor=self.GREEN,
+                    capsize=6, label='LEZ', markeredgewidth=1.5)
+                ax.errorbar(
+                     est[self.is_twinX][param.dv]['UMZ'],
+                     run.param_results[p]['UMZ']['est'],
+                     yerr=run.param_results[p]['UMZ']['err'], fmt='o',
+                     c=self.ORANGE, ms=9, elinewidth=1.5,
+                     ecolor=self.ORANGE, capsize=6, label='UMZ',
+                     markeredgewidth=1.5)
+                if self.is_twinX:
+                    ax.scatter(
+                        tar[param.dv]['LEZ'],
+                        self.model.target_values[p]['LEZ']['est'],
+                        marker='+', s=90, c=self.GREEN)
+                    ax.scatter(
+                        tar[param.dv]['UMZ'],
+                        self.model.target_values[p]['UMZ']['est'],
+                        marker='+', s=90, c=self.ORANGE)                    
+                if i == 5:
+                    ax.legend(
+                        loc='upper center', bbox_to_anchor=(1.38,-0.07),
+                        ncol=3, fontsize=12, frameon=False)
+            else:
+                ax.errorbar(
+                    pri[self.is_twinX], eval(f'self.model.{p}.prior'),
+                    yerr=eval(f'self.model.{p}.prior_e'), fmt='o', ms=9,
+                    c=self.BLUE, elinewidth=1.5, ecolor=self.BLUE,
+                    capsize=6, label='Prior', markeredgewidth=1.5)
+                ax.errorbar(
+                    est[self.is_twinX][param.dv],
+                    run.param_results[p]['est'],
+                    yerr=run.param_results[p]['err'], fmt='o',
+                    c=self.RADISH, ms=9, elinewidth=1.5,
+                    ecolor=self.RADISH, capsize=6, markeredgewidth=1.5)
+                if self.is_twinX:
+                    ax.scatter(
+                        tar[param.dv], self.model.target_values[p]['est'],
+                        marker='+', s=90, c=self.RADISH) 
+            ax.tick_params(bottom=False,labelbottom=False)
+            ax.set_xticks(np.arange(maxtick[self.is_twinX]))
+            if p == 'Bm2': ax.set_ylim(-0.5,2)
+            
+        filename = f'out/params_gam{str(run.gamma).replace(".","")}'
+        if self.is_twinX:
+            filename += '_TE'
+        plt.savefig(f'{filename}.pdf')
+        plt.close()
+            
+    def poc_profiles(self, run):
+
+        fig,[ax1,ax2,ax3] = plt.subplots(1,3,tight_layout=True)
+        fig.subplots_adjust(wspace=0.5)  
+        
+        ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)',fontsize=14)
+        ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)',fontsize=14)
+        ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)',fontsize=14)
+        ax1.set_ylabel('Depth (m)',fontsize=14)
+        
+        if run.gamma == 1:
+             invname = 'I1'
+        elif run.gamma == 0.02:
+             invname = 'I2'
+        else: invname = run.gamma
+
+        art = {True: {'ax1_ticks': [0,1,2],
+                        'ax2_ticks': [0,0.05,0.1],
+                        'ax2_labels': ['0','0.05','0.1'],
+                        'data_label': 'Data', 'inv_label': 'TE',
+                        'cp_label': 'Data'},
+               False: {'ax1_ticks': [0,1,2,3],
+                        'ax2_ticks': [0,0.05,0.1,0.15],
+                        'ax2_labels': ['0','0.05','0.1','0.15'],
+                        'data_label': 'LVISF', 'inv_label': invname,
+                        'cp_label': 'from $c_p$'}}
+        
+        ax1.errorbar(
+            self.model.Ps.data['conc'], self.model.Ps.data['depth'], fmt='^',
+            xerr=self.model.Ps.data['conc_e'], ecolor=self.BLUE,
+            elinewidth=1, c=self.BLUE, ms=10, capsize=5,
+            label=art[self.is_twinX]['data_label'], fillstyle='full')
+        ax1.errorbar(
+            self.model.Ps.prior['conc'], self.model.Ps.prior['depth'],
+            fmt='o', xerr=self.model.Ps.prior['conc_e'], ecolor=self.SKY,
+            elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
+            label='OI', markeredgewidth=0.5)
+        ax1.errorbar(
+            run.tracer_results['POCS']['est'], self.model.GRID, fmt='o',
+            xerr=run.tracer_results['POCS']['err'], ecolor=self.ORANGE,
+            elinewidth=0.5, c=self.ORANGE, ms=3, capsize=2,
+            label=art[self.is_twinX]['inv_label'], fillstyle='none',
+            zorder=3, markeredgewidth=0.5)
+        
+        ax2.errorbar(
+            self.model.Pl.data['conc'], self.model.Pl.data['depth'], fmt='^',
+            xerr=self.model.Pl.data['conc_e'], ecolor=self.BLUE,
+            elinewidth=1, c=self.BLUE, ms=10, capsize=5,
+            label=art[self.is_twinX]['data_label'], fillstyle='full')
+        ax2.errorbar(
+            self.model.Pl.prior['conc'], self.model.Pl.prior['depth'],
+            fmt='o', xerr=self.model.Pl.prior['conc_e'], ecolor=self.SKY,
+            elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
+            label='OI', markeredgewidth=0.5)
+        ax2.errorbar(
+            run.tracer_results['POCL']['est'], self.model.GRID, fmt='o',
+            xerr=run.tracer_results['POCL']['err'], ecolor=self.ORANGE,
+            elinewidth=0.5, c=self.ORANGE, ms=3, capsize=2,
+            label=art[self.is_twinX]['inv_label'], fillstyle='none',
+            zorder=3, markeredgewidth=0.5)
+        
+        ax3.scatter(
+            self.model.Pt_constraint, self.model.GRID, marker='o',
+            c=self.BLUE, edgecolors=self.BLUE, s=3, zorder=3, lw=0.7,
+            label=art[self.is_twinX]['cp_label'])
+        ax3.fill_betweenx(
+            self.model.GRID,
+            (self.model.Pt_constraint
+             - np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
+            (self.model.Pt_constraint 
+             + np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
+            color=self.BLUE,alpha=0.25,zorder=2)
+        ax3.errorbar(
+            run.Pt_results['est'], self.model.GRID, fmt='o',
+            xerr=run.Pt_results['err'], ecolor=self.ORANGE, elinewidth=0.5,
+            c=self.ORANGE, ms=3, capsize=2, zorder=3, markeredgewidth=0.5,
+            label=art[self.is_twinX]['inv_label'], fillstyle='none')
+        
+        ax1.set_xticks(art[self.is_twinX]['ax1_ticks'])
+        ax2.set_xticks(art[self.is_twinX]['ax2_ticks'])
+        ax2.set_xticklabels(art[self.is_twinX]['ax2_labels'])
+        ax3.set_xticks([0,1,2])
+       
+        for ax in (ax1, ax2, ax3):            
+            ax.invert_yaxis()
+            ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH+30)
+            ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
+                      loc='lower right')
+            ax.tick_params(axis='both', which='major', labelsize=12)
+            ax.axhline(self.model.BOUNDARY, c=self.BLACK, ls='--' , lw=1)
+            if ax in (ax2, ax3):
+                ax.tick_params(labelleft=False)
+        
+        filename = f'out/POCprofs_gam{str(run.gamma).replace(".","")}'
+        if self.is_twinX:
+            filename += '_TE'
+        plt.savefig(f'{filename}.pdf')
+        plt.close()
+    
+    def residual_pdfs(self, run):
+        
+        fig, [ax1,ax2] = plt.subplots(1, 2, tight_layout=True)
+        fig.subplots_adjust(wspace=0.5)
+        ax1.set_ylabel('Probability Density', fontsize=16)
+        ax1.set_xlabel(r'$\frac{\^x_{i}-x_{o,i}}{\sigma_{o,i}}$', fontsize=24)
+        ax1.hist(run.x_resids, density=True, bins=20, color=self.BLUE)
+        ax2.hist(run.f_resids, density=True, bins=20, color=self.BLUE)
+        ax2.set_xlabel(r'$\frac{f(\^x)_{i}}{\sigma_{f(\^x)_{i}}}$',
+                        fontsize=24)
+        for ax in (ax1, ax2):
+            ax.set_xlim([-1,1])
+
+        filename = f'out/pdfs_gam{str(run.gamma).replace(".","")}'
+        if self.is_twinX:
+            filename += '_TE'
+        plt.savefig(f'{filename}.pdf')
+        plt.close()
+                                               
+class PlotterModelRuns(PlotterTwinX):
+
+    def __init__(self, pickled_model):
+        super().__init__(pickled_model)
+
+        self.hydrography()
+        self.cp_Pt_regression()
+        self.Pt_estimate_comparison()
+        self.zone_length_scales()
+        self.poc_data()
+        
+        for run in self.model.model_runs:
+            self.sinking_fluxes(run)
+            self.volumetric_fluxes(run)
+            if run.gamma == 0.02:
+                self.param_comparison(run)
+        
+        self.integrated_residuals()
+        self.param_sensitivity()
+        self.param_relative_errors()
+
+        self.write_output()
 
     def hydrography(self):
 
@@ -1098,9 +1522,9 @@ class PyritePlotter:
             color=self.BLUE, alpha=0.25, zorder=2)
         ax3.errorbar(
             self.model.Ps.data['conc'] + self.model.Pl.data['conc'],
-            self.model.sample_depths, fmt='^', ms=10, c=self.BLUE,
-            xerr=np.sqrt(self.model.Ps.data['conc_e']**2
-                         + self.model.Pl.data['conc_e']**2),
+            self.model.data['poc_means']['depth'], fmt='^', ms=10,
+            c=self.BLUE, xerr=np.sqrt(self.model.Ps.data['conc_e']**2
+                                      + self.model.Pl.data['conc_e']**2),
             zorder=1, label='LVISF', capsize=5, fillstyle='full',
             elinewidth=1)
         
@@ -1124,170 +1548,6 @@ class PyritePlotter:
                 ax.set_xlim([-0.2,3.4])
 
         plt.savefig('out/poc_data.pdf')
-        plt.close()
-        
-    def cost_and_convergence(self, run):
-        
-        k = len(run.cost_evolution)
-        
-        fig, ax = plt.subplots(1)
-        ax.plot(np.arange(0, k), run.convergence_evolution,
-                marker='o', ms=3, c=self.BLUE)
-        ax.set_yscale('log')
-        ax.set_xlabel('Iteration, $k$',fontsize=16)
-        ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',
-                      fontsize=16)
-        plt.savefig(f'out/conv_gam{str(run.gamma).replace(".","")}.pdf')
-        plt.close()
-        
-        fig, ax = plt.subplots(1)
-        ax.plot(np.arange(0, k),run.cost_evolution,
-                marker='o', ms=3, c=self.BLUE)
-        ax.set_xlabel('Iteration, $k$',fontsize=16)
-        ax.set_ylabel('Cost, $J$',fontsize=16)
-        ax.set_yscale('log')
-        plt.savefig(f'out/cost_gam{str(run.gamma).replace(".","")}.pdf')
-        plt.close()
-
-    def params(self, run):
-        
-        fig, ([ax1,ax2,ax3,ax4],[ax5,ax6,ax7,ax8]) = plt.subplots(2,4)
-        fig.subplots_adjust(wspace=0.8, hspace=0.4)
-        axs = [ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8]
-        for i, param in enumerate(self.model.params):
-            p = param.name
-            ax = axs[i]
-            ax.set_title(eval(f'self.model.{p}.label'),fontsize=14)
-            ax.errorbar(
-                    1, eval(f'self.model.{p}.prior'),
-                    yerr=eval(f'self.model.{p}.prior_e'), fmt='o', ms=9,
-                    c=self.BLUE, elinewidth=1.5, ecolor=self.BLUE,
-                    capsize=6, label='Prior', markeredgewidth=1.5)
-            if param.dv: 
-                ax.errorbar(
-                    2, run.param_results[p]['LEZ']['est'],
-                    yerr=run.param_results[p]['LEZ']['err'], fmt='o',
-                    c=self.GREEN, ms=9, elinewidth=1.5, ecolor=self.GREEN,
-                    capsize=6, label='LEZ', markeredgewidth=1.5)
-                ax.errorbar(
-                     3, run.param_results[p]['UMZ']['est'],
-                     yerr=run.param_results[p]['UMZ']['err'], fmt='o',
-                     c=self.ORANGE, ms=9, elinewidth=1.5,
-                     ecolor=self.ORANGE, capsize=6, label='UMZ',
-                     markeredgewidth=1.5)
-                if i == 5:
-                    ax.legend(
-                        loc='upper center', bbox_to_anchor=(1.38,-0.07),
-                        ncol=3, fontsize=12, frameon=False)
-            else:
-                ax.errorbar(
-                    3, run.param_results[p]['est'],
-                    yerr=run.param_results[p]['err'], fmt='o',
-                    c=self.RADISH, ms=9, elinewidth=1.5,
-                    ecolor=self.RADISH, capsize=6, markeredgewidth=1.5)
-            ax.tick_params(bottom=False,labelbottom=False)
-            ax.set_xticks(np.arange(0,5))
-            if p == 'Bm2': ax.set_ylim(-0.5,2.5)
-
-        plt.savefig(f'out/params_gam{str(run.gamma).replace(".","")}.pdf')
-        plt.close()
-            
-    def poc_profiles(self, run):
-
-        fig,[ax1,ax2,ax3] = plt.subplots(1,3,tight_layout=True)
-        fig.subplots_adjust(wspace=0.5)  
-        
-        ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)',fontsize=14)
-        ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)',fontsize=14)
-        ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)',fontsize=14)
-        ax1.set_ylabel('Depth (m)',fontsize=14)
-        
-        if run.gamma == 1:
-             invname = 'I1'
-        elif run.gamma == 0.02:
-             invname = 'I2'
-        else: invname = run.gamma       
-        
-        ax1.errorbar(
-            self.model.Ps.data['conc'], self.model.Ps.data['depth'], fmt='^',
-            xerr=self.model.Ps.data['conc_e'], ecolor=self.BLUE,
-            elinewidth=1, c=self.BLUE, ms=10, capsize=5,
-            label='LVISF', fillstyle='full')
-        ax1.errorbar(
-            self.model.Ps.prior['conc'], self.model.Ps.prior['depth'],
-            fmt='o', xerr=self.model.Ps.prior['conc_e'], ecolor=self.SKY,
-            elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
-            label='OI', markeredgewidth=0.5)
-        ax1.errorbar(
-            run.tracer_results['POCS']['est'], self.model.GRID, fmt='o',
-            xerr=run.tracer_results['POCS']['err'], ecolor=self.ORANGE,
-            elinewidth=0.5, c=self.ORANGE, ms=3, capsize=2, label=invname,
-            fillstyle='none', zorder=3, markeredgewidth=0.5)
-        
-        ax2.errorbar(
-            self.model.Pl.data['conc'], self.model.Pl.data['depth'], fmt='^',
-            xerr=self.model.Pl.data['conc_e'], ecolor=self.BLUE,
-            elinewidth=1, c=self.BLUE, ms=10, capsize=5,
-            label='LVISF', fillstyle='full')
-        ax2.errorbar(
-            self.model.Pl.prior['conc'], self.model.Pl.prior['depth'],
-            fmt='o', xerr=self.model.Pl.prior['conc_e'], ecolor=self.SKY,
-            elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
-            label='OI', markeredgewidth=0.5)
-        ax2.errorbar(
-            run.tracer_results['POCL']['est'], self.model.GRID, fmt='o',
-            xerr=run.tracer_results['POCL']['err'], ecolor=self.ORANGE,
-            elinewidth=0.5, c=self.ORANGE, ms=3, capsize=2, label=invname,
-            fillstyle='none', zorder=3, markeredgewidth=0.5)
-        
-        ax3.scatter(
-            self.model.Pt_mean_nonlinear, self.model.GRID, marker='o',
-            c=self.BLUE, edgecolors=self.BLUE, s=3, label='from $c_p$',
-            zorder=3, lw=0.7)
-        ax3.fill_betweenx(
-            self.model.GRID,
-            (self.model.Pt_mean_nonlinear
-             - np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
-            (self.model.Pt_mean_nonlinear 
-             + np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
-            color=self.BLUE,alpha=0.25,zorder=2)
-        ax3.errorbar(
-            run.Pt_results['est'], self.model.GRID, fmt='o',
-            xerr=run.Pt_results['err'], ecolor=self.ORANGE, elinewidth=0.5,
-            c=self.ORANGE, ms=3, capsize=2, label=invname, fillstyle='none',
-            zorder=3, markeredgewidth=0.5)
-        
-        ax1.set_xticks([0,1,2,3])
-        ax2.set_xticks([0,0.05,0.1,0.15])
-        ax2.set_xticklabels(['0','0.05','0.1','0.15'])
-        ax3.set_xticks([0,1,2])
-       
-        for ax in (ax1, ax2, ax3):            
-            ax.invert_yaxis()
-            ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH+30)
-            ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
-                      loc='lower right')
-            ax.tick_params(axis='both', which='major', labelsize=12)
-            ax.axhline(self.model.BOUNDARY, c=self.BLACK, ls='--' , lw=1)
-            if ax in (ax2, ax3):
-                ax.tick_params(labelleft=False)
-        
-        plt.savefig(f'out/POCprofs_gam{str(run.gamma).replace(".","")}.pdf')
-        plt.close()
-    
-    def residual_pdfs(self, run):
-        
-        fig, [ax1,ax2] = plt.subplots(1, 2, tight_layout=True)
-        fig.subplots_adjust(wspace=0.5)
-        ax1.set_ylabel('Probability Density', fontsize=16)
-        ax1.set_xlabel(r'$\frac{\^x_{i}-x_{o,i}}{\sigma_{o,i}}$', fontsize=24)
-        ax1.hist(run.x_resids, density=True, bins=20, color=self.BLUE)
-        ax2.hist(run.f_resids, density=True, bins=20, color=self.BLUE)
-        ax2.set_xlabel(r'$\frac{f(\^x)_{i}}{\sigma_{f(\^x)_{i}}}$',
-                        fontsize=24)
-        for ax in (ax1, ax2):
-            ax.set_xlim([-1,1])
-        plt.savefig(f'out/pdfs_gam{str(run.gamma).replace(".","")}.pdf')
         plt.close()
     
     def sinking_fluxes(self, run):
@@ -1598,7 +1858,7 @@ class PyritePlotter:
     def integrated_residuals(self):
         
         fig, ax = plt.subplots()
-        ax.set_xticks([k for k in list(range(0, len(self.model.model_runs)))])
+        ax.set_xticks([k for k in list(range(len(self.model.model_runs)))])
         ax.set_xticklabels(self.model.gammas)
         ax.set_yticks(list(range(-11, 2)))
         ax.grid(axis='y', zorder=1)
@@ -1651,7 +1911,7 @@ class PyritePlotter:
                             label=z, markeredgewidth=1.5)
                         j += 1
                     ax.set_xticks([k*2 for k in list(
-                        range(0, len(self.model.model_runs)*2))])
+                        range(len(self.model.model_runs)*2))])
                     ax.get_xaxis().set_major_formatter(
                         mpl.ticker.ScalarFormatter())
                     ax.set_xticklabels(self.model.gammas + self.model.gammas,
@@ -1672,7 +1932,7 @@ class PyritePlotter:
                                 markeredgewidth=1.5)
                     j += 1
                 ax.set_xticks([k*3 for k in list(
-                    range(0, len(self.model.model_runs)))])
+                    range(len(self.model.model_runs)))])
                 ax.get_xaxis().set_major_formatter(
                     mpl.ticker.ScalarFormatter())
                 ax.set_xticklabels(self.model.gammas, rotation=60)
@@ -1726,8 +1986,10 @@ if __name__ == '__main__':
 
     sys.setrecursionlimit(100000)
     start_time = time.time()
-    model = PyriteModel()
-    #plotter = PyritePlotter('out/pyrite_Amaral21a.pkl')
+    # model = PyriteModel()
+    # twinX = PyriteTwinX()
+    PlotterModelRuns('out/Amaral21a_modelruns.pkl')
+    PlotterTwinX('out/Amaral21a_twinX.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
 
