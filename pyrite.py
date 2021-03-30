@@ -14,19 +14,18 @@ import pandas as pd
 import statsmodels.formula.api as smf
 import statsmodels.tsa.stattools as smt
 import pickle
-import matplotlib.pyplot as plt
-import matplotlib.colorbar as colorbar
-import matplotlib.colors as mplc
-import mpl_toolkits.axisartist as AA
-from mpl_toolkits.axes_grid1 import host_subplot
 import operator as op
 import itertools
 import scipy.linalg as splinalg
 import sympy as sym
+import sys
+import matplotlib.pyplot as plt
+import matplotlib.colorbar as colorbar
+import matplotlib.colors as mplc
+import mpl_toolkits.axisartist as AA
 import matplotlib.ticker as ticker
 from matplotlib.lines import Line2D
-import matplotlib as mpl
-import sys
+from mpl_toolkits.axes_grid1 import host_subplot
 
 class PyriteModel:
 
@@ -1913,7 +1912,7 @@ class PlotterModelRuns(PlotterTwinX):
                     ax.set_xticks([k*2 for k in list(
                         range(len(self.model.model_runs)*2))])
                     ax.get_xaxis().set_major_formatter(
-                        mpl.ticker.ScalarFormatter())
+                        ticker.ScalarFormatter())
                     ax.set_xticklabels(self.model.gammas + self.model.gammas,
                                        rotation=60)
                 if i == 5:
@@ -1933,8 +1932,7 @@ class PlotterModelRuns(PlotterTwinX):
                     j += 1
                 ax.set_xticks([k*3 for k in list(
                     range(len(self.model.model_runs)))])
-                ax.get_xaxis().set_major_formatter(
-                    mpl.ticker.ScalarFormatter())
+                ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
                 ax.set_xticklabels(self.model.gammas, rotation=60)
         plt.savefig('out/sensitivity_params.pdf')
         plt.close()
@@ -1978,7 +1976,7 @@ class PlotterModelRuns(PlotterTwinX):
             bbox_to_anchor=(0.49, 1), ncol=4, fontsize=12, frameon=False)
         ax.set_xlabel('$\gamma$', fontsize=14)
         ax.set_ylabel('Relative Error', fontsize=14)
-        ax.get_xaxis().set_major_formatter(mpl.ticker.ScalarFormatter())
+        ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
         plt.savefig('out/paramrelerror.pdf')
         plt.close()
         
