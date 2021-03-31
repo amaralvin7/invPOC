@@ -1398,7 +1398,7 @@ class PlotterModelRuns(PlotterTwinX):
                        s=40, marker='o', cmap=colormap, label='_none')
             ax.set_ylabel('$P_T$ (mmol m$^{-3}$)', fontsize=14)
             ax.set_xlabel('$c_p$ (m$^{-1}$)', fontsize=14)
-            x_fit = np.arange(0.01, 0.14, 0.0001)
+            x_fit = np.linspace(0.01, 0.14, 100000)
             if logarithmic[fit]:
                 coefs_log = fit.params
                 y_fit_log = [
