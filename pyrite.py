@@ -210,11 +210,10 @@ class PyriteModel:
 
             m = len(list1)
             n = len(list2)
-            R = np.zeros((m, n))
 
-            for i in range(m):
-                for j in range(n):
-                    R[i, j] = np.exp(-np.abs(list1[i] - list2[j])/L)
+            R = np.fromfunction(
+                lambda i, j: np.exp(-np.abs(list1[i] - list2[j])/L), (m, n),
+                dtype=int)
 
             return R
 
