@@ -37,7 +37,7 @@ class PyriteModel:
     """
 
     def __init__(self, gammas=[0.02, 0.05, 0.1, 0.5, 1],
-                 pickle_into='out/Amaral21a_modelruns.pkl'):
+                 pickle_into='out/POC_modelruns.pkl'):
         """Define basic model attributes and run the model.
 
         Model is run for every value of gamma in gammas.
@@ -994,8 +994,8 @@ class PyriteTwinX(PyriteModel):
     """
 
     def __init__(self, gammas=[0.02],
-                 pickled_model='out/Amaral21a_modelruns.pkl',
-                 pickle_into='out/Amaral21a_twinX.pkl'):
+                 pickled_model='out/POC_modelruns.pkl',
+                 pickle_into='out/POC_twinX.pkl'):
         """Build a PyriteModel with gamma values to be used for the TwinX.
 
         gammas -- list of gamma values with which to perform twin experiments.
@@ -2129,9 +2129,9 @@ if __name__ == '__main__':
 
     sys.setrecursionlimit(100000)
     start_time = time.time()
-    poc_model = PyriteModel()
-    poc_twinX = PyriteTwinX()
-    # PlotterModelRuns('out/Amaral21a_modelruns.pkl')
-    # PlotterTwinX('out/Amaral21a_twinX.pkl')
+    PyriteModel()
+    PyriteTwinX()
+    # PlotterModelRuns('out/POC_modelruns.pkl')
+    # PlotterTwinX('out/POC_twinX.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
