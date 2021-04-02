@@ -29,10 +29,21 @@ from mpl_toolkits.axes_grid1 import host_subplot
 
 
 class PyriteModel:
+    """A container for attributes and results of model runs.
+
+    As defined, this model produces the results associated with inversions of
+    real particulate organic carbon (POC) data as described in Amaral et al.
+    (2021).
+    """
 
     def __init__(self, gammas=[0.02, 0.05, 0.1, 0.5, 1],
                  pickle_into='out/Amaral21a_modelruns.pkl'):
+        """Define basic model attributes and run the model.
 
+        Model is run for every value of gamma in gammas.
+        gammas -- list of proportionality constants for model runs
+        pickle_into -- path for saving model output
+        """
         self.gammas = gammas
         self.pickled = pickle_into
         self.MIXED_LAYER_DEPTH = 30
@@ -82,18 +93,18 @@ class PyriteModel:
         return 'PyriteModel object'
 
     def load_data(self):
-
+        """Load input data (must be from a file called 'pyrite_data.xlsx')."""
         self.data = pd.read_excel('pyrite_data.xlsx', sheet_name=None)
 
     def define_tracers(self):
-
+        """Define tracers to be used in the model."""
         self.Ps = Tracer('POCS', '$P_S$', self.data['poc_means'])
         self.Pl = Tracer('POCL', '$P_L$', self.data['poc_means'])
 
         self.tracers = (self.Ps, self.Pl)
 
     def define_params(self):
-
+        """Set prior estimates and errors of model parameters."""
         P30_prior, P30_prior_e, Lp_prior, Lp_prior_e = self.process_npp_data()
 
         self.ws = Param(2, 2, 'ws', '$w_S$')
@@ -115,7 +126,7 @@ class PyriteModel:
                        self.Bm1l, self.P30, self.Lp)
 
     def define_fluxes(self):
-
+        """Define fluxes to be calculated."""
         self.sink_S = Flux('sink_S', '$w_SP_S$', 'POCS', 'ws')
         self.sink_L = Flux('sink_L', '$w_LP_L$', 'POCL', 'wl')
         self.sink_T = Flux('sink_T', '$w_TP_T$', 'POCT', 'wt')
@@ -141,7 +152,11 @@ class PyriteModel:
                        self.aggregation, self.disaggregation, self.production)
 
     def process_npp_data(self):
+        """Obtain prior estiamtes of particle production parameters.
 
+        Lp -- vertical length scale of particle production
+        P30 -- production of small POC at the base of the mixed layer
+        """
         npp_data_raw = self.data['npp']
         npp_data_clean = npp_data_raw.loc[(npp_data_raw['npp'] > 0)]
 
@@ -167,13 +182,13 @@ class PyriteModel:
         return P30_prior, P30_prior_e, Lp_prior, Lp_prior_e
 
     def define_zones(self):
-
+        """Define the grid zones in the model."""
         self.LEZ = GridZone(self, op.lt, 'LEZ')  # lower euphotic zone
         self.UMZ = GridZone(self, op.gt, 'UMZ')  # upper mesopelagic zone
         self.zones = (self.LEZ, self.UMZ)
 
     def process_cp_data(self):
-
+        """Obtain estimates of total POC from beam transmissometry data."""
         cast_match_table = self.data['cast_match']
         cast_match_dict = dict(zip(cast_match_table['pump_cast'],
                                    cast_match_table['ctd_cast']))
@@ -205,9 +220,20 @@ class PyriteModel:
             self.Pt_constraint = self.Pt_mean_nonlinear
 
     def objective_interpolation(self):
+        """Obtain estimates of tracers at every grid depth.
 
+        Prior estimates obtained from objective interpolation are stored
+        in the .priors attribute of all Traces in the model.
+
+        See Wunsch C. 2006. Discrete Inverse and State Estimation Problems:
+            With Geophysical Fluid Applications. Cambridge University Press.
+        """
         def R_matrix(list1, list2):
+            """Returns R, a matrix used for calculating covariances.
 
+            list1 and list2 -- lists containing depths across which
+            covariances for a given tracer are being calculated
+            """
             m = len(list1)
             n = len(list2)
 
@@ -264,7 +290,11 @@ class PyriteModel:
             tracer.prior = tracer_data_oi
 
     def define_prior_vector_and_cov_matrix(self):
+        """Build the prior vector (xo) and matrix of covariances (Co).
 
+        self.state_elements -- a list of strings corresponding to labels of
+        all elements in the state vector
+        """
         tracer_priors = []
         self.state_elements = []
 
@@ -312,7 +342,12 @@ class PyriteModel:
         return xo, xo_log, Co, Co_log
 
     def define_equation_elements(self):
+        """Define which elements that have an associated model equation.
 
+        Total POC is an element that is not a tracer, but has model equations
+        that are used as a constraint. Tracers also have associated model
+        equations
+        """
         self.equation_elements = self.state_elements[:self.nte]
 
         for i in range(self.N_GRID_POINTS):
@@ -321,13 +356,13 @@ class PyriteModel:
         self.nee = len(self.equation_elements)
 
     def which_zone(self, depth):
-
+        """Given a depth index, return the corresponding grid zone."""
         if int(depth) in self.LEZ.indices:
             return 'LEZ'
         return 'UMZ'
 
     def define_model_error_matrix(self, g):
-
+        """Return the matrix of model errors (Cf) given a value of gamma."""
         Cf_Ps_Pl = np.zeros((self.nte, self.nte))
         Cf_Pt = np.zeros((self.N_GRID_POINTS, self.N_GRID_POINTS))
 
@@ -339,7 +374,11 @@ class PyriteModel:
         return Cf
 
     def slice_by_tracer(self, to_slice, tracer):
+        """Return a slice of a list that corresponds to a given tracer.
 
+        to_slice -- list from which to take a slice
+        tracer -- return list slice correpsonding to this tracer
+        """
         start_index = [i for i, el in enumerate(self.state_elements)
                        if tracer in el][0]
         sliced = to_slice[
@@ -348,7 +387,13 @@ class PyriteModel:
         return sliced
 
     def equation_builder(self, species, depth, params_known=None):
+        """Return the model equation for a species at a depth index.
 
+        species -- string label for any equation element
+        depth -- depth index
+        params_known -- a dictionary of parameters from which to draw from,
+        should only exist if function is evoked from a TwinX object
+        """
         Psi, Psip1, Psim1, Psim2 = sym.symbols(
             'POCS_0 POCS_1 POCS_-1 POCS_-2')
         Pli, Plip1, Plim1, Plim2 = sym.symbols(
@@ -402,7 +447,14 @@ class PyriteModel:
         return eq
 
     def extract_equation_variables(self, y, depth, v, lognormal=False):
+        """Return symbolic and numerical values of variables in an equation.
 
+        y -- a symbolic equation
+        depth -- depth index at which y exists
+        v -- list of values from which to draw numerical values from
+        lognormal -- True if numberical values in v are lognormally
+        distributed, otherwise False
+        """
         x_symbolic = y.free_symbols
         x_numerical = []
         x_indices = []
@@ -430,7 +482,15 @@ class PyriteModel:
 
     def evaluate_model_equations(
             self, v, return_F=False, lognormal=False, params_known=None):
+        """Evaluates model equations, and Jacobian matrix (if specified).
 
+        v -- list of values from which to draw numerical values
+        return_F -- True if the Jacobian matrix should be returned
+        lognormal -- True if numerical variable values in v are lognormally
+        distributed, otherwise False (i.e., values are normally distributed)
+        params_known -- a dictionary of parameters from which to draw from,
+        should only exist if function is evoked from a TwinX object
+        """
         if params_known:
             f = np.zeros(self.nte)
             F = np.zeros((self.nte, self.nte))
@@ -462,7 +522,14 @@ class PyriteModel:
         return f
 
     def eval_symbolic_func(self, run, y, err=True, cov=True):
+        """Evaluate a symbolic function using results from a given run.
 
+        run -- model run whose results are being calculated
+        y -- the symbolic function (i.e., expression)
+        err -- True if errors should be propagated (increases runtime)
+        cov -- True if covarainces between state variables should be
+        considered (increases runtime)
+        """
         x_symbolic = y.free_symbols
         x_numerical = []
         x_indices = []
@@ -504,9 +571,29 @@ class PyriteModel:
         return result, error
 
     def ATI(self, xo_log, Co_log, Cf, run):
+        """Algorithm of total inversion, returns a vector of state estimates.
 
+        xo_log -- log-transformed prior vector
+        Co_log -- log-transformed covariance matrix
+        Cf -- model error matrix
+        run -- model run whose results are being calculated
+        xhat -- Vector that holds estimates of the state elements
+        (i.e., the solution vector)
+
+        See: Tarantola A, Valette B. 1982. Generalized nonlinear inverse
+        problems solved using the least squares criterion. Reviews of
+        Geophysics and Space Physics 20(2): 219–232.
+        doi:10.1029/RG020i002p00219.
+        """
         def calculate_xkp1(xk, f, F):
+            """For iteration k, return a new estimate of the state vector.
 
+            Also returns a couple matrices for future calculations.
+            xk -- the state vector estimate at iteration k
+            xkp1 -- the state vector estimate at iteration k+1
+            f -- vector of model equations
+            F -- Jacobian matrix
+            """
             CoFT = Co_log @ F.T
             FCoFT = F @ CoFT
             FCoFTpCfi = np.linalg.inv(FCoFT + Cf)
@@ -515,7 +602,11 @@ class PyriteModel:
             return xkp1, CoFT, FCoFTpCfi
 
         def check_convergence(xk, xkp1):
+            """Return whether or not the ATI has converged after an iteration.
 
+            Convergence is reached if every variable in xkp1 changes by less
+            than 1% relative to its estimate at the previous iteration, xk.
+            """
             converged = False
             max_change_limit = 0.01
             change = np.abs((np.exp(xkp1) - np.exp(xk))/np.exp(xk))
@@ -526,15 +617,15 @@ class PyriteModel:
             return converged
 
         def calculate_cost(xk, f):
-
+            """Calculate the cost at a given iteration"""
             cost = ((xk - xo_log).T @ np.linalg.inv(Co_log) @ (xk - xo_log)
                     + f.T @ np.linalg.inv(Cf) @ f)
 
             run.cost_evolution.append(cost)
 
         def find_solution():
-
-            max_iterations = 25
+            """Iteratively finds a solution of the state vector."""
+            max_iterations = 50
 
             xk = xo_log  # estimate of state vector at iteration k
             xkp1 = np.ones(len(xk))  # at iteration k+1
@@ -552,7 +643,7 @@ class PyriteModel:
             return F, xkp1, CoFT, FCoFTpCfi
 
         def unlog_state_estimates():
-
+            """Convert state estimates from lognormal to normal space."""
             F, xkp1, CoFT, FCoFTpCfi = find_solution()
             Id = np.identity(Co_log.shape[0])
 
@@ -580,7 +671,7 @@ class PyriteModel:
             return xhat, xhat_e
 
         def unpack_state_estimates():
-
+            """Unpack estimates and errors of state elements for later use."""
             xhat, xhat_e = unlog_state_estimates()
 
             for t in self.tracers:
@@ -609,7 +700,7 @@ class PyriteModel:
         return unpack_state_estimates()
 
     def calculate_total_POC(self, run):
-
+        """Calculate estimates of total POC (with propagated errors)."""
         for i in range(self.N_GRID_POINTS):
             Ps_str = f'POCS_{i}'
             Pl_str = f'POCL_{i}'
@@ -619,7 +710,7 @@ class PyriteModel:
             run.Pt_results['err'].append(Pt_err)
 
     def calculate_residuals(self, xo, Co, xhat, Cf, run):
-
+        """Calculate solution and equation residuals."""
         x_residuals = xhat - xo
         norm_x_residuals = x_residuals/np.sqrt(np.diag(Co))
         run.x_resids = norm_x_residuals
@@ -633,7 +724,7 @@ class PyriteModel:
                 f_residuals, t)
 
     def calculate_inventories(self, run):
-
+        """Calculate inventories of the model tracers in each grid zone."""
         inventory_sym = {}
 
         for zone in self.zones:
@@ -656,7 +747,7 @@ class PyriteModel:
         return inventory_sym
 
     def calculate_fluxes(self, run):
-
+        """Calculate profiles of all model fluxes."""
         MLD = self.MIXED_LAYER_DEPTH
         fluxes_sym = {}
 
@@ -721,7 +812,7 @@ class PyriteModel:
         return fluxes_sym
 
     def integrate_fluxes(self, fluxes_sym, run):
-
+        """Integrate fluxes within each model grid zone."""
         fluxes = fluxes_sym.keys()
         flux_integrals_sym = {}
 
@@ -742,7 +833,7 @@ class PyriteModel:
         return fluxes, flux_integrals_sym
 
     def calculate_timescales(self, inventory_sym, fluxes, flux_int_sym, run):
-
+        """Calculate turnover timescales associated with each model flux."""
         for zone in self.zones:
             z = zone.label
             run.timescales[z] = {}
@@ -756,18 +847,18 @@ class PyriteModel:
                                                     / flux_int_sym[z][flux]))
 
     def pickle_model(self):
-
+        """Pickle (save) the model for future plotting and analysis."""
         with open(self.pickled, 'wb') as file:
             pickle.dump(self, file)
 
 
 class Tracer:
+    """Container for metadata of model tracers."""
 
     def __init__(self, name, label, data):
 
         self.name = name
         self.label = label
-
         self.data = data[['depth', f'{name}_mean', f'{name}_se']].copy()
         self.data.rename(columns={self.data.columns[1]: 'conc',
                                   self.data.columns[2]: 'conc_e'},
@@ -779,6 +870,7 @@ class Tracer:
 
 
 class Param:
+    """Container for metadata of model parameters."""
 
     def __init__(self, prior, prior_error, name, label, depth_vary=True):
 
@@ -794,6 +886,7 @@ class Param:
 
 
 class GridZone:
+    """Container for metadata of model grid zones."""
 
     def __init__(self, model, operator, label):
 
@@ -802,15 +895,19 @@ class GridZone:
         self.depths = model.GRID[self.indices]
         self.label = label
 
-        self.calculate_length_scales(0.25)
+        self.calculate_length_scales()
         self.set_integration_intervals()
 
     def __repr__(self):
 
         return f'GridZone({self.label})'
 
-    def calculate_length_scales(self, fraction):
+    def calculate_length_scales(self, fraction=0.25):
+        """Calculate length scale of covariation.
 
+        This is based on the autocorrelation function of the total POC data.
+        fraction -- of the POC data with which to calculate autocorrelation
+        """
         Pt = self.model.Pt_mean_nonlinear[self.indices]
         n_lags = int(np.ceil(len(Pt)*fraction))
         self.grid_steps = np.arange(
@@ -827,7 +924,11 @@ class GridZone:
         self.fit_rsquared = acf_regression.rsquared
 
     def set_integration_intervals(self):
+        """Define integration intervals.
 
+        Required for calculation of inventories, integrated fluxes, and
+        timescales.
+        """
         intervals = np.ones(len(self.depths))*self.model.GRID_STEP
 
         if self.label == 'LEZ':
@@ -839,6 +940,7 @@ class GridZone:
 
 
 class Flux:
+    """Container for metadata of model fluxes."""
 
     def __init__(self, name, label, tracer, param, wrt=None):
 
@@ -854,9 +956,13 @@ class Flux:
 
 
 class PyriteModelRun():
+    """Container for storing the results of a model run.
+
+    Each model run has a unique proportionality constant, or gamma value.
+    """
 
     def __init__(self, gamma):
-
+        """Defines model data to be stored."""
         self.gamma = gamma
         self.cost_evolution = []
         self.convergence_evolution = []
@@ -879,10 +985,23 @@ class PyriteModelRun():
 
 
 class PyriteTwinX(PyriteModel):
+    """Twin experiment class for PyriteModel.
+
+    Verifies that the model is able to produce accurate estiamtes of the state
+    elements. Inherits from the PyriteModel class. load_data() is the only
+    method that is practically overridden. Other methods that are inherited
+    but currently unused are labeled as such in their docstrings.
+    """
 
     def __init__(self, gammas=[0.02],
                  pickled_model='out/Amaral21a_modelruns.pkl',
                  pickle_into='out/Amaral21a_twinX.pkl'):
+        """Build a PyriteModel with gamma values to be used for the TwinX.
+
+        gammas -- list of gamma values with which to perform twin experiments.
+        self.pickled_model -- the pickled model from which to draw results to
+        generate pseudodata.
+        """
         self.pickled_model = pickled_model
         super().__init__(gammas, pickle_into)
 
@@ -891,7 +1010,7 @@ class PyriteTwinX(PyriteModel):
         return 'PyriteTwinX object'
 
     def load_data(self):
-
+        """Use results from self.pickled_model to generate pseudodata."""
         with open(self.pickled_model, 'rb') as file:
             model = pickle.load(file)
 
@@ -917,7 +1036,11 @@ class PyriteTwinX(PyriteModel):
         self.data['poc_means'] = tracer_data.copy()
 
     def get_target_values(self, model, gamma):
+        """Get the target values with which to generate pseudodata.
 
+        The target values are drawn from the model run whose proportionality
+        constant (gamma) is specified by the function argument.
+        """
         for run in model.model_runs:
             if run.gamma == gamma:
                 reference_run = run
@@ -926,9 +1049,15 @@ class PyriteTwinX(PyriteModel):
         self.target_values = reference_run.param_results.copy()
 
     def generate_pseudodata(self, model):
+        """Generate pseudodata from the model equations."""
 
         def generate_linear_solution():
+            """Obtain estimates of the tracers with a least-squares approach.
 
+            Uses linear formulations of the model equations, which require
+            a first-order aggregation term and the assumption of perfectly-
+            known particle production.
+            """
             A = np.zeros((model.nte, model.nte))
             b = np.zeros(model.nte)
             element_index = model.equation_elements
@@ -992,7 +1121,13 @@ class PyriteTwinX(PyriteModel):
             return x
 
         def generate_nonlinear_solution():
+            """Obtain estimates of the tracers with an iterative approach.
 
+            Takes the previously generated solution to the linear model
+            equations and uses it as a prior estimate in an iterative approach
+            to obtain estimates of the model tracers from the nonlinear
+            model equations that are considered in the real data inversions.
+            """
             max_iterations = 20
             max_change_limit = 0.01
             xk = generate_linear_solution()
@@ -1018,22 +1153,28 @@ class PyriteTwinX(PyriteModel):
         return generate_nonlinear_solution()
 
     def define_fluxes(self):
+        """Unused"""
         pass
 
     def calculate_inventories(self):
+        """Unused"""
         pass
 
     def calculate_fluxes(self):
+        """Unused"""
         pass
 
     def integrate_fluxes(self):
+        """Unused"""
         pass
 
     def calculate_timescales(self):
+        """Unused"""
         pass
 
 
 class PlotterTwinX():
+    """Generates all twin experiment plots."""
 
     def __init__(self, pickled_model):
 
@@ -1295,6 +1436,12 @@ class PlotterTwinX():
 
 
 class PlotterModelRuns(PlotterTwinX):
+    """Generates all model run result plots.
+
+    Inherits from the PlotterTwinX class. No methods are overridden or
+    extended, new methods are simply added. Writes out some numerical results
+    for each model run to a single text file (pyrite_out.txt).
+    """
 
     def __init__(self, pickled_model):
         super().__init__(pickled_model)
@@ -1676,7 +1823,7 @@ class PlotterModelRuns(PlotterTwinX):
 
     def write_output(self):
 
-        file = 'out/invP_out.txt'
+        file = 'out/pyrite_out.txt'
         with open(file, 'w') as f:
             for run in self.model.model_runs:
                 print('#################################', file=f)
