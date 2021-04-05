@@ -275,9 +275,9 @@ class PyriteModel:
                 Ryy = Rxxmm + Rnn
                 Ryyi = np.linalg.inv(Ryy)
 
-                conc_anom_oi = np.matmul(np.matmul(Rxy, Ryyi), conc_anom)
+                conc_anom_oi = Rxy @ Ryyi @ conc_anom
                 conc_oi = conc_anom_oi + conc.mean()
-                P = Rxxnn - np.matmul(np.matmul(Rxy, Ryyi), Rxy.T)
+                P = Rxxnn - Rxy @ Ryyi @ Rxy.T
                 conc_e_oi = np.sqrt(np.diag(P))
                 tracer_data_cov_matrices.append(P)
 
