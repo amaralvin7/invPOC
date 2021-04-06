@@ -1694,12 +1694,12 @@ class PlotterModelRuns(PlotterTwinX):
     def sinking_fluxes(self, run):
 
         th_fluxes = pd.read_excel(
-            'pyrite_data.xlsx', sheet_name='thorium_fluxes')
+            'pyrite_data.xlsx', sheet_name='poc_fluxes_from_thorium')
         th_depths = th_fluxes['depth']
         th_flux = th_fluxes['flux']
         th_flux_u = th_fluxes['flux_u']
         st_fluxes = pd.read_excel(
-            'pyrite_data.xlsx', sheet_name='trap_fluxes')
+            'pyrite_data.xlsx', sheet_name='poc_fluxes_from_traps')
         st_depths = st_fluxes['depth']
         st_flux = st_fluxes['flux']
         st_flux_u = st_fluxes['flux_u']
