@@ -233,9 +233,12 @@ class PyriteModel:
 
             list1 and list2 -- lists containing depths across which
             covariances for a given tracer are being calculated
+            L -- vertical length scale of the grid zone that is defined when
+            this function is called
             """
             m = len(list1)
             n = len(list2)
+            L = zone.length_scale
 
             R = np.fromfunction(
                 lambda i, j: np.exp(-np.abs(list1[i] - list2[j])/L), (m, n),
@@ -250,39 +253,31 @@ class PyriteModel:
 
             for zone in self.zones:
 
-                L = zone.length_scale
-                min_depth = zone.depths.min()
-                max_depth = zone.depths.max()
+                zone_data = tracer.data[tracer.data['depth'].between(
+                    zone.depths.min(), zone.depths.max())]
 
-                zone_data = tracer.data[
-                    tracer.data['depth'].between(min_depth, max_depth)]
+                sample_depths, y, y_se = zone_data.T.values
 
-                sample_depths, conc, conc_e = zone_data.T.values
+                yp = y - y.mean()
+                var_A = y_se**2
+                var_B = np.var(y, ddof=1)
+                var_C = np.sum(var_A)/len(sample_depths)
+                var_D = var_B + var_C
 
-                Rxxmm = R_matrix(sample_depths, sample_depths)
-                Rxxnn = R_matrix(zone.depths, zone.depths)
-                Rxy = R_matrix(zone.depths, sample_depths)
+                Rnn_MM = np.diag(var_A)
+                Rxx_MM = var_D*R_matrix(sample_depths, sample_depths)
+                Rxx_NN = var_D*R_matrix(zone.depths, zone.depths)
+                Rxx_NM = var_D*R_matrix(zone.depths, sample_depths)
+                Ryy_MM = Rxx_MM + Rnn_MM
 
-                conc_anom = conc - conc.mean()
-                conc_var_discrete = conc_e**2
-                conc_var = (np.var(conc, ddof=1)
-                            + np.sum(conc_var_discrete)/len(sample_depths))
-
-                Rnn = np.diag(conc_var_discrete)
-                Rxxmm = Rxxmm*conc_var
-                Rxxnn = Rxxnn*conc_var
-                Rxy = Rxy*conc_var
-                Ryy = Rxxmm + Rnn
-                Ryyi = np.linalg.inv(Ryy)
-
-                conc_anom_oi = Rxy @ Ryyi @ conc_anom
-                conc_oi = conc_anom_oi + conc.mean()
-                P = Rxxnn - Rxy @ Ryyi @ Rxy.T
-                conc_e_oi = np.sqrt(np.diag(P))
+                xp = Rxx_NM @ np.linalg.inv(Ryy_MM) @ yp
+                x = xp + y.mean()
+                P = Rxx_NN - Rxx_NM @ np.linalg.inv(Ryy_MM) @ Rxx_NM.T
+                x_se = np.sqrt(np.diag(P))
                 tracer_data_cov_matrices.append(P)
 
                 tracer_data_oi = tracer_data_oi.append(
-                    pd.DataFrame(np.array([zone.depths, conc_oi, conc_e_oi]).T,
+                    pd.DataFrame(np.array([zone.depths, x, x_se]).T,
                                  columns=tracer_data_oi.columns),
                     ignore_index=True)
 
