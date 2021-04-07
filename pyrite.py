@@ -93,8 +93,35 @@ class PyriteModel:
         return 'PyriteModel object'
 
     def load_data(self):
-        """Load input data (must be from a file called 'pyrite_data.xlsx')."""
+        """Load input data (must be from a file called 'pyrite_data.xlsx').
+
+        After loading in data, calculate cruise-averaged POC concentrations.
+        """
         self.data = pd.read_excel('pyrite_data.xlsx', sheet_name=None)
+
+        poc_all = self.data['POC'].copy()
+        poc_means = pd.DataFrame(np.sort(poc_all['mod_depth'].unique()),
+                                 columns=['depth'])
+
+        poc_means['n_casts'] = poc_means.apply(
+            lambda x: len(poc_all.loc[poc_all['mod_depth'] == x['depth']]),
+            axis=1)
+
+        for t in ('POCS', 'POCL'):
+            poc_means[t] = poc_means.apply(
+                lambda x: poc_all.loc[
+                    poc_all['mod_depth'] == x['depth']][t].mean(), axis=1)
+            poc_means[f'{t}_sd'] = poc_means.apply(
+                lambda x: poc_all.loc[
+                    poc_all['mod_depth'] == x['depth']][t].std(), axis=1)
+            re_50m = float(poc_means.loc[poc_means['depth'] == 50, f'{t}_sd']
+                           / poc_means.loc[poc_means['depth'] == 50, t])
+            poc_means.loc[poc_means['depth'] == 30, f'{t}_sd'] = (
+                poc_means.loc[poc_means['depth'] == 30, t]*re_50m)
+            poc_means[f'{t}_se'] = (poc_means[f'{t}_sd']
+                                    / np.sqrt(poc_means['n_casts']))
+
+        self.data['poc_means'] = poc_means.copy()
 
     def define_tracers(self):
         """Define tracers to be used in the model."""
@@ -157,8 +184,8 @@ class PyriteModel:
         Lp -- vertical length scale of particle production
         P30 -- production of small POC at the base of the mixed layer
         """
-        npp_data_raw = self.data['npp']
-        npp_data_clean = npp_data_raw.loc[(npp_data_raw['npp'] > 0)]
+        npp_data_raw = self.data['NPP']
+        npp_data_clean = npp_data_raw.loc[(npp_data_raw['NPP'] > 0)]
 
         MIXED_LAYER_UPPER_BOUND, MIXED_LAYER_LOWER_BOUND = 28, 35
 
@@ -169,11 +196,11 @@ class PyriteModel:
         npp_below_mixed_layer = npp_data_clean.loc[
             npp_data_clean['target_depth'] >= MIXED_LAYER_UPPER_BOUND]
 
-        P30_prior = npp_mixed_layer['npp'].mean()/self.MOLAR_MASS_C
-        P30_prior_e = npp_mixed_layer['npp'].sem()/self.MOLAR_MASS_C
+        P30_prior = npp_mixed_layer['NPP'].mean()/self.MOLAR_MASS_C
+        P30_prior_e = npp_mixed_layer['NPP'].sem()/self.MOLAR_MASS_C
 
         npp_regression = smf.ols(
-            formula='np.log(npp/(P30_prior*self.MOLAR_MASS_C)) ~ target_depth',
+            formula='np.log(NPP/(P30_prior*self.MOLAR_MASS_C)) ~ target_depth',
             data=npp_below_mixed_layer).fit()
 
         Lp_prior = -1/npp_regression.params[1]
@@ -192,9 +219,11 @@ class PyriteModel:
         cast_match_table = self.data['cast_match']
         cast_match_dict = dict(zip(cast_match_table['pump_cast'],
                                    cast_match_table['ctd_cast']))
-        poc_discrete = self.data['poc_discrete']
+        poc_concentrations = self.data['POC']
         cp_bycast = self.data['cp_bycast']
-        self.poc_cp_df = poc_discrete.copy()
+        self.poc_cp_df = poc_concentrations.copy()
+        self.poc_cp_df['POCT'] = (self.poc_cp_df['POCS']
+                                  + self.poc_cp_df['POCL'])
 
         self.poc_cp_df['ctd_cast'] = self.poc_cp_df.apply(
             lambda x: cast_match_dict[x['pump_cast']], axis=1)
@@ -202,9 +231,9 @@ class PyriteModel:
             lambda x: cp_bycast.at[x['depth']-1, x['ctd_cast']], axis=1)
 
         self.cp_Pt_regression_nonlinear = smf.ols(
-            formula='Pt ~ np.log(cp)', data=self.poc_cp_df).fit()
+            formula='POCT ~ np.log(cp)', data=self.poc_cp_df).fit()
         self.cp_Pt_regression_linear = smf.ols(
-            formula='Pt ~ cp', data=self.poc_cp_df).fit()
+            formula='POCT ~ cp', data=self.poc_cp_df).fit()
 
         cp_bycast_to_mean = cp_bycast.loc[self.GRID-1,
                                           cast_match_table['ctd_cast']]
@@ -854,7 +883,7 @@ class Tracer:
 
         self.name = name
         self.label = label
-        self.data = data[['depth', f'{name}_mean', f'{name}_se']].copy()
+        self.data = data[['depth', name, f'{name}_se']].copy()
         self.data.rename(columns={self.data.columns[1]: 'conc',
                                   self.data.columns[2]: 'conc_e'},
                          inplace=True)
@@ -1018,10 +1047,10 @@ class PyriteTwinX(PyriteModel):
         x = self.generate_pseudodata(model)
 
         for t in model.tracers:
-            re = tracer_data[f'{t.name}_se']/tracer_data[f'{t.name}_mean']
+            re = tracer_data[f'{t.name}_se']/tracer_data[t.name]
             pseudo = model.slice_by_tracer(x, t.name)
-            tracer_data[f'{t.name}_mean'] = pseudo[sample_indices]
-            tracer_data[f'{t.name}_se'] = tracer_data[f'{t.name}_mean']*re
+            tracer_data[t.name] = pseudo[sample_indices]
+            tracer_data[f'{t.name}_se'] = tracer_data[t.name]*re
             if t.name == 'POCS':
                 Ps_pseudo = pseudo
             if t.name == 'POCL':
@@ -1520,7 +1549,7 @@ class PlotterModelRuns(PlotterTwinX):
     def cp_Pt_regression(self):
 
         cp = self.model.poc_cp_df['cp']
-        Pt = self.model.poc_cp_df['Pt']
+        Pt = self.model.poc_cp_df['POCT']
         depths = self.model.poc_cp_df['depth']
         linear_regression = self.model.cp_Pt_regression_linear
         nonlinear_regression = self.model.cp_Pt_regression_nonlinear
@@ -1694,12 +1723,12 @@ class PlotterModelRuns(PlotterTwinX):
     def sinking_fluxes(self, run):
 
         th_fluxes = pd.read_excel(
-            'pyrite_data.xlsx', sheet_name='poc_fluxes_from_thorium')
+            'pyrite_data.xlsx', sheet_name='POC_fluxes_thorium')
         th_depths = th_fluxes['depth']
         th_flux = th_fluxes['flux']
         th_flux_u = th_fluxes['flux_u']
         st_fluxes = pd.read_excel(
-            'pyrite_data.xlsx', sheet_name='poc_fluxes_from_traps')
+            'pyrite_data.xlsx', sheet_name='POC_fluxes_traps')
         st_depths = st_fluxes['depth']
         st_flux = st_fluxes['flux']
         st_flux_u = st_fluxes['flux_u']
@@ -1795,9 +1824,9 @@ class PlotterModelRuns(PlotterTwinX):
                 eb2[-1][0].set_linestyle(':')
 
             if pr[0] == 'production':
-                df = self.model.data['npp']
+                df = self.model.data['NPP']
                 H = self.model.MIXED_LAYER_DEPTH
-                npp = df.loc[df['target_depth'] >= H]['npp']
+                npp = df.loc[df['target_depth'] >= H]['NPP']
                 depth = df.loc[df['target_depth'] >= H]['target_depth']
                 ax.scatter(npp/self.model.MOLAR_MASS_C, depth, c=c2,
                            alpha=0.5, label='NPP', s=10)
