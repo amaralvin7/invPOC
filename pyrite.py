@@ -125,10 +125,10 @@ class PyriteModel:
 
     def define_tracers(self):
         """Define tracers to be used in the model."""
-        self.Ps = Tracer('POCS', '$P_S$', self.data['poc_means'])
-        self.Pl = Tracer('POCL', '$P_L$', self.data['poc_means'])
+        self.POCS = Tracer('POCS', '$P_S$', self.data['poc_means'])
+        self.POCL = Tracer('POCL', '$P_L$', self.data['poc_means'])
 
-        self.tracers = (self.Ps, self.Pl)
+        self.tracers = (self.POCS, self.POCL)
 
     def define_params(self):
         """Set prior estimates and errors of model parameters."""
@@ -289,19 +289,19 @@ class PyriteModel:
 
                 yp = y - y.mean()
                 var_A = y_se**2
-                var_B = np.var(y, ddof=1)
-                var_C = np.sum(var_A)/len(sample_depths)
+                var_B = np.sum(var_A)/len(sample_depths)
+                var_C = np.var(y, ddof=1)
                 var_D = var_B + var_C
 
                 Rnn_MM = np.diag(var_A)
                 Rxx_MM = var_D*R_matrix(sample_depths, sample_depths)
                 Rxx_NN = var_D*R_matrix(zone.depths, zone.depths)
-                Rxx_NM = var_D*R_matrix(zone.depths, sample_depths)
+                Rxy_NM = var_D*R_matrix(zone.depths, sample_depths)
                 Ryy_MM = Rxx_MM + Rnn_MM
 
-                xp = Rxx_NM @ np.linalg.inv(Ryy_MM) @ yp
+                xp = Rxy_NM @ np.linalg.inv(Ryy_MM) @ yp
                 x = xp + y.mean()
-                P = Rxx_NN - Rxx_NM @ np.linalg.inv(Ryy_MM) @ Rxx_NM.T
+                P = Rxx_NN - Rxy_NM @ np.linalg.inv(Ryy_MM) @ Rxy_NM.T
                 x_se = np.sqrt(np.diag(P))
                 tracer_data_cov_matrices.append(P)
 
@@ -1368,13 +1368,13 @@ class PlotterTwinX():
                        'cp_label': 'from $c_p$'}}
 
         ax1.errorbar(
-            self.model.Ps.data['conc'], self.model.Ps.data['depth'], fmt='^',
-            xerr=self.model.Ps.data['conc_e'], ecolor=self.BLUE,
-            elinewidth=1, c=self.BLUE, ms=10, capsize=5,
-            label=art[self.is_twinX]['data_label'], fillstyle='full')
+            self.model.POCS.data['conc'], self.model.POCS.data['depth'],
+            fmt='^', xerr=self.model.POCS.data['conc_e'], ecolor=self.BLUE,
+            elinewidth=1, c=self.BLUE, ms=10, capsize=5, fillstyle='full',
+            label=art[self.is_twinX]['data_label'])
         ax1.errorbar(
-            self.model.Ps.prior['conc'], self.model.Ps.prior['depth'],
-            fmt='o', xerr=self.model.Ps.prior['conc_e'], ecolor=self.SKY,
+            self.model.POCS.prior['conc'], self.model.POCS.prior['depth'],
+            fmt='o', xerr=self.model.POCS.prior['conc_e'], ecolor=self.SKY,
             elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
             label='OI', markeredgewidth=0.5)
         ax1.errorbar(
@@ -1385,13 +1385,13 @@ class PlotterTwinX():
             zorder=3, markeredgewidth=0.5)
 
         ax2.errorbar(
-            self.model.Pl.data['conc'], self.model.Pl.data['depth'], fmt='^',
-            xerr=self.model.Pl.data['conc_e'], ecolor=self.BLUE,
-            elinewidth=1, c=self.BLUE, ms=10, capsize=5,
-            label=art[self.is_twinX]['data_label'], fillstyle='full')
+            self.model.POCL.data['conc'], self.model.POCL.data['depth'],
+            fmt='^', xerr=self.model.POCL.data['conc_e'], ecolor=self.BLUE,
+            elinewidth=1, c=self.BLUE, ms=10, capsize=5, fillstyle='full',
+            label=art[self.is_twinX]['data_label'])
         ax2.errorbar(
-            self.model.Pl.prior['conc'], self.model.Pl.prior['depth'],
-            fmt='o', xerr=self.model.Pl.prior['conc_e'], ecolor=self.SKY,
+            self.model.POCL.prior['conc'], self.model.POCL.prior['depth'],
+            fmt='o', xerr=self.model.POCL.prior['conc_e'], ecolor=self.SKY,
             elinewidth=0.5, c=self.SKY, ms=2, capsize=2,
             label='OI', markeredgewidth=0.5)
         ax2.errorbar(
@@ -1669,16 +1669,16 @@ class PlotterModelRuns(PlotterTwinX):
         ax1.set_ylabel('Depth (m)', fontsize=14)
 
         ax1.errorbar(
-            self.model.Ps.data['conc'], self.model.Ps.data['depth'], fmt='^',
-            xerr=self.model.Ps.data['conc_e'], ecolor=self.BLUE,
-            elinewidth=1, c=self.BLUE, ms=10, capsize=5,
-            label='LVISF', fillstyle='full')
+            self.model.POCS.data['conc'], self.model.POCS.data['depth'],
+            fmt='^', xerr=self.model.POCS.data['conc_e'], ecolor=self.BLUE,
+            elinewidth=1, c=self.BLUE, ms=10, capsize=5, label='LVISF',
+            fillstyle='full')
 
         ax2.errorbar(
-            self.model.Pl.data['conc'], self.model.Pl.data['depth'], fmt='^',
-            xerr=self.model.Pl.data['conc_e'], ecolor=self.BLUE,
-            elinewidth=1, c=self.BLUE, ms=10, capsize=5,
-            label='LVISF', fillstyle='full')
+            self.model.POCL.data['conc'], self.model.POCL.data['depth'],
+            fmt='^', xerr=self.model.POCL.data['conc_e'], ecolor=self.BLUE,
+            elinewidth=1, c=self.BLUE, ms=10, capsize=5, label='LVISF',
+            fillstyle='full')
 
         ax3.scatter(
             self.model.Pt_mean_nonlinear, self.model.GRID, marker='o',
@@ -1692,10 +1692,10 @@ class PlotterModelRuns(PlotterTwinX):
              + np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
             color=self.BLUE, alpha=0.25, zorder=2)
         ax3.errorbar(
-            self.model.Ps.data['conc'] + self.model.Pl.data['conc'],
+            self.model.POCS.data['conc'] + self.model.POCL.data['conc'],
             self.model.data['poc_means']['depth'], fmt='^', ms=10,
-            c=self.BLUE, xerr=np.sqrt(self.model.Ps.data['conc_e']**2
-                                      + self.model.Pl.data['conc_e']**2),
+            c=self.BLUE, xerr=np.sqrt(self.model.POCS.data['conc_e']**2
+                                      + self.model.POCL.data['conc_e']**2),
             zorder=1, label='LVISF', capsize=5, fillstyle='full',
             elinewidth=1)
 
@@ -2030,8 +2030,8 @@ class PlotterModelRuns(PlotterTwinX):
         ax.set_yticks(list(range(-11, 2)))
         ax.grid(axis='y', zorder=1)
         plt.subplots_adjust(bottom=0.1)
-        tracerdict = {'POCS': {'marker': 's', 'label': self.model.Ps.label},
-                      'POCL': {'marker': '^', 'label': self.model.Pl.label}}
+        tracerdict = {'POCS': {'marker': 's', 'label': self.model.POCS.label},
+                      'POCL': {'marker': '^', 'label': self.model.POCL.label}}
         zone_colors = {'LEZ': self.GREEN, 'UMZ': self.ORANGE}
         for t in tracerdict:
             m = tracerdict[t]['marker']
