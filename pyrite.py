@@ -289,14 +289,12 @@ class PyriteModel:
 
                 yp = y - y.mean()
                 var_A = y_se**2
-                var_B = np.sum(var_A)/len(sample_depths)
-                var_C = np.var(y, ddof=1)
-                var_D = var_B + var_C
+                var_B = np.var(y, ddof=1)
 
                 Rnn_MM = np.diag(var_A)
-                Rxx_MM = var_D*R_matrix(sample_depths, sample_depths)
-                Rxx_NN = var_D*R_matrix(zone.depths, zone.depths)
-                Rxy_NM = var_D*R_matrix(zone.depths, sample_depths)
+                Rxx_MM = var_B*R_matrix(sample_depths, sample_depths)
+                Rxx_NN = var_B*R_matrix(zone.depths, zone.depths)
+                Rxy_NM = var_B*R_matrix(zone.depths, sample_depths)
                 Ryy_MM = Rxx_MM + Rnn_MM
 
                 xp = Rxy_NM @ np.linalg.inv(Ryy_MM) @ yp
