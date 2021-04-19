@@ -1237,7 +1237,7 @@ class PlotterTwinX():
         k = len(run.cost_evolution)
 
         fig, ax = plt.subplots(1, tight_layout=True)
-        ax.plot(np.arange(k), run.convergence_evolution,
+        ax.plot(np.arange(1, k+1), run.convergence_evolution,
                 marker='o', ms=3, c=self.BLUE)
         ax.set_yscale('log')
         ax.set_xlabel('Iteration, $k$', fontsize=16)
@@ -1251,7 +1251,7 @@ class PlotterTwinX():
         plt.close()
 
         fig, ax = plt.subplots(1, tight_layout=True)
-        ax.plot(np.arange(k), run.cost_evolution, marker='o', ms=3,
+        ax.plot(np.arange(1, k+1), run.cost_evolution, marker='o', ms=3,
                 c=self.BLUE)
         ax.set_xlabel('Iteration, $k$', fontsize=16)
         ax.set_ylabel('Cost, $J$', fontsize=16)
