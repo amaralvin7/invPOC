@@ -593,6 +593,7 @@ class PyriteModel:
                 if run.converged:
                     break
                 xk = xkp1
+            print(f'{run.gamma}: {run.converged}')
 
             return F, xkp1, CoFT, FCoFTpCfi
 
@@ -1928,7 +1929,7 @@ if __name__ == '__main__':
 
     sys.setrecursionlimit(100000)
     start_time = time.time()
-    PyriteModel([0.02])
+    PyriteModel([1])
     # twinX = PyriteTwinX()
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
     # PlotterTwinX('out/POC_twinX_dev.pkl')
