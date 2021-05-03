@@ -150,8 +150,8 @@ class PyriteModel:
         self.P30 = Param(P30_prior, P30_prior_e, 'P30', '$\.P_{S,30}$',
                          depth_vary=False)
         self.Lp = Param(Lp_prior, Lp_prior_e, 'Lp', '$L_P$', depth_vary=False)
-        self.Phi = Param(ti_dust, ti_dust, 'Phi', '$\\Phi_D$',
-                         depth_vary=False)
+        # self.Phi = Param(ti_dust, ti_dust, 'Phi', '$\\Phi_D$',
+        #                  depth_vary=False)
         
 
         self.params = (self.ws, self.wl, self.B2p, self.Bm2, self.Bm1s,
@@ -332,7 +332,7 @@ class PyriteModel:
         should only exist if function is evoked from a TwinX object
         """
         zim1, zi = zone.depths
-        h = zi - zim1        
+        h = zi - zim1
         if zone.label == 'A':
             Psi = sym.symbols('POCS_A')
             Pli = sym.symbols('POCL_A')
@@ -1929,7 +1929,7 @@ if __name__ == '__main__':
 
     sys.setrecursionlimit(100000)
     start_time = time.time()
-    PyriteModel([1])
+    PyriteModel([0.2])
     # twinX = PyriteTwinX()
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
     # PlotterTwinX('out/POC_twinX_dev.pkl')
