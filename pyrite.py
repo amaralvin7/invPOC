@@ -135,7 +135,7 @@ class PyriteModel:
     def define_params(self):
         """Set prior estimates and errors of model parameters."""
         P30_prior, P30_prior_e, Lp_prior, Lp_prior_e = self.process_npp_data()
-        ti_dust = 0.05*0.0042*1000/47.867 #umol m-2 d-1
+        # ti_dust = 0.05*0.0042*1000/47.867 #umol m-2 d-1
 
         self.ws = Param(2, 2, 'ws', '$w_S$')
         self.wl = Param(20, 15, 'wl', '$w_L$')
@@ -234,7 +234,6 @@ class PyriteModel:
         for t in self.tracers:
             tracer_priors.append(t.prior['conc'])
             tracer_priors_var.append(t.prior['conc_e']**2)
-            #for i in range(1, self.GRID):
             for z in self.zones:
                 self.state_elements.append(f'{t.name}_{z.label}')
 
@@ -248,10 +247,10 @@ class PyriteModel:
 
         for p in self.params:
             if p.dv:
-                for z in self.zones:
+                for z in ('LEZ','UMZ'):
                     param_priors.append(p.prior)
                     param_priors_var.append(p.prior_e**2)
-                    self.state_elements.append(f'{p.name}_{z.label}')
+                    self.state_elements.append(f'{p.name}_{z}')
             else:
                 param_priors.append(p.prior)
                 param_priors_var.append(p.prior_e**2)
@@ -417,7 +416,10 @@ class PyriteModel:
                 if param.dv:
                     if '-' in x.name:
                         zone_name = self.previous_zone(zone_name)
-                    element = '_'.join([param.name, zone_name])
+                    if zone_name in ('A', 'B', 'C'):
+                        element = '_'.join([param.name, 'LEZ'])
+                    else:
+                        element = '_'.join([param.name, 'UMZ'])
                 else:
                     element = param.name
             # print(element)
@@ -637,13 +639,11 @@ class PyriteModel:
             for param in self.params:
                 p = param.name
                 if param.dv:
-                    run.param_results[p] = {
-                        zone.label: {} for zone in self.zones}
-                    for zone in self.zones:
-                        z = zone.label
-                        zone_param = '_'.join([p, z])
+                    run.param_results[p] = {'LEZ':{}, 'UMZ':{}}
+                    for dom in ('LEZ', 'UMZ'):
+                        zone_param = '_'.join([p, dom])
                         i = self.state_elements.index(zone_param)
-                        run.param_results[p][z] = {'est': xhat[i],
+                        run.param_results[p][dom] = {'est': xhat[i],
                                                    'err': xhat_e[i]}
                 else:
                     i = self.state_elements.index(p)
@@ -960,27 +960,6 @@ class PyriteTwinX(PyriteModel):
                 reference_run = run
                 break
 
-        # USING PRIORS
-        params_known = {}
-        for param in model.params:
-            p = param.name
-            params_known[p] = {}
-            if param.dv:
-                for zone in model.zones:
-                    z = zone.label
-                    params_known[p][z] = param.prior
-            else:
-                params_known[p] = param.prior
-
-        # params_out = {'ws':{'L':1.243, 'U':3.660},
-        #               'wl':{'L':8.833, 'U':25.320},
-        #               'B2p':{'L':0.021, 'U':0.024},
-        #               'Bm2':{'L':0.599, 'U':0.127},
-        #               'Bm1s':{'L':0.064, 'U':0.029},
-        #               'Bm1l':{'L':0.186, 'U':0.105},
-        #               'P30':0.207, 'Lp':27.007,
-        #               'Phi':model.Phi.prior}
-
         self.target_values = reference_run.param_results.copy()
 
     def generate_pseudodata(self, model):
@@ -1199,59 +1178,104 @@ class PlotterTwinX():
 
     def params(self, run):
 
-        tar = {True: {'LEZ': 2, 'UMZ': 4}, False: 3}
-        pri = {True: 2, False: 1}
-        est = {True: {True: {'LEZ': 3, 'UMZ': 5}, False: 4},
-                False: {True: {'LEZ': 2, 'UMZ': 3}, False: 3}}
-        maxtick = {True: 7, False: 5}
+        # tar = {True: {'LEZ': 2, 'UMZ': 4}, False: 3}
+        # pri = {True: 2, False: 1}
+        # est = {True: {True: {'LEZ': 3, 'UMZ': 5}, False: 4},
+        #         False: {True: {'LEZ': 2, 'UMZ': 3}, False: 3}}
+        # maxtick = {True: 9, False: 7}
 
+        params_out = {'ws':{'LEZ':(1.243,0.384), 'UMZ':(3.660,3.308)},
+                      'wl':{'LEZ':(19.076,8.833), 'UMZ':(25.320,18.386)},
+                      'B2p':{'LEZ':(0.021,0.009), 'UMZ':(0.024,0.022)},
+                      'Bm2':{'LEZ':(0.599,0.329), 'UMZ':(0.127,0.104)},
+                      'Bm1s':{'LEZ':(0.064,0.008), 'UMZ':(0.029,0.013)},
+                      'Bm1l':{'LEZ':(0.186,0.183), 'UMZ':(0.105,0.094)},
+                      'P30':(0.207,0.015), 'Lp':(27.007,2.640)}
+
+        fig, ([ax1, ax2, ax3, ax4], [ax5, ax6, ax7, ax8]) = plt.subplots(2, 4)
+        fig.subplots_adjust(wspace=0.8, hspace=0.4)
+        axs = [ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8]
         for i, param in enumerate(self.model.params):
             p = param.name
-            fig, ax = plt.subplots(tight_layout=True)           
+            ax = axs[i]
+            ax.set_title(eval(f'self.model.{p}.label'), fontsize=14)
             if param.dv:
-                ax.set_xlabel(eval(f'self.model.{p}.label'), fontsize=14)
-                ax.set_ylabel('Depth (m)', fontsize=14)
-                ax.invert_yaxis()
-                ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH+30)
-                ax.tick_params(axis='both', which='major', labelsize=12)
-                # ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
-                #           loc='lower right')
-                ax.fill_betweenx(
-                    self.model.GRID, param.prior - param.prior_e,
-                    param.prior + param.prior_e, color=self.BLUE, alpha=0.25,
-                    zorder=2)
-                for i, z in enumerate(self.model.zone_names):
-                    ax.errorbar(
-                        run.param_results[p][z]['est'], self.model.GRID[i+1],
-                        fmt='o', xerr=run.param_results[p][z]['err'],
-                        ecolor=self.ORANGE, elinewidth=1, c=self.ORANGE, ms=8,
-                        capsize=1, fillstyle='none', zorder=3,
-                        markeredgewidth=1)
-            else:
-                ax.set_xlabel(eval(f'self.model.{p}.label'), fontsize=14)
                 ax.errorbar(
-                    pri[self.is_twinX], eval(f'self.model.{p}.prior'),
+                    1, eval(f'self.model.{p}.prior'),
                     yerr=eval(f'self.model.{p}.prior_e'), fmt='o', ms=9,
                     c=self.BLUE, elinewidth=1.5, ecolor=self.BLUE,
                     capsize=6, label='Prior', markeredgewidth=1.5)
                 ax.errorbar(
-                    est[self.is_twinX][param.dv],
+                    3,
+                    run.param_results[p]['LEZ']['est'],
+                    yerr=run.param_results[p]['LEZ']['err'], fmt='o',
+                    c=self.GREEN, ms=9, elinewidth=1.5, ecolor=self.GREEN,
+                    capsize=6, label='LEZ', markeredgewidth=1.5)
+                ax.errorbar(
+                    5,
+                    params_out[p]['LEZ'][0],
+                    params_out[p]['LEZ'][1], fmt='d',
+                    c=self.GREEN, ms=9, elinewidth=1.5, ecolor=self.GREEN,
+                    capsize=6, markeredgewidth=1.5)
+                ax.errorbar(
+                     7,
+                     run.param_results[p]['UMZ']['est'],
+                     yerr=run.param_results[p]['UMZ']['err'], fmt='o',
+                     c=self.ORANGE, ms=9, elinewidth=1.5,
+                     ecolor=self.ORANGE, capsize=6, label='UMZ',
+                     markeredgewidth=1.5)
+                ax.errorbar(
+                    9,
+                    params_out[p]['UMZ'][0],
+                    params_out[p]['UMZ'][1], fmt='d',
+                    c=self.ORANGE, ms=9, elinewidth=1.5, ecolor=self.ORANGE,
+                    capsize=6, markeredgewidth=1.5)
+                # if self.is_twinX:
+                #     ax.scatter(
+                #         tar[param.dv]['LEZ'],
+                #         self.model.target_values[p]['LEZ']['est'],
+                #         marker='+', s=90, c=self.GREEN)
+                #     ax.scatter(
+                #         tar[param.dv]['UMZ'],
+                #         self.model.target_values[p]['UMZ']['est'],
+                #         marker='+', s=90, c=self.ORANGE)
+                if i == 5:
+                    ax.legend(
+                        loc='upper center', bbox_to_anchor=(1.38, -0.07),
+                        ncol=3, fontsize=12, frameon=False)
+            else:
+                ax.errorbar(
+                    2, eval(f'self.model.{p}.prior'),
+                    yerr=eval(f'self.model.{p}.prior_e'), fmt='o', ms=9,
+                    c=self.BLUE, elinewidth=1.5, ecolor=self.BLUE,
+                    capsize=6, label='Prior', markeredgewidth=1.5)
+                ax.errorbar(
+                    5,
                     run.param_results[p]['est'],
                     yerr=run.param_results[p]['err'], fmt='o',
                     c=self.RADISH, ms=9, elinewidth=1.5,
                     ecolor=self.RADISH, capsize=6, markeredgewidth=1.5)
-                if self.is_twinX:
-                    ax.scatter(
-                        tar[param.dv], self.model.target_values[p]['est'],
-                        marker='+', s=90, c=self.RADISH)
-                ax.tick_params(bottom=False, labelbottom=False)
-                ax.set_xticks(np.arange(maxtick[self.is_twinX]))
+                ax.errorbar(
+                    8,
+                    params_out[p][0],
+                    yerr=params_out[p][1], fmt='d',
+                    c=self.RADISH, ms=9, elinewidth=1.5,
+                    ecolor=self.RADISH, capsize=6, markeredgewidth=1.5)
+                # if self.is_twinX:
+                #     ax.scatter(
+                #         tar[param.dv], self.model.target_values[p]['est'],
+                #         marker='+', s=90, c=self.RADISH)
+            ax.tick_params(bottom=False, labelbottom=False)
+            # ax.set_xticks(np.arange(maxtick[self.is_twinX]))
+            ax.set_xticks(np.arange(11))
+            if p == 'Bm2':
+                ax.set_ylim(-0.5, 2)
             
-            filename = f'out/{p}_gam{str(run.gamma).replace(".","")}'
-            if self.is_twinX:
-                filename += '_TE'
-            fig.savefig(f'{filename}.png')
-            plt.close()
+        filename = f'out/params_gam{str(run.gamma).replace(".","")}'
+        if self.is_twinX:
+            filename += '_TE'
+        fig.savefig(f'{filename}.png')
+        plt.close()
 
     def poc_profiles(self, run):
 
@@ -1386,7 +1410,7 @@ class PlotterTwinX():
         ax2.set_xlabel(r'$\frac{f(\^x)_{i}}{\sigma_{f(\^x)_{i}}}$',
                        fontsize=24)
         for ax in (ax1, ax2):
-            ax.set_xlim([-1, 1])
+            ax1.set_xlim([-1, 1])
 
         filename = f'out/pdfs_gam{str(run.gamma).replace(".","")}'
         if self.is_twinX:
@@ -1929,7 +1953,7 @@ if __name__ == '__main__':
 
     sys.setrecursionlimit(100000)
     start_time = time.time()
-    PyriteModel([0.2])
+    PyriteModel([0.02])
     # twinX = PyriteTwinX()
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
     # PlotterTwinX('out/POC_twinX_dev.pkl')
