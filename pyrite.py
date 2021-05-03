@@ -973,7 +973,6 @@ class PyriteTwinX(PyriteModel):
             else:
                 params_known[p] = param.prior
 
-        # # USING OUTPUT FROM POC INVERSION
         # params_out = {'ws':{'L':1.243, 'U':3.660},
         #               'wl':{'L':8.833, 'U':25.320},
         #               'B2p':{'L':0.021, 'U':0.024},
@@ -982,23 +981,8 @@ class PyriteTwinX(PyriteModel):
         #               'Bm1l':{'L':0.186, 'U':0.105},
         #               'P30':0.207, 'Lp':27.007,
         #               'Phi':model.Phi.prior}
-        # params_known = {}
-        # for param in model.params:
-        #     p = param.name
-        #     params_known[p] = {}
-        #     if param.dv:
-        #         for zone in model.zones:
-        #             z = zone.label
-        #             if z in ('A', 'B', 'C'):
-        #                 zp = 'L'
-        #             else:
-        #                 zp = 'U'
-        #             params_known[p][z] = params_out[p][zp]
-        #     else:
-        #         params_known[p] = params_out[p]     
 
         self.target_values = reference_run.param_results.copy()
-        self.target_values = params_known.copy()
 
     def generate_pseudodata(self, model):
         """Generate pseudodata from the model equations."""
@@ -1194,7 +1178,7 @@ class PlotterTwinX():
         filename = f'out/conv_gam{str(run.gamma).replace(".","")}'
         if self.is_twinX:
             filename += '_TE'
-        fig.savefig(f'{filename}.pdf')
+        fig.savefig(f'{filename}.png')
         plt.close()
 
         fig, ax = plt.subplots(1, tight_layout=True)
@@ -1207,7 +1191,7 @@ class PlotterTwinX():
         filename = f'out/cost_gam{str(run.gamma).replace(".","")}'
         if self.is_twinX:
             filename += '_TE'
-        fig.savefig(f'{filename}.pdf')
+        fig.savefig(f'{filename}.png')
         plt.close()
 
     def params(self, run):
@@ -1263,7 +1247,7 @@ class PlotterTwinX():
             filename = f'out/{p}_gam{str(run.gamma).replace(".","")}'
             if self.is_twinX:
                 filename += '_TE'
-            fig.savefig(f'{filename}.pdf')
+            fig.savefig(f'{filename}.png')
             plt.close()
 
     def poc_profiles(self, run):
@@ -1332,7 +1316,7 @@ class PlotterTwinX():
         filename = f'out/POCprofs_gam{str(run.gamma).replace(".","")}'
         if self.is_twinX:
             filename += '_TE'
-        fig.savefig(f'{filename}.pdf')
+        fig.savefig(f'{filename}.png')
         plt.close()
     
     def ti_profiles(self, run):
@@ -1385,7 +1369,7 @@ class PlotterTwinX():
         filename = f'out/Tiprofs_gam{str(run.gamma).replace(".","")}'
         if self.is_twinX:
             filename += '_TE'
-        fig.savefig(f'{filename}.pdf')
+        fig.savefig(f'{filename}.png')
         plt.close()
 
     def residual_pdfs(self, run):
@@ -1404,7 +1388,7 @@ class PlotterTwinX():
         filename = f'out/pdfs_gam{str(run.gamma).replace(".","")}'
         if self.is_twinX:
             filename += '_TE'
-        fig.savefig(f'{filename}.pdf')
+        fig.savefig(f'{filename}.png')
         plt.close()
 
 
@@ -1469,7 +1453,7 @@ class PlotterModelRuns(PlotterTwinX):
             ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH + 30)
             ax.tick_params(axis='both', which='major', labelsize=12)
 
-        fig.savefig('out/poc_data.pdf')
+        fig.savefig('out/poc_data.png')
         plt.close()
     
     def ti_data(self):
@@ -1506,7 +1490,7 @@ class PlotterModelRuns(PlotterTwinX):
             ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH + 30)
             ax.tick_params(axis='both', which='major', labelsize=12)
 
-        fig.savefig('out/ti_data.pdf')
+        fig.savefig('out/ti_data.png')
         plt.close()
 
     def sinking_fluxes(self, run):
@@ -1574,7 +1558,7 @@ class PlotterModelRuns(PlotterTwinX):
         ax2.annotate(
             'B', xy=(0.91, 0.94), xycoords='axes fraction', fontsize=16)
 
-        fig.savefig(f'out/sinkfluxes_gam{str(run.gamma).replace(".","")}.pdf')
+        fig.savefig(f'out/sinkfluxes_gam{str(run.gamma).replace(".","")}.png')
         plt.close()
 
     def volumetric_fluxes(self, run):
@@ -1631,7 +1615,7 @@ class PlotterModelRuns(PlotterTwinX):
             ax.set_ylim(
                 top=0, bottom=self.model.MAX_DEPTH+self.model.GRID_STEP)
         fig.savefig(
-            f'out/fluxes_volumetric_gam{str(run.gamma).replace(".","")}.pdf')
+            f'out/fluxes_volumetric_gam{str(run.gamma).replace(".","")}.png')
         plt.close()
 
     def write_output(self):
@@ -1808,7 +1792,7 @@ class PlotterModelRuns(PlotterTwinX):
             ax.set_ylim(axs_dict[ax]['ylim'])
             ax.annotate(axs_dict[ax]['panel'], xy=(0.82, 0.05),
                         xycoords='axes fraction', fontsize=14)
-        fig.savefig('out/compare_params.pdf')
+        fig.savefig('out/compare_params.png')
         plt.close()
 
     def integrated_residuals(self):
@@ -1839,7 +1823,7 @@ class PlotterModelRuns(PlotterTwinX):
         ax.set_ylabel('Integrated Residuals (mmol m$^{-2}$ d$^{-1}$)',
                       fontsize=14)
         ax.set_xlabel('$\gamma$', fontsize=14)
-        fig.savefig('out/intresids.pdf')
+        fig.savefig('out/intresids.png')
         plt.close()
 
     def param_sensitivity(self):
@@ -1891,7 +1875,7 @@ class PlotterModelRuns(PlotterTwinX):
                     range(len(self.model.model_runs)))])
                 ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
                 ax.set_xticklabels(self.model.gammas, rotation=60)
-        fig.savefig('out/sensitivity_params.pdf')
+        fig.savefig('out/sensitivity_params.png')
         plt.close()
 
     def param_relative_errors(self):
@@ -1934,7 +1918,7 @@ class PlotterModelRuns(PlotterTwinX):
         ax.set_xlabel('$\gamma$', fontsize=14)
         ax.set_ylabel('Relative Error', fontsize=14)
         ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
-        fig.savefig('out/paramrelerror.pdf')
+        fig.savefig('out/paramrelerror.png')
         plt.close()
 
 
