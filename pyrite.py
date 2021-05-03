@@ -1029,15 +1029,16 @@ class PyriteTwinX(PyriteModel):
                 # phi = self.target_values['Phi']['est']
 
                 if species == 'POCS':
-                    b[i] = Lp*P30*(np.exp(-zim1/Lp) - np.exp(-zi/Lp))
                     if z == 'A':
                         A[i, iPsi] = ws + (Bm1s + B2)*h
                         A[i, iPli] = -Bm2*h
+                        b[i] = P30*h
                     else:
                         A[i, iPsi] = ws + 0.5*(Bm1s + B2)*h
                         A[i, iPsim1] = -ws + 0.5*(Bm1s + B2)*h
                         A[i, iPli] = -0.5*Bm2*h
                         A[i, iPlim1] = -0.5*Bm2*h
+                        b[i] = Lp*P30*(np.exp(-zim1/Lp) - np.exp(-zi/Lp))
                 elif species == 'POCL':
                     if z == 'A':
                         A[i, iPli] = wl + (Bm1l + Bm2)*h
@@ -1088,7 +1089,10 @@ class PyriteTwinX(PyriteModel):
             b = np.zeros(model.nte)
             for i, z in enumerate(model.zones):
                 zim1, zi = z.depths
-                b[i] = -Lp*P30*(np.exp(-zim1/Lp) - np.exp(-zi/Lp))
+                if z.label == 'A':
+                    b[i] = -P30*zi
+                else:
+                    b[i] = -Lp*P30*(np.exp(-zim1/Lp) - np.exp(-zi/Lp))
             # b[model.state_elements.index('TiS_A')] = -phi
             
             for count in range(max_iterations):
