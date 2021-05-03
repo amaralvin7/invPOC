@@ -35,8 +35,7 @@ class PyriteModel:
     (2021).
     """
 
-    def __init__(self, gammas=[0.1],
-                 pickle_into='out/POC_modelruns_dev.pkl'):
+    def __init__(self, gammas, pickle_into='out/POC_modelruns_dev.pkl'):
         """Define basic model attributes and run the model.
 
         Model is run for every value of gamma in gammas.
@@ -580,7 +579,7 @@ class PyriteModel:
 
         def find_solution():
             """Iteratively finds a solution of the state vector."""
-            max_iterations = 200
+            max_iterations = 50
 
             xk = xo_log  # estimate of state vector at iteration k
             xkp1 = np.ones(len(xk))  # at iteration k+1
@@ -916,8 +915,7 @@ class PyriteTwinX(PyriteModel):
     but currently unused are labeled as such in their docstrings.
     """
 
-    def __init__(self, gammas=[0.02],
-                 pickled_model='out/POC_modelruns_dev.pkl',
+    def __init__(self, gammas, pickled_model='out/POC_modelruns_dev.pkl',
                  pickle_into='out/POC_twinX_dev.pkl'):
         """Build a PyriteModel with gamma values to be used for the TwinX.
 
@@ -1930,7 +1928,7 @@ if __name__ == '__main__':
 
     sys.setrecursionlimit(100000)
     start_time = time.time()
-    model = PyriteModel()
+    PyriteModel([0.02])
     # twinX = PyriteTwinX()
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
     # PlotterTwinX('out/POC_twinX_dev.pkl')
