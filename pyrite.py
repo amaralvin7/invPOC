@@ -332,27 +332,41 @@ class PyriteModel:
         """
         zim1, zi = zone.depths
         h = zi - zim1
-        if zone.label == 'A':
+        z = zone.label
+        if z == 'A':
             Psi = sym.symbols('POCS_A')
             Pli = sym.symbols('POCL_A')
             # Tsi = sym.symbols('TiS_A')
             # Tli = sym.symbols('TiL_A')
         else:
-            prev_zone = self.previous_zone(zone.label)
-            Psi, Psim1 = sym.symbols(f'POCS_{zone.label} POCS_{prev_zone}')
-            Pli, Plim1 = sym.symbols(f'POCL_{zone.label} POCL_{prev_zone}')
+            pz = self.previous_zone(z)
+            Psi, Psim1 = sym.symbols(f'POCS_{z} POCS_{pz}')
+            Pli, Plim1 = sym.symbols(f'POCL_{z} POCL_{pz}')
             Psa = (Psi + Psim1)/2
             Pla = (Pli + Plim1)/2
             # Tsi, Tsim1 = sym.symbols(f'TiS_{zone.label} TiS_{prev_zone}')
             # Tli, Tlim1 = sym.symbols(f'TiL_{zone.label} TiL_{prev_zone}')
             # Tsa = (Tsi + Tsim1)/2
             # Tla = (Tli + Tlim1)/2
+        
+        def super_zone(sub_zone):
+            if sub_zone in ('A', 'B', 'C'):
+                return 'LEZ'
+            return 'UMZ'
 
         if not params_known:
-            Bm2, B2p, Bm1s, Bm1l, P30, Lp, ws, wl, wsm1, wlm1 = sym.symbols(
-                'Bm2 B2p Bm1s Bm1l P30 Lp ws wl ws- wl-')
+            Bm2 = sym.symbols(f'Bm2_{super_zone(z)}')
+            B2p = sym.symbols(f'B2p_{super_zone(z)}')
+            Bm1s = sym.symbols(f'Bm1s_{super_zone(z)}')
+            Bm1l = sym.symbols(f'Bm1l_{super_zone(z)}')
+            ws = sym.symbols(f'ws_{super_zone(z)}')
+            wl = sym.symbols(f'wl_{super_zone(z)}')
+            P30 = sym.symbols('P30')
+            Lp = sym.symbols('Lp')
             # phi = sym.symbols('Phi')
-            
+            if zone.label != 'A':
+                wsm1 = sym.symbols(f'ws_{super_zone(pz)}')
+                wlm1 = sym.symbols(f'wl_{super_zone(pz)}')
         else:
             z = zone.label
             Bm2 = params_known['Bm2'][z]
@@ -396,7 +410,7 @@ class PyriteModel:
         #         eq = -wl*Tli + wlm1*Tlim1 + (B2p*Psa*Tsa - Bm2*Tla)*h
         return eq
 
-    def extract_equation_variables(self, y, zone_name, v, lognormal=False):
+    def extract_equation_variables(self, y, v, lognormal=False):
         """Return symbolic and numerical values of variables in an equation.
 
         y -- a symbolic equation
@@ -409,21 +423,7 @@ class PyriteModel:
         x_numerical = []
         x_indices = []
         for x in x_symbolic:
-            if '_' in x.name:  # if it's a tracer
-                element = x.name
-            else:  # if it's a parameter
-                param = eval(f'self.{x.name.split("-")[0]}')
-                if param.dv:
-                    if '-' in x.name:
-                        zone_name = self.previous_zone(zone_name)
-                    if zone_name in ('A', 'B', 'C'):
-                        element = '_'.join([param.name, 'LEZ'])
-                    else:
-                        element = '_'.join([param.name, 'UMZ'])
-                else:
-                    element = param.name
-            # print(element)
-            element_index = self.state_elements.index(element)
+            element_index = self.state_elements.index(x.name)
             x_indices.append(element_index)
             if lognormal:
                 x_numerical.append(np.exp(v[element_index]))
@@ -461,7 +461,7 @@ class PyriteModel:
             y = self.equation_builder(
                 species, zone, params_known=params_known)
             x_sym, x_num, x_ind = self.extract_equation_variables(
-                y, zone_name, v, lognormal=lognormal)
+                y, v, lognormal=lognormal)
             f[i] = sym.lambdify(x_sym, y)(*x_num)
             if return_F:
                 for j, x in enumerate(x_sym):
@@ -470,7 +470,7 @@ class PyriteModel:
                     else:
                         dy = y.diff(x)
                     dx_sym, dx_num, _ = self.extract_equation_variables(
-                        dy, zone_name, v, lognormal=lognormal)
+                        dy, v, lognormal=lognormal)
                     F[i, x_ind[j]] = sym.lambdify(dx_sym, dy)(*dx_num)
 
         if return_F:
@@ -585,7 +585,6 @@ class PyriteModel:
 
             xk = xo_log  # estimate of state vector at iteration k
             xkp1 = np.ones(len(xk))  # at iteration k+1
-
             for _ in range(max_iterations):
                 f, F = self.evaluate_model_equations(
                     xk, return_F=True, lognormal=True)
