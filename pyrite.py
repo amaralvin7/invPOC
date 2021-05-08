@@ -46,7 +46,6 @@ class PyriteModel:
         self.pickled = pickle_into
         self.MIXED_LAYER_DEPTH = 30
         self.GRID = [0, 30, 50, 100, 150, 200, 330, 500]
-        self.N_GRID_POINTS = len(self.GRID)
         self.MAX_DEPTH = self.GRID[-1]
 
         self.MOLAR_MASS_C = 12
@@ -56,17 +55,18 @@ class PyriteModel:
         self.define_tracers()
         self.define_params()
         # self.define_fluxes()
+        self.process_cp_data()
         self.define_zones()
 
         xo, xo_log, Co, Co_log = self.define_prior_vector_and_cov_matrix()
-        # self.define_state_elements()
+        self.define_equation_elements()
 
         self.model_runs = []
         for g in gammas:
             run = PyriteModelRun(g)
             Cf = self.define_model_error_matrix(g)
             xhat = self.ATI(xo_log, Co_log, Cf, run)
-
+            self.calculate_total_POC(run)
             self.calculate_residuals(xo, Co, xhat, Cf, run)
             # if str(self) != 'PyriteTwinX object':
             #     inventories = self.calculate_inventories(run)
@@ -219,6 +219,39 @@ class PyriteModel:
         self.zones = [
             GridZone(self, i, z) for i, z in enumerate(self.zone_names)]
 
+    def process_cp_data(self):
+        """Obtain estimates of total POC from beam transmissometry data."""
+        cast_match_table = self.data['cast_match']
+        cast_match_dict = dict(zip(cast_match_table['pump_cast'],
+                                   cast_match_table['ctd_cast']))
+        poc_concentrations = self.data['POC']
+        cp_bycast = self.data['cp_bycast']
+        self.poc_cp_df = poc_concentrations.copy()
+        self.poc_cp_df['POCT'] = (self.poc_cp_df['POCS']
+                                  + self.poc_cp_df['POCL'])
+
+        self.poc_cp_df['ctd_cast'] = self.poc_cp_df.apply(
+            lambda x: cast_match_dict[x['pump_cast']], axis=1)
+        self.poc_cp_df['cp'] = self.poc_cp_df.apply(
+            lambda x: cp_bycast.at[x['depth']-1, x['ctd_cast']], axis=1)
+
+        self.cp_Pt_regression_nonlinear = smf.ols(
+            formula='POCT ~ np.log(cp)', data=self.poc_cp_df).fit()
+        self.cp_Pt_regression_linear = smf.ols(
+            formula='POCT ~ cp', data=self.poc_cp_df).fit()
+        cp_bycast_to_mean = cp_bycast.loc[np.array(self.GRID[1:]) -1,
+                                          cast_match_table['ctd_cast']]
+        cp_mean = cp_bycast_to_mean.mean(axis=1)
+        
+        self.Pt_mean_linear = self.cp_Pt_regression_linear.get_prediction(
+            exog=dict(cp=cp_mean)).predicted_mean
+        self.Pt_mean_nonlinear = (
+                self.cp_Pt_regression_nonlinear.get_prediction(
+                    exog=dict(cp=cp_mean)).predicted_mean)
+
+        if str(self) != 'PyriteTwinX object':
+            self.Pt_constraint = self.Pt_mean_nonlinear
+
     def define_prior_vector_and_cov_matrix(self):
         """Build the prior vector (xo) and matrix of covariances (Co).
 
@@ -268,19 +301,19 @@ class PyriteModel:
 
         return xo, xo_log, Co, Co_log
 
-    # def define_state_elements(self):
-    #     """Define which elements that have an associated model equation.
+    def define_equation_elements(self):
+        """Define which elements that have an associated model equation.
 
-    #     Total POC is an element that is not a tracer, but has model equations
-    #     that are used as a constraint. Tracers also have associated model
-    #     equations
-    #     """
-    #     self.state_elements = self.state_elements[:self.nte]
+        Total POC is an element that is not a tracer, but has model equations
+        that are used as a constraint. Tracers also have associated model
+        equations
+        """
+        self.equation_elements = self.state_elements[:self.nte]
 
-    #     for i in range(self.GRID):
-    #         self.state_elements.append(f'POCT_{i}')
+        for z in self.zones:
+            self.equation_elements.append(f'POCT_{z.label}')
 
-    #     self.nee = len(self.state_elements)
+        self.nee = len(self.equation_elements)
 
     # def which_zone(self, depth):
     #     """Given a depth index, return the corresponding grid zone."""
@@ -291,17 +324,17 @@ class PyriteModel:
     def define_model_error_matrix(self, g):
         """Return the matrix of model errors (Cf) given a value of gamma."""
 
-        n_POC = len([i for i, el in enumerate(self.state_elements)
-                        if 'POC' in el])
-        Cf_POC = np.diag(
-            (np.ones(n_POC)*((self.P30.prior*self.MIXED_LAYER_DEPTH)**2)*g))
+        Cf_PsPl = np.diag(np.ones((len(self.GRID) - 1)*2)
+                          * ((self.P30.prior*self.MIXED_LAYER_DEPTH)**2)*g)
+        
+        Cf_Pt = np.diag(np.ones(len(self.GRID) - 1)
+                        * (self.cp_Pt_regression_nonlinear.mse_resid))
         
         # n_Ti = len([i for i, el in enumerate(self.state_elements)
         #         if 'Ti' in el])
         # Cf_Ti = np.diag((np.ones(n_Ti)*(self.Phi.prior**2)*g))
 
-        # Cf = splinalg.block_diag(Cf_POC, Cf_Ti)
-        Cf = Cf_POC
+        Cf = splinalg.block_diag(Cf_PsPl, Cf_Pt)
 
         return Cf
 
@@ -314,7 +347,7 @@ class PyriteModel:
         start_index = [i for i, el in enumerate(self.state_elements)
                         if tracer in el][0]
         sliced = to_slice[
-            start_index:(start_index + self.N_GRID_POINTS - 1)]
+            start_index:(start_index + len(self.GRID) - 1)]
 
         return sliced
     
@@ -368,7 +401,6 @@ class PyriteModel:
                 wsm1 = sym.symbols(f'ws_{super_zone(pz)}')
                 wlm1 = sym.symbols(f'wl_{super_zone(pz)}')
         else:
-            z = zone.label
             Bm2 = params_known['Bm2'][z]
             B2p = params_known['B2p'][z]
             Bm1s = params_known['Bm1s'][z]
@@ -396,6 +428,10 @@ class PyriteModel:
                 eq = -wl*Pli + B2p*Psi**2*h - (Bm2 + Bm1l)*Pli*h
             else:
                 eq = -wl*Pli + wlm1*Plim1 + B2p*Psa**2*h - (Bm2 + Bm1l)*Pla*h
+        elif species == 'POCT':
+            Pti = self.Pt_constraint[
+                (self.equation_elements.index(f'POCT_{z}') - self.nte)]
+            eq = Pti - (Psi + Pli)
         # elif species == 'TiS':
         #     if zone.label == 'A':
         #         eq = -ws*Tsi + (Bm2*Tli - B2p*Psi*Tsi)*h
@@ -446,11 +482,11 @@ class PyriteModel:
         if params_known:
             f = np.zeros(self.nte)
             F = np.zeros((self.nte, self.nte))
-            eq_elements = self.state_elements[:self.nte]
+            eq_elements = self.equation_elements[:self.nte]
         else:
-            f = np.zeros(self.nte)
-            F = np.zeros((self.nte, self.nse))
-            eq_elements = self.state_elements[:self.nte]
+            f = np.zeros(self.nee)
+            F = np.zeros((self.nee, self.nse))
+            eq_elements = self.equation_elements
 
         for i, element in enumerate(eq_elements):
             species, zone_name = element.split('_')
@@ -477,54 +513,55 @@ class PyriteModel:
             return f, F
         return f
 
-    # def eval_symbolic_func(self, run, y, err=True, cov=True):
-    #     """Evaluate a symbolic function using results from a given run.
+    def eval_symbolic_func(self, run, y, err=True, cov=True):
+        """Evaluate a symbolic function using results from a given run.
 
-    #     run -- model run whose results are being calculated
-    #     y -- the symbolic function (i.e., expression)
-    #     err -- True if errors should be propagated (increases runtime)
-    #     cov -- True if covarainces between state variables should be
-    #     considered (increases runtime)
-    #     """
-    #     x_symbolic = y.free_symbols
-    #     x_numerical = []
-    #     x_indices = []
+        run -- model run whose results are being calculated
+        y -- the symbolic function (i.e., expression)
+        err -- True if errors should be propagated (increases runtime)
+        cov -- True if covarainces between state variables should be
+        considered (increases runtime)
+        """
+        x_symbolic = y.free_symbols
+        x_numerical = []
+        x_indices = []
 
-    #     for x in x_symbolic:
-    #         x_indices.append(self.state_elements.index(x.name))
-    #         if '_' in x.name:  # if it varies with depth
-    #             element, zone = x.name.split('_')
-    #             if element in run.tracer_results:  # if it's a tracer
-    #                 x_numerical.append(
-    #                     run.tracer_results[element]['est'][int(depth)])
-    #             else:  # if it's a depth-varying parameter
-    #                 x_numerical.append(
-    #                     run.param_results[element][depth]['est'])
-    #         else:  # if it's a depth-independent parameter
-    #             x_numerical.append(run.param_results[x.name]['est'])
+        for x in x_symbolic:
+            x_indices.append(self.state_elements.index(x.name))
+            if '_' in x.name:  # if it varies with depth
+                element, zone = x.name.split('_')
+                if element in run.tracer_results:  # if it's a tracer
+                    di = self.zone_names.index(zone)
+                    x_numerical.append(
+                        run.tracer_results[element]['est'][di])
+                else:  # if it's a depth-varying parameter
+                    x_numerical.append(
+                        run.param_results[element][zone]['est'])
+            else:  # if it's a depth-independent parameter
+                x_numerical.append(run.param_results[x.name]['est'])
 
-    #     result = sym.lambdify(x_symbolic, y)(*x_numerical)
+        result = sym.lambdify(x_symbolic, y)(*x_numerical)
 
-    #     if err is False:
-    #         return result
+        if err is False:
+            return result
 
-    #     variance_sym = 0  # symbolic expression for variance of y
-    #     derivs = [y.diff(x) for x in x_symbolic]
-    #     cvm = run.cvm[  # sub-CVM corresponding to state elements in y
-    #         np.ix_(x_indices, x_indices)]
-    #     for i, row in enumerate(cvm):
-    #         for j, _ in enumerate(row):
-    #             if i > j:
-    #                 continue
-    #             if i == j:
-    #                 variance_sym += (derivs[i]**2)*cvm[i, j]
-    #             else:
-    #                 if cov:
-    #                     variance_sym += 2*derivs[i]*derivs[j]*cvm[i, j]
-    #     variance = sym.lambdify(x_symbolic, variance_sym)(*x_numerical)
-    #     error = np.sqrt(variance)
+        variance_sym = 0  # symbolic expression for variance of y
+        derivs = [y.diff(x) for x in x_symbolic]
+        cvm = run.cvm[  # sub-CVM corresponding to state elements in y
+            np.ix_(x_indices, x_indices)]
+        for i, row in enumerate(cvm):
+            for j, _ in enumerate(row):
+                if i > j:
+                    continue
+                if i == j:
+                    variance_sym += (derivs[i]**2)*cvm[i, j]
+                else:
+                    if cov:
+                        variance_sym += 2*derivs[i]*derivs[j]*cvm[i, j]
+        variance = sym.lambdify(x_symbolic, variance_sym)(*x_numerical)
+        error = np.sqrt(variance)
 
-    #     return result, error
+        return result, error
 
     def ATI(self, xo_log, Co_log, Cf, run):
         """Algorithm of total inversion, returns a vector of state estimates.
@@ -652,6 +689,14 @@ class PyriteModel:
             return xhat
 
         return unpack_state_estimates()
+
+    def calculate_total_POC(self, run):
+        """Calculate estimates of total POC (with propagated errors)."""
+        for z in self.zone_names:
+            Ps, Pl = sym.symbols(f'POCS_{z} POCL_{z}')
+            Pt_est, Pt_err = self.eval_symbolic_func(run, Ps + Pl)
+            run.Pt_results['est'].append(Pt_est)
+            run.Pt_results['err'].append(Pt_err)
 
     def calculate_residuals(self, xo, Co, xhat, Cf, run):
         """Calculate solution and equation residuals."""
@@ -1278,11 +1323,12 @@ class PlotterTwinX():
 
     def poc_profiles(self, run):
 
-        fig, [ax1, ax2] = plt.subplots(1, 2, tight_layout=True)
+        fig, [ax1, ax2, ax3] = plt.subplots(1, 3, tight_layout=True)
         fig.subplots_adjust(wspace=0.5)
 
         ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)', fontsize=14)
         ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
+        ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)', fontsize=14)
         ax1.set_ylabel('Depth (m)', fontsize=14)
 
         if run.gamma == 1:
@@ -1327,17 +1373,31 @@ class PlotterTwinX():
             label=art[self.is_twinX]['inv_label'], fillstyle='none',
             zorder=3, markeredgewidth=1)
 
+        ax3.errorbar(
+             self.model.Pt_constraint, self.model.GRID[1:], fmt='^',
+             xerr=np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid),
+             ecolor=self.BLUE, elinewidth=1, c=self.BLUE, ms=10, capsize=5,
+             fillstyle='full', label=art[self.is_twinX]['cp_label'])
+        ax3.errorbar(
+            run.Pt_results['est'], self.model.GRID[1:], fmt='o',
+            xerr=run.Pt_results['err'], ecolor=self.ORANGE,
+            elinewidth=1, c=self.ORANGE, ms=8, capsize=5,
+            label=art[self.is_twinX]['inv_label'], fillstyle='none',
+            zorder=3, markeredgewidth=1)
+
         ax1.set_xticks(art[self.is_twinX]['ax1_ticks'])
         ax2.set_xticks(art[self.is_twinX]['ax2_ticks'])
         ax2.set_xticklabels(art[self.is_twinX]['ax2_labels'])
-        ax2.tick_params(labelleft=False)
+        ax3.set_xticks([0, 1, 2])
 
-        for ax in (ax1, ax2):
+        for ax in (ax1, ax2, ax3):
             ax.invert_yaxis()
             ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH+30)
             ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
                       loc='lower right')
             ax.tick_params(axis='both', which='major', labelsize=12)
+            if ax in (ax2, ax3):
+                ax.tick_params(labelleft=False)
 
         filename = f'out/POCprofs_gam{str(run.gamma).replace(".","")}'
         if self.is_twinX:
@@ -1429,7 +1489,7 @@ class PlotterModelRuns(PlotterTwinX):
     def __init__(self, pickled_model):
         super().__init__(pickled_model)
 
-        # self.hydrography()
+        self.cp_Pt_regression()
         self.poc_data()
         # self.ti_data()
 
@@ -1445,13 +1505,61 @@ class PlotterModelRuns(PlotterTwinX):
 
         # self.write_output()
 
+    def cp_Pt_regression(self):
+
+        cp = self.model.poc_cp_df['cp']
+        Pt = self.model.poc_cp_df['POCT']
+        depths = self.model.poc_cp_df['depth']
+        linear_regression = self.model.cp_Pt_regression_linear
+        nonlinear_regression = self.model.cp_Pt_regression_nonlinear
+        logarithmic = {linear_regression: False, nonlinear_regression: True}
+
+        colormap = plt.cm.viridis_r
+        norm = mplc.Normalize(depths.min(), depths.max())
+
+        for fit in (nonlinear_regression, linear_regression):
+            fig, ax = plt.subplots(1, 1)
+            fig.subplots_adjust(bottom=0.2, left=0.2)
+            cbar_ax = colorbar.make_axes(ax)[0]
+            cbar = colorbar.ColorbarBase(cbar_ax, norm=norm, cmap=colormap)
+            cbar.set_label('Depth (m)\n', rotation=270, labelpad=20,
+                           fontsize=14)
+            ax.scatter(cp, Pt, norm=norm, edgecolors=self.BLACK, c=depths,
+                       s=40, marker='o', cmap=colormap, label='_none')
+            ax.set_ylabel('$P_T$ (mmol m$^{-3}$)', fontsize=14)
+            ax.set_xlabel('$c_p$ (m$^{-1}$)', fontsize=14)
+            x_fit = np.linspace(0.01, 0.14, 100000)
+            if logarithmic[fit]:
+                coefs_log = fit.params
+                y_fit_log = [
+                    coefs_log[0] + coefs_log[1]*np.log(x) for x in x_fit]
+                ax.plot(x_fit, y_fit_log, '--', c=self.BLACK, lw=1,
+                        label='non-linear')
+                ax.set_yscale('log')
+                ax.set_xscale('log')
+                ax.set_xlim(0.0085, 0.15)
+                ax.annotate(
+                    f'$R^2$ = {fit.rsquared:.2f}\n$N$ = {fit.nobs:.0f}',
+                    xy=(0.05, 0.85), xycoords='axes fraction', fontsize=12)
+            else:
+                coefs_lin = fit.params
+                y_fit_linear = [coefs_lin[0] + coefs_lin[1]*x for x in x_fit]
+                ax.plot(x_fit, y_fit_linear, '--', c=self.BLACK, lw=1,
+                        label='linear')
+                ax.plot(x_fit, y_fit_log, ':', c=self.BLACK, lw=1,
+                        label='non-linear')
+                ax.legend(fontsize=10, loc='lower right')
+            fig.savefig(f'out/cpptfit_log{logarithmic[fit]}.png')
+            plt.close()
+
     def poc_data(self):
 
-        fig, [ax1, ax2] = plt.subplots(1, 2, tight_layout=True)
+        fig, [ax1, ax2, ax3] = plt.subplots(1, 3, tight_layout=True)
         fig.subplots_adjust(wspace=0.5)
 
         ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)', fontsize=14)
         ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
+        ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)', fontsize=14)
         ax1.set_ylabel('Depth (m)', fontsize=14)
 
         ax1.errorbar(
@@ -1466,18 +1574,42 @@ class PlotterModelRuns(PlotterTwinX):
             elinewidth=1, c=self.BLUE, ms=10, capsize=5, label='LVISF',
             fillstyle='full')
 
+        ax3.scatter(
+            self.model.Pt_mean_nonlinear, self.model.GRID[1:], marker='o',
+            c=self.BLUE, edgecolors=self.WHITE, s=7, label='from $c_p$',
+            zorder=3, lw=0.7)
+        ax3.fill_betweenx(
+            self.model.GRID[1:],
+            (self.model.Pt_mean_nonlinear
+             - np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
+            (self.model.Pt_mean_nonlinear
+             + np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)),
+            color=self.BLUE, alpha=0.25, zorder=2)
+        ax3.errorbar(
+            self.model.POCS.prior['conc'] + self.model.POCL.prior['conc'],
+            self.model.GRID[1:], fmt='^', ms=10,
+            c=self.BLUE, xerr=np.sqrt(self.model.POCS.prior['conc_e']**2
+                                      + self.model.POCL.prior['conc_e']**2),
+            zorder=1, label='LVISF', capsize=5, fillstyle='full',
+            elinewidth=1)
+
         ax1.set_xticks([0, 1, 2, 3])
         ax1.set_xlim([-0.2, 3.4])
         ax2.set_xticks([0, 0.05, 0.1, 0.15])
         ax2.set_xticklabels(['0', '0.05', '0.1', '0.15'])
-        ax2.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
+        ax3.set_xticks([0, 1, 2, 3])
+        ax3.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
                    loc='lower right')
         ax2.tick_params(labelleft=False)
 
-        for ax in (ax1, ax2):
+        for ax in (ax1, ax2, ax3):
             ax.invert_yaxis()
             ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH + 30)
             ax.tick_params(axis='both', which='major', labelsize=12)
+            if ax in (ax2, ax3):
+                ax.tick_params(labelleft=False)
+            if ax in (ax1, ax3):
+                ax.set_xlim([-0.2, 3.4])
 
         fig.savefig('out/poc_data.png')
         plt.close()
@@ -1952,7 +2084,7 @@ if __name__ == '__main__':
 
     sys.setrecursionlimit(100000)
     start_time = time.time()
-    PyriteModel([0.02])
+    model = PyriteModel([0.02])
     # twinX = PyriteTwinX()
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
     # PlotterTwinX('out/POC_twinX_dev.pkl')
