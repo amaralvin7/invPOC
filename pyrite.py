@@ -35,13 +35,17 @@ class PyriteModel:
     (2021).
     """
 
-    def __init__(self, gammas, pickle_into='out/POC_modelruns_dev.pkl'):
+    def __init__(self, model_id, gammas,
+                 pickle_into='out/POC_modelruns_dev.pkl'):
         """Define basic model attributes and run the model.
 
         Model is run for every value of gamma in gammas.
         gammas -- list of proportionality constants for model runs
         pickle_into -- path for saving model output
         """
+        model_ids = {0: ('POC',),
+                     1: ('POC', 'Ti')}
+        self.species = model_ids[model_id]
         self.gammas = gammas
         self.pickled = pickle_into
         self.MIXED_LAYER_DEPTH = 30
@@ -90,7 +94,7 @@ class PyriteModel:
         """
         self.data = pd.read_excel('pyrite_data.xlsx', sheet_name=None)
 
-        for s in ('POC',):#, 'Ti'):
+        for s in self.species:
             s_all = self.data[s].copy()
             depths = np.sort(s_all['mod_depth'].unique())
             
@@ -126,16 +130,19 @@ class PyriteModel:
         """Define tracers to be used in the model."""
         self.POCS = Tracer('POCS', '$P_S$', self.data['POC_means'])
         self.POCL = Tracer('POCL', '$P_L$', self.data['POC_means'])
-        # self.TiS = Tracer('TiS', '$Ti_S$', self.data['Ti_means'])
-        # self.TiL = Tracer('TiL', '$Ti_L$', self.data['Ti_means'])
 
-        # self.tracers = (self.POCS, self.POCL, self.TiS, self.TiL)
-        self.tracers = (self.POCS, self.POCL)
+        self.tracers = [self.POCS, self.POCL]
+        
+        if 'Ti' in self.species:
+            self.TiS = Tracer('TiS', '$Ti_S$', self.data['Ti_means'])
+            self.TiL = Tracer('TiL', '$Ti_L$', self.data['Ti_means'])
+    
+            self.tracers.extend([self.TiS, self.TiL])
 
     def define_params(self):
         """Set prior estimates and errors of model parameters."""
         P30_prior, P30_prior_e, Lp_prior, Lp_prior_e = self.process_npp_data()
-        # ti_dust = 0.05*0.0042*1000/47.867 #umol m-2 d-1
+        ti_dust = 1.37*0.0042*1000/47.867 #umol m-2 d-1
 
         self.ws = Param(2, 2, 'ws', '$w_S$')
         self.wl = Param(20, 15, 'wl', '$w_L$')
@@ -150,12 +157,14 @@ class PyriteModel:
         self.P30 = Param(P30_prior, P30_prior_e, 'P30', '$\.P_{S,30}$',
                          depth_vary=False)
         self.Lp = Param(Lp_prior, Lp_prior_e, 'Lp', '$L_P$', depth_vary=False)
-        # self.Phi = Param(ti_dust, ti_dust, 'Phi', '$\\Phi_D$',
-        #                  depth_vary=False)
         
-
-        self.params = (self.ws, self.wl, self.B2p, self.Bm2, self.Bm1s,
-                       self.Bm1l, self.P30, self.Lp)#, self.Phi)
+        self.params = [self.ws, self.wl, self.B2p, self.Bm2, self.Bm1s,
+                       self.Bm1l, self.P30, self.Lp]
+        
+        if 'Ti' in self.species:
+            self.Phi = Param(ti_dust, ti_dust, 'Phi', '$\\Phi_D$',
+                              depth_vary=False)
+            self.params.append(self.Phi)
 
     # def define_fluxes(self):
     #     """Define fluxes to be calculated."""
@@ -330,11 +339,15 @@ class PyriteModel:
         Cf_Pt = np.diag(np.ones(len(self.GRID) - 1)
                         * (self.cp_Pt_regression_nonlinear.mse_resid))
         
-        # n_Ti = len([i for i, el in enumerate(self.state_elements)
-        #         if 'Ti' in el])
-        # Cf_Ti = np.diag((np.ones(n_Ti)*(self.Phi.prior**2)*g))
+        blocks = [Cf_PsPl, Cf_Pt]
+        
+        if 'Ti' in self.species:
+            n_Ti = len([i for i, el in enumerate(self.state_elements)
+                    if 'Ti' in el])
+            Cf_Ti = np.diag((np.ones(n_Ti)*(self.Phi.prior**2))*2.5)
+            blocks.append(Cf_Ti)
 
-        Cf = splinalg.block_diag(Cf_PsPl, Cf_Pt)
+        Cf = splinalg.block_diag(*blocks)
 
         return Cf
 
@@ -369,18 +382,20 @@ class PyriteModel:
         if z == 'A':
             Psi = sym.symbols('POCS_A')
             Pli = sym.symbols('POCL_A')
-            # Tsi = sym.symbols('TiS_A')
-            # Tli = sym.symbols('TiL_A')
+            if 'Ti' in self.species:
+                Tsi = sym.symbols('TiS_A')
+                Tli = sym.symbols('TiL_A')
         else:
             pz = self.previous_zone(z)
             Psi, Psim1 = sym.symbols(f'POCS_{z} POCS_{pz}')
             Pli, Plim1 = sym.symbols(f'POCL_{z} POCL_{pz}')
             Psa = (Psi + Psim1)/2
             Pla = (Pli + Plim1)/2
-            # Tsi, Tsim1 = sym.symbols(f'TiS_{zone.label} TiS_{prev_zone}')
-            # Tli, Tlim1 = sym.symbols(f'TiL_{zone.label} TiL_{prev_zone}')
-            # Tsa = (Tsi + Tsim1)/2
-            # Tla = (Tli + Tlim1)/2
+            if 'Ti' in self.species:
+                Tsi, Tsim1 = sym.symbols(f'TiS_{z} TiS_{z}')
+                Tli, Tlim1 = sym.symbols(f'TiL_{z} TiL_{z}')
+                Tsa = (Tsi + Tsim1)/2
+                Tla = (Tli + Tlim1)/2
 
         if not params_known:
             Bm2 = sym.symbols(f'Bm2_{z}')
@@ -391,10 +406,11 @@ class PyriteModel:
             wl = sym.symbols(f'wl_{z}')
             P30 = sym.symbols('P30')
             Lp = sym.symbols('Lp')
-            # phi = sym.symbols('Phi')
             if zone.label != 'A':
                 wsm1 = sym.symbols(f'ws_{pz}')
                 wlm1 = sym.symbols(f'wl_{pz}')
+            if 'Ti' in self.species:
+                phi = sym.symbols('Phi')
         else:
             Bm2 = params_known['Bm2'][z]
             B2p = params_known['B2p'][z]
@@ -404,9 +420,10 @@ class PyriteModel:
             Lp = params_known['Lp']
             ws = params_known['ws'][z]
             wl = params_known['wl'][z]
-            # phi = params_known['Phi']
             wsm1 = params_known['ws'][z]
             wlm1 = params_known['wl'][z]
+            if 'Ti' in self.species:
+                phi = params_known['Phi']
 
         if species == 'POCS':
             if zone.label == 'A':
@@ -427,18 +444,18 @@ class PyriteModel:
             Pti = self.Pt_constraint[
                 (self.equation_elements.index(f'POCT_{z}') - self.nte)]
             eq = Pti - (Psi + Pli)
-        # elif species == 'TiS':
-        #     if zone.label == 'A':
-        #         eq = -ws*Tsi + (Bm2*Tli - B2p*Psi*Tsi)*h
-        #         if not params_known:
-        #             eq += phi
-        #     else:
-        #         eq = -ws*Tsi + wsm1*Tsim1 + (Bm2*Tla - B2p*Psa*Tsa)*h
-        # elif species == 'TiL':
-        #     if zone.label == 'A':
-        #         eq = -wl*Tli + (B2p*Psi*Tsi - Bm2*Tli)*h
-        #     else:
-        #         eq = -wl*Tli + wlm1*Tlim1 + (B2p*Psa*Tsa - Bm2*Tla)*h
+        elif species == 'TiS':
+            if zone.label == 'A':
+                eq = -ws*Tsi + (Bm2*Tli - B2p*Psi*Tsi)*h
+                if not params_known:
+                    eq += phi
+            else:
+                eq = -ws*Tsi + wsm1*Tsim1 + (Bm2*Tla - B2p*Psa*Tsa)*h
+        elif species == 'TiL':
+            if zone.label == 'A':
+                eq = -wl*Tli + (B2p*Psi*Tsi - Bm2*Tli)*h
+            else:
+                eq = -wl*Tli + wlm1*Tlim1 + (B2p*Psa*Tsa - Bm2*Tla)*h
         return eq
 
     def extract_equation_variables(self, y, v, lognormal=False):
@@ -613,7 +630,7 @@ class PyriteModel:
 
         def find_solution():
             """Iteratively finds a solution of the state vector."""
-            max_iterations = 50
+            max_iterations = 100
 
             xk = xo_log  # estimate of state vector at iteration k
             xkp1 = np.ones(len(xk))  # at iteration k+1
@@ -981,7 +998,7 @@ class PyriteTwinX(PyriteModel):
         x = self.generate_pseudodata(model)
         
         self.data = model.data.copy()
-        for s in ('POC', 'Ti'):
+        for s in model.species:
             tracer_data = self.data[f'{s}_means'].copy()
             for t in (f'{s}S', f'{s}L'):
                 re = tracer_data[f'{t}_se']/tracer_data[t]
@@ -1167,8 +1184,9 @@ class PlotterTwinX():
             self.cost_and_convergence(run)
             self.params(run)
             self.poc_profiles(run)
-            # self.ti_profiles(run)
             self.residual_pdfs(run)
+            if 'Ti' in self.model.species:
+                self.ti_profiles(run)
 
     def define_colors(self):
 
@@ -1288,14 +1306,15 @@ class PlotterTwinX():
                     ax.scatter(
                         tar[param.dv], self.model.target_values[p]['est'],
                         marker='+', s=90, c=self.ORANGE)
-                ax.fill_between(
-                    [0, 4],
-                    params_out[p][0] + params_out[p][1],
-                    params_out[p][0] - params_out[p][1],
-                    color=self.GREEN, alpha=0.25,
-                    zorder=2)
-                ax.tick_params(bottom=False, labelbottom=False)
-                ax.set_xticks(np.arange(maxtick[self.is_twinX]))
+                if p != 'Phi':
+                    ax.fill_between(
+                        [0, 4],
+                        params_out[p][0] + params_out[p][1],
+                        params_out[p][0] - params_out[p][1],
+                        color=self.GREEN, alpha=0.25,
+                        zorder=2)
+                    ax.tick_params(bottom=False, labelbottom=False)
+                    ax.set_xticks(np.arange(maxtick[self.is_twinX]))
             
             filename = f'out/{p}_gam{str(run.gamma).replace(".","")}'
             if self.is_twinX:
@@ -1473,7 +1492,8 @@ class PlotterModelRuns(PlotterTwinX):
 
         self.cp_Pt_regression()
         self.poc_data()
-        # self.ti_data()
+        if 'Ti' in self.model.species:
+            self.ti_data()
 
         # for run in self.model.model_runs:
         #     self.sinking_fluxes(run)
@@ -2066,8 +2086,8 @@ if __name__ == '__main__':
 
     sys.setrecursionlimit(100000)
     start_time = time.time()
-    model = PyriteModel([0.01])
-    # twinX = PyriteTwinX()
+    model = PyriteModel(1, [0.01])
+    # twinX = PyriteTwinX([0.01])
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
     # PlotterTwinX('out/POC_twinX_dev.pkl')
 
