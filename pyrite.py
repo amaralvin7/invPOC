@@ -392,8 +392,8 @@ class PyriteModel:
             Psa = (Psi + Psim1)/2
             Pla = (Pli + Plim1)/2
             if 'Ti' in self.species:
-                Tsi, Tsim1 = sym.symbols(f'TiS_{z} TiS_{z}')
-                Tli, Tlim1 = sym.symbols(f'TiL_{z} TiL_{z}')
+                Tsi, Tsim1 = sym.symbols(f'TiS_{z} TiS_{pz}')
+                Tli, Tlim1 = sym.symbols(f'TiL_{z} TiL_{pz}')
                 Tsa = (Tsi + Tsim1)/2
                 Tla = (Tli + Tlim1)/2
 
@@ -412,18 +412,19 @@ class PyriteModel:
             if 'Ti' in self.species:
                 phi = sym.symbols('Phi')
         else:
-            Bm2 = params_known['Bm2'][z]
-            B2p = params_known['B2p'][z]
-            Bm1s = params_known['Bm1s'][z]
-            Bm1l = params_known['Bm1l'][z]
-            P30 = params_known['P30']
-            Lp = params_known['Lp']
-            ws = params_known['ws'][z]
-            wl = params_known['wl'][z]
-            wsm1 = params_known['ws'][z]
-            wlm1 = params_known['wl'][z]
+            Bm2 = params_known['Bm2'][z]['est']
+            B2p = params_known['B2p'][z]['est']
+            Bm1s = params_known['Bm1s'][z]['est']
+            Bm1l = params_known['Bm1l'][z]['est']
+            P30 = params_known['P30']['est']
+            Lp = params_known['Lp']['est']
+            ws = params_known['ws'][z]['est']
+            wl = params_known['wl'][z]['est']
+            if zone.label != 'A':
+                wsm1 = params_known['ws'][pz]['est']
+                wlm1 = params_known['wl'][pz]['est']
             if 'Ti' in self.species:
-                phi = params_known['Phi']
+                phi = params_known['Phi']['est']
 
         if species == 'POCS':
             if zone.label == 'A':
@@ -974,7 +975,8 @@ class PyriteTwinX(PyriteModel):
     but currently unused are labeled as such in their docstrings.
     """
 
-    def __init__(self, gammas, pickled_model='out/POC_modelruns_dev.pkl',
+    def __init__(self, model_id, gammas,
+                 pickled_model='out/POC_modelruns_dev.pkl',
                  pickle_into='out/POC_twinX_dev.pkl'):
         """Build a PyriteModel with gamma values to be used for the TwinX.
 
@@ -983,7 +985,7 @@ class PyriteTwinX(PyriteModel):
         generate pseudodata.
         """
         self.pickled_model = pickled_model
-        super().__init__(gammas, pickle_into)
+        super().__init__(model_id, gammas, pickle_into)
 
     def __repr__(self):
 
@@ -1019,6 +1021,18 @@ class PyriteTwinX(PyriteModel):
                 break
 
         self.target_values = reference_run.param_results.copy()
+        # d = {}
+        
+        # for param in model.params:
+        #     d[param.name] = {}
+        #     if param.dv:
+        #         for z in model.zone_names:
+        #             d[param.name][z] = {}
+        #             d[param.name][z]['est'] = param.prior
+        #     else:
+        #         d[param.name]['est'] = param.prior
+        
+        # self.target_values = d.copy()
 
     def generate_pseudodata(self, model):
         """Generate pseudodata from the model equations."""
@@ -1043,16 +1057,20 @@ class PyriteTwinX(PyriteModel):
                         break
                 zim1, zi = zone.depths
                 h = zi - zim1
-                prev_zone = model.previous_zone(z)
 
-                iPsi = element_index.index(f'POCS_{z}')
-                iPsim1 = element_index.index(f'POCS_{prev_zone}')
+                iPsi = element_index.index(f'POCS_{z}')               
                 iPli = element_index.index(f'POCL_{z}')
-                iPlim1 = element_index.index(f'POCL_{prev_zone}')
-                # iTsi = element_index.index(f'TiS_{z}')
-                # iTsim1 = element_index.index(f'TiS_{prev_zone}')
-                # iTli = element_index.index(f'TiL_{z}')
-                # iTlim1 = element_index.index(f'TiL_{prev_zone}')
+                if 'Ti' in model.species:
+                    iTsi = element_index.index(f'TiS_{z}')
+                    iTli = element_index.index(f'TiL_{z}')
+                
+                if z != 'A':
+                    pz = model.previous_zone(z)
+                    iPsim1 = element_index.index(f'POCS_{pz}')
+                    iPlim1 = element_index.index(f'POCL_{pz}')
+                    if 'Ti' in model.species:
+                        iTsim1 = element_index.index(f'TiS_{pz}')
+                        iTlim1 = element_index.index(f'TiL_{pz}')
 
                 B2 = 0.8/model.DAYS_PER_YEAR
                 Bm2 = self.target_values['Bm2'][z]['est']
@@ -1062,7 +1080,11 @@ class PyriteTwinX(PyriteModel):
                 Lp = self.target_values['Lp']['est']
                 ws = self.target_values['ws'][z]['est']
                 wl = self.target_values['wl'][z]['est']
-                # phi = self.target_values['Phi']['est']
+                if zone.label != 'A':
+                    wsm1 = self.target_values['ws'][pz]['est']
+                    wlm1 = self.target_values['wl'][pz]['est']
+                if 'Ti' in model.species:
+                    phi = self.target_values['Phi']['est']
 
                 if species == 'POCS':
                     if z == 'A':
@@ -1071,7 +1093,7 @@ class PyriteTwinX(PyriteModel):
                         b[i] = P30*h
                     else:
                         A[i, iPsi] = ws + 0.5*(Bm1s + B2)*h
-                        A[i, iPsim1] = -ws + 0.5*(Bm1s + B2)*h
+                        A[i, iPsim1] = -wsm1 + 0.5*(Bm1s + B2)*h
                         A[i, iPli] = -0.5*Bm2*h
                         A[i, iPlim1] = -0.5*Bm2*h
                         b[i] = Lp*P30*(np.exp(-zim1/Lp) - np.exp(-zi/Lp))
@@ -1081,29 +1103,63 @@ class PyriteTwinX(PyriteModel):
                         A[i, iPsi] = -B2*h
                     else:
                         A[i, iPli] = wl + 0.5*(Bm1l + Bm2)*h
-                        A[i, iPlim1] = -wl + 0.5*(Bm1l + Bm2)*h
+                        A[i, iPlim1] = -wlm1 + 0.5*(Bm1l + Bm2)*h
                         A[i, iPsi] = -0.5*B2*h
                         A[i, iPsim1] = -0.5*B2*h
-                # elif species == 'TiS':
-                #     if z == 'A':
-                #         b[i] = phi
-                #         A[i, iTsi] = ws + B2*h
-                #         A[i, iTli] = -Bm2*h
-                #     else:
-                #         A[i, iTsi] = ws + 0.5*B2*h
-                #         A[i, iTsim1] = -ws + 0.5*B2*h
-                #         A[i, iTli] = -0.5*Bm2*h
-                #         A[i, iTlim1] = -0.5*Bm2*h
-                # else:
-                #     if z == 'A':
-                #         A[i, iTli] = wl + Bm2*h
-                #         A[i, iTsi] = -B2*h
-                #     else:
-                #         A[i, iTli] = wl + 0.5*Bm2*h
-                #         A[i, iTlim1] = -wl + 0.5*Bm2*h
-                #         A[i, iTsi] = -0.5*B2*h
-                #         A[i, iTsim1] = -0.5*B2*h
+                elif species == 'TiS':
+                    if z == 'A':
+                        b[i] = phi
+                        A[i, iTsi] = ws + B2*h
+                        A[i, iTli] = -Bm2*h
+                    else:
+                        A[i, iTsi] = ws + 0.5*B2*h
+                        A[i, iTsim1] = -wsm1 + 0.5*B2*h
+                        A[i, iTli] = -0.5*Bm2*h
+                        A[i, iTlim1] = -0.5*Bm2*h
+                else:
+                    if z == 'A':
+                        A[i, iTli] = wl + Bm2*h
+                        A[i, iTsi] = -B2*h
+                    else:
+                        A[i, iTli] = wl + 0.5*Bm2*h
+                        A[i, iTlim1] = -wlm1 + 0.5*Bm2*h
+                        A[i, iTsi] = -0.5*B2*h
+                        A[i, iTsim1] = -0.5*B2*h
             x = np.linalg.solve(A, b)
+
+            Ps = x[:7]
+            Pl = x[7:14]
+            Ts = x[14:21]
+            Tl = x[21:]
+
+            fig1, [ax1, ax2, ax3] = plt.subplots(1, 3, tight_layout=True)
+            fig1.subplots_adjust(wspace=0.5)
+    
+            ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)', fontsize=14)
+            ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
+            ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)', fontsize=14)
+            ax1.set_ylabel('Depth (m)', fontsize=14)
+    
+    
+            ax1.scatter(Ps, model.GRID[1:],)
+            ax2.scatter(Pl, model.GRID[1:],)
+            ax3.scatter(Ps + Pl, model.GRID[1:],)
+
+            fig2, [ax4, ax5] = plt.subplots(1, 2, tight_layout=True)
+            fig2.subplots_adjust(wspace=0.5)
+    
+            ax4.set_xlabel('$Ti_{S}$ (mmol m$^{-3}$)', fontsize=14)
+            ax5.set_xlabel('$Ti_{L}$ (mmol m$^{-3}$)', fontsize=14)
+            ax4.set_ylabel('Depth (m)', fontsize=14)
+    
+    
+            ax4.scatter(Ts, model.GRID[1:],)
+            ax5.scatter(Tl, model.GRID[1:],)
+            
+            for ax in (ax1, ax2, ax3, ax4, ax5):
+                ax.invert_yaxis()
+
+            # sys.exit()
 
             return x
 
@@ -1119,9 +1175,8 @@ class PyriteTwinX(PyriteModel):
             max_change_limit = 0.01
             xk = generate_linear_solution()
 
-            P30 = model.P30.prior
-            Lp = model.Lp.prior
-            # phi = model.Phi.prior
+            P30 = self.target_values['P30']['est']
+            Lp = self.target_values['Lp']['est']
             b = np.zeros(model.nte)
             for i, z in enumerate(model.zones):
                 zim1, zi = z.depths
@@ -1129,7 +1184,9 @@ class PyriteTwinX(PyriteModel):
                     b[i] = -P30*zi
                 else:
                     b[i] = -Lp*P30*(np.exp(-zim1/Lp) - np.exp(-zi/Lp))
-            # b[model.state_elements.index('TiS_A')] = -phi
+            if 'Ti' in model.species:
+                phi = self.target_values['Phi']['est']
+                b[model.state_elements.index('TiS_A')] = -phi
             
             for count in range(max_iterations):
                 f, F = model.evaluate_model_equations(
@@ -1139,6 +1196,40 @@ class PyriteTwinX(PyriteModel):
                 if np.max(change) < max_change_limit:
                     break
                 xk = xkp1
+            
+            Ps = xkp1[:7]
+            Pl = xkp1[7:14]
+            Ts = xkp1[14:21]
+            Tl = xkp1[21:]
+
+            fig1, [ax1, ax2, ax3] = plt.subplots(1, 3, tight_layout=True)
+            fig1.subplots_adjust(wspace=0.5)
+    
+            ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)', fontsize=14)
+            ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
+            ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)', fontsize=14)
+            ax1.set_ylabel('Depth (m)', fontsize=14)
+    
+    
+            ax1.scatter(Ps, model.GRID[1:],)
+            ax2.scatter(Pl, model.GRID[1:],)
+            ax3.scatter(Ps + Pl, model.GRID[1:],)
+
+            fig2, [ax4, ax5] = plt.subplots(1, 2, tight_layout=True)
+            fig2.subplots_adjust(wspace=0.5)
+    
+            ax4.set_xlabel('$Ti_{S}$ (mmol m$^{-3}$)', fontsize=14)
+            ax5.set_xlabel('$Ti_{L}$ (mmol m$^{-3}$)', fontsize=14)
+            ax4.set_ylabel('Depth (m)', fontsize=14)
+    
+    
+            ax4.scatter(Ts, model.GRID[1:],)
+            ax5.scatter(Tl, model.GRID[1:],)
+            
+            for ax in (ax1, ax2, ax3, ax4, ax5):
+                ax.invert_yaxis()
+
+            sys.exit()
 
             return xkp1
 
@@ -2086,9 +2177,10 @@ if __name__ == '__main__':
 
     sys.setrecursionlimit(100000)
     start_time = time.time()
-    model = PyriteModel(1, [0.01])
-    # twinX = PyriteTwinX([0.01])
+    args = (1, [0.01])
+    model = PyriteModel(*args)
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
+    twinX = PyriteTwinX(*args)
     # PlotterTwinX('out/POC_twinX_dev.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
