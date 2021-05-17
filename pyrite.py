@@ -97,13 +97,13 @@ class PyriteModel:
         for s in self.species:
             s_all = self.data[s].copy()
             depths = np.sort(s_all['mod_depth'].unique())
-            
+
             s_means = pd.DataFrame(depths, columns=['depth'])
-    
+
             s_means['n_casts'] = s_means.apply(
                 lambda x: len(s_all.loc[s_all['mod_depth'] == x['depth']]),
                 axis=1)
-    
+
             for t in (f'{s}S', f'{s}L'):
                 s_all.loc[s_all[t] < 0, t] = 0
                 s_means[t] = s_means.apply(
@@ -123,7 +123,7 @@ class PyriteModel:
                 s_means = pd.concat(
                     [s_means.iloc[[0]], s_means], ignore_index=True)
                 s_means.at[0, 'depth'] = 30
-    
+
             self.data[f'{s}_means'] = s_means.copy()
 
     def define_tracers(self):
@@ -132,11 +132,11 @@ class PyriteModel:
         self.POCL = Tracer('POCL', '$P_L$', self.data['POC_means'])
 
         self.tracers = [self.POCS, self.POCL]
-        
+
         if 'Ti' in self.species:
             self.TiS = Tracer('TiS', '$Ti_S$', self.data['Ti_means'])
             self.TiL = Tracer('TiL', '$Ti_L$', self.data['Ti_means'])
-    
+
             self.tracers.extend([self.TiS, self.TiL])
 
     def define_params(self):
@@ -157,10 +157,10 @@ class PyriteModel:
         self.P30 = Param(P30_prior, P30_prior_e, 'P30', '$\.P_{S,30}$',
                          depth_vary=False)
         self.Lp = Param(Lp_prior, Lp_prior_e, 'Lp', '$L_P$', depth_vary=False)
-        
+
         self.params = [self.ws, self.wl, self.B2p, self.Bm2, self.Bm1s,
                        self.Bm1l, self.P30, self.Lp]
-        
+
         if 'Ti' in self.species:
             self.Phi = Param(ti_dust, ti_dust, 'Phi', '$\\Phi_D$',
                               depth_vary=False)
@@ -251,7 +251,7 @@ class PyriteModel:
         cp_bycast_to_mean = cp_bycast.loc[np.array(self.GRID[1:]) -1,
                                           cast_match_table['ctd_cast']]
         cp_mean = cp_bycast_to_mean.mean(axis=1)
-        
+
         self.Pt_mean_linear = self.cp_Pt_regression_linear.get_prediction(
             exog=dict(cp=cp_mean)).predicted_mean
         self.Pt_mean_nonlinear = (
@@ -267,9 +267,9 @@ class PyriteModel:
         self.state_elements -- a list of strings corresponding to labels of
         all elements in the state vector
         """
-        
+
         self.state_elements = []
-        
+
         tracer_priors = []
         tracer_priors_var = []
 
@@ -335,12 +335,12 @@ class PyriteModel:
 
         Cf_PsPl = np.diag(np.ones((len(self.GRID) - 1)*2)
                           * ((self.P30.prior*self.MIXED_LAYER_DEPTH)**2)*g)
-        
+
         Cf_Pt = np.diag(np.ones(len(self.GRID) - 1)
                         * (self.cp_Pt_regression_nonlinear.mse_resid))
-        
+
         blocks = [Cf_PsPl, Cf_Pt]
-        
+
         if 'Ti' in self.species:
             n_Ti = len([i for i, el in enumerate(self.state_elements)
                     if 'Ti' in el])
@@ -363,9 +363,9 @@ class PyriteModel:
             start_index:(start_index + len(self.GRID) - 1)]
 
         return sliced
-    
+
     def previous_zone(self, zone_name):
-        
+
         return self.zone_names[self.zone_names.index(zone_name) - 1]
 
     def equation_builder(self, species, zone, params_known=None):
@@ -727,6 +727,10 @@ class PyriteModel:
             run.tracer_results[t]['resids'] = self.slice_by_tracer(
                 f_residuals, t)
 
+        run.tracer_results['POCT'] = {}
+        run.tracer_results['POCT']['resids'] = f_residuals[
+            -(len(self.GRID) - 1):]
+
     def calculate_inventories(self, run):
         """Calculate inventories of the model tracers in each grid zone."""
         inventory_sym = {}
@@ -902,7 +906,7 @@ class GridZone:
         # self.set_integration_intervals()
 
     def __repr__(self):
-        
+
         return f'GridZone({self.label})'
 
     def set_integration_intervals(self):
@@ -998,14 +1002,14 @@ class PyriteTwinX(PyriteModel):
 
         self.get_target_values(model, self.gammas[0])
         x = self.generate_pseudodata(model)
-        
+
         self.data = model.data.copy()
         for s in model.species:
             tracer_data = self.data[f'{s}_means'].copy()
             for t in (f'{s}S', f'{s}L'):
                 re = tracer_data[f'{t}_se']/tracer_data[t]
                 tracer_data[t] = model.slice_by_tracer(x, t)
-                tracer_data[f'{t}_se'] = tracer_data[t]*re                 
+                tracer_data[f'{t}_se'] = tracer_data[t]*re
 
             self.data[f'{s}_means'] = tracer_data.copy()
 
@@ -1022,7 +1026,7 @@ class PyriteTwinX(PyriteModel):
 
         self.target_values = reference_run.param_results.copy()
         # d = {}
-        
+
         # for param in model.params:
         #     d[param.name] = {}
         #     if param.dv:
@@ -1031,7 +1035,7 @@ class PyriteTwinX(PyriteModel):
         #             d[param.name][z]['est'] = param.prior
         #     else:
         #         d[param.name]['est'] = param.prior
-        
+
         # self.target_values = d.copy()
 
     def generate_pseudodata(self, model):
@@ -1058,12 +1062,12 @@ class PyriteTwinX(PyriteModel):
                 zim1, zi = zone.depths
                 h = zi - zim1
 
-                iPsi = element_index.index(f'POCS_{z}')               
+                iPsi = element_index.index(f'POCS_{z}')
                 iPli = element_index.index(f'POCL_{z}')
                 if 'Ti' in model.species:
                     iTsi = element_index.index(f'TiS_{z}')
                     iTli = element_index.index(f'TiL_{z}')
-                
+
                 if z != 'A':
                     pz = model.previous_zone(z)
                     iPsim1 = element_index.index(f'POCS_{pz}')
@@ -1134,28 +1138,28 @@ class PyriteTwinX(PyriteModel):
 
             fig1, [ax1, ax2, ax3] = plt.subplots(1, 3, tight_layout=True)
             fig1.subplots_adjust(wspace=0.5)
-    
+
             ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)', fontsize=14)
             ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
             ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)', fontsize=14)
             ax1.set_ylabel('Depth (m)', fontsize=14)
-    
-    
+
+
             ax1.scatter(Ps, model.GRID[1:],)
             ax2.scatter(Pl, model.GRID[1:],)
             ax3.scatter(Ps + Pl, model.GRID[1:],)
 
             fig2, [ax4, ax5] = plt.subplots(1, 2, tight_layout=True)
             fig2.subplots_adjust(wspace=0.5)
-    
+
             ax4.set_xlabel('$Ti_{S}$ (mmol m$^{-3}$)', fontsize=14)
             ax5.set_xlabel('$Ti_{L}$ (mmol m$^{-3}$)', fontsize=14)
             ax4.set_ylabel('Depth (m)', fontsize=14)
-    
-    
+
+
             ax4.scatter(Ts, model.GRID[1:],)
             ax5.scatter(Tl, model.GRID[1:],)
-            
+
             for ax in (ax1, ax2, ax3, ax4, ax5):
                 ax.invert_yaxis()
 
@@ -1187,7 +1191,7 @@ class PyriteTwinX(PyriteModel):
             if 'Ti' in model.species:
                 phi = self.target_values['Phi']['est']
                 b[model.state_elements.index('TiS_A')] = -phi
-            
+
             for count in range(max_iterations):
                 f, F = model.evaluate_model_equations(
                     xk, return_F=True, params_known=self.target_values)
@@ -1196,7 +1200,7 @@ class PyriteTwinX(PyriteModel):
                 if np.max(change) < max_change_limit:
                     break
                 xk = xkp1
-            
+
             Ps = xkp1[:7]
             Pl = xkp1[7:14]
             Ts = xkp1[14:21]
@@ -1204,28 +1208,28 @@ class PyriteTwinX(PyriteModel):
 
             fig1, [ax1, ax2, ax3] = plt.subplots(1, 3, tight_layout=True)
             fig1.subplots_adjust(wspace=0.5)
-    
+
             ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)', fontsize=14)
             ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
             ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)', fontsize=14)
             ax1.set_ylabel('Depth (m)', fontsize=14)
-    
-    
+
+
             ax1.scatter(Ps, model.GRID[1:],)
             ax2.scatter(Pl, model.GRID[1:],)
             ax3.scatter(Ps + Pl, model.GRID[1:],)
 
             fig2, [ax4, ax5] = plt.subplots(1, 2, tight_layout=True)
             fig2.subplots_adjust(wspace=0.5)
-    
+
             ax4.set_xlabel('$Ti_{S}$ (mmol m$^{-3}$)', fontsize=14)
             ax5.set_xlabel('$Ti_{L}$ (mmol m$^{-3}$)', fontsize=14)
             ax4.set_ylabel('Depth (m)', fontsize=14)
-    
-    
+
+
             ax4.scatter(Ts, model.GRID[1:],)
             ax5.scatter(Tl, model.GRID[1:],)
-            
+
             for ax in (ax1, ax2, ax3, ax4, ax5):
                 ax.invert_yaxis()
 
@@ -1333,7 +1337,7 @@ class PlotterTwinX():
         est = {True: {True: {'LEZ': 3, 'UMZ': 5}, False: 4},
                 False: {True: {'LEZ': 2, 'UMZ': 3}, False: 3}}
         maxtick = {True: 7, False: 5}
-        
+
         params_out = {'ws':{'LEZ':(1.243,0.384), 'UMZ':(3.660,3.308)},
               'wl':{'LEZ':(19.076,8.833), 'UMZ':(25.320,18.386)},
               'B2p':{'LEZ':(0.021,0.009), 'UMZ':(0.024,0.022)},
@@ -1344,7 +1348,7 @@ class PlotterTwinX():
 
         for i, param in enumerate(self.model.params):
             p = param.name
-            fig, ax = plt.subplots(tight_layout=True)           
+            fig, ax = plt.subplots(tight_layout=True)
             if param.dv:
                 ax.set_xlabel(eval(f'self.model.{p}.label'), fontsize=14)
                 ax.set_ylabel('Depth (m)', fontsize=14)
@@ -1406,7 +1410,7 @@ class PlotterTwinX():
                         zorder=2)
                     ax.tick_params(bottom=False, labelbottom=False)
                     ax.set_xticks(np.arange(maxtick[self.is_twinX]))
-            
+
             filename = f'out/{p}_gam{str(run.gamma).replace(".","")}'
             if self.is_twinX:
                 filename += '_TE'
@@ -1496,7 +1500,7 @@ class PlotterTwinX():
             filename += '_TE'
         fig.savefig(f'{filename}.png')
         plt.close()
-    
+
     def ti_profiles(self, run):
 
         fig, [ax1, ax2] = plt.subplots(1, 2, tight_layout=True)
@@ -1586,11 +1590,12 @@ class PlotterModelRuns(PlotterTwinX):
         if 'Ti' in self.model.species:
             self.ti_data()
 
-        # for run in self.model.model_runs:
-        #     self.sinking_fluxes(run)
-        #     self.volumetric_fluxes(run)
-        #     if run.gamma == 0.02:
-        #         self.param_comparison(run)
+        for run in self.model.model_runs:
+            self.residual_profiles(run)
+            # self.sinking_fluxes(run)
+            # self.volumetric_fluxes(run)
+            # if run.gamma == 0.02:
+            #     self.param_comparison(run)
 
         # self.integrated_residuals()
         # self.param_sensitivity()
@@ -1706,7 +1711,7 @@ class PlotterModelRuns(PlotterTwinX):
 
         fig.savefig('out/poc_data.png')
         plt.close()
-    
+
     def ti_data(self):
 
         fig, [ax1, ax2] = plt.subplots(1, 2, tight_layout=True)
@@ -1743,6 +1748,47 @@ class PlotterModelRuns(PlotterTwinX):
 
         fig.savefig('out/ti_data.png')
         plt.close()
+
+    def residual_profiles(self, run):
+
+        fig, [ax1, ax2, ax3] = plt.subplots(1, 3, tight_layout=True)
+        fig.subplots_adjust(wspace=0.5)
+
+        ax1.set_xlabel('$P_{S}$ (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+        ax2.set_xlabel('$P_{L}$ (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+        ax3.set_xlabel('$P_{T}$ (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+        ax1.set_ylabel('Depth (m)', fontsize=14)
+
+        ax1.scatter(run.tracer_results['POCS']['resids'], self.model.GRID[1:])
+        ax2.scatter(run.tracer_results['POCL']['resids'], self.model.GRID[1:])
+        ax3.scatter(run.tracer_results['POCT']['resids'], self.model.GRID[1:])
+
+        for ax in (ax1, ax2, ax3):
+            ax.invert_yaxis()
+
+        fig.savefig(f'out/POC_resids_gam{str(run.gamma).replace(".","")}.png')
+        plt.close()
+
+        if 'Ti' in self.model.species:
+            fig, [ax1, ax2] = plt.subplots(1, 2, tight_layout=True)
+            fig.subplots_adjust(wspace=0.5)
+
+            ax1.set_xlabel('$Ti_{S}$ (nmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+            ax2.set_xlabel('$Ti_{L}$ (nmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+            ax1.set_ylabel('Depth (m)', fontsize=14)
+
+
+            ax1.scatter(
+                run.tracer_results['TiS']['resids'], self.model.GRID[1:])
+            ax2.scatter(
+                run.tracer_results['TiL']['resids'], self.model.GRID[1:])
+
+            for ax in (ax1, ax2):
+                ax.invert_yaxis()
+
+            fig.savefig(
+                f'out/Ti_resids_gam{str(run.gamma).replace(".","")}.png')
+            plt.close()
 
     def sinking_fluxes(self, run):
 
@@ -2178,9 +2224,9 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
     args = (1, [0.01])
-    model = PyriteModel(*args)
+    model1 = PyriteModel(*args)
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
-    twinX = PyriteTwinX(*args)
+    # twinX = PyriteTwinX(*args)
     # PlotterTwinX('out/POC_twinX_dev.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
