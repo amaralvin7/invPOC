@@ -1138,37 +1138,37 @@ class PyriteTwinX(PyriteModel):
                         A[i, iTsim1] = -0.5*B2*h
             x = np.linalg.solve(A, b)
 
-            Ps = x[:7]
-            Pl = x[7:14]
-            Ts = x[14:21]
-            Tl = x[21:]
+            # Ps = x[:7]
+            # Pl = x[7:14]
+            # Ts = x[14:21]
+            # Tl = x[21:]
 
-            fig1, [ax1, ax2, ax3] = plt.subplots(1, 3, tight_layout=True)
-            fig1.subplots_adjust(wspace=0.5)
+            # fig1, [ax1, ax2, ax3] = plt.subplots(1, 3, tight_layout=True)
+            # fig1.subplots_adjust(wspace=0.5)
 
-            ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)', fontsize=14)
-            ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
-            ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)', fontsize=14)
-            ax1.set_ylabel('Depth (m)', fontsize=14)
-
-
-            ax1.scatter(Ps, model.GRID[1:],)
-            ax2.scatter(Pl, model.GRID[1:],)
-            ax3.scatter(Ps + Pl, model.GRID[1:],)
-
-            fig2, [ax4, ax5] = plt.subplots(1, 2, tight_layout=True)
-            fig2.subplots_adjust(wspace=0.5)
-
-            ax4.set_xlabel('$Ti_{S}$ (mmol m$^{-3}$)', fontsize=14)
-            ax5.set_xlabel('$Ti_{L}$ (mmol m$^{-3}$)', fontsize=14)
-            ax4.set_ylabel('Depth (m)', fontsize=14)
+            # ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)', fontsize=14)
+            # ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
+            # ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)', fontsize=14)
+            # ax1.set_ylabel('Depth (m)', fontsize=14)
 
 
-            ax4.scatter(Ts, model.GRID[1:],)
-            ax5.scatter(Tl, model.GRID[1:],)
+            # ax1.scatter(Ps, model.GRID[1:],)
+            # ax2.scatter(Pl, model.GRID[1:],)
+            # ax3.scatter(Ps + Pl, model.GRID[1:],)
 
-            for ax in (ax1, ax2, ax3, ax4, ax5):
-                ax.invert_yaxis()
+            # fig2, [ax4, ax5] = plt.subplots(1, 2, tight_layout=True)
+            # fig2.subplots_adjust(wspace=0.5)
+
+            # ax4.set_xlabel('$Ti_{S}$ (mmol m$^{-3}$)', fontsize=14)
+            # ax5.set_xlabel('$Ti_{L}$ (mmol m$^{-3}$)', fontsize=14)
+            # ax4.set_ylabel('Depth (m)', fontsize=14)
+
+
+            # ax4.scatter(Ts, model.GRID[1:],)
+            # ax5.scatter(Tl, model.GRID[1:],)
+
+            # for ax in (ax1, ax2, ax3, ax4, ax5):
+            #     ax.invert_yaxis()
 
             return x
 
@@ -1211,32 +1211,43 @@ class PyriteTwinX(PyriteModel):
             Ts = xkp1[14:21]
             Tl = xkp1[21:]
 
-            fig1, [ax1, ax2, ax3] = plt.subplots(1, 3, tight_layout=True)
-            fig1.subplots_adjust(wspace=0.5)
+            fig, [ax1, ax2, ax3] = plt.subplots(1, 3, tight_layout=True)
+            fig.subplots_adjust(wspace=0.5)
 
             ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)', fontsize=14)
             ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
             ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)', fontsize=14)
             ax1.set_ylabel('Depth (m)', fontsize=14)
 
-            ax1.scatter(Ps, model.GRID[1:],)
-            ax2.scatter(Pl, model.GRID[1:],)
-            ax3.scatter(Ps + Pl, model.GRID[1:],)
+            ax1.scatter(Ps, model.GRID[1:])
+            ax2.scatter(Pl, model.GRID[1:])
+            ax3.scatter(Ps + Pl, model.GRID[1:])
 
-            fig2, [ax4, ax5] = plt.subplots(1, 2, tight_layout=True)
-            fig2.subplots_adjust(wspace=0.5)
-
-            ax4.set_xlabel('$Ti_{S}$ (mmol m$^{-3}$)', fontsize=14)
-            ax5.set_xlabel('$Ti_{L}$ (mmol m$^{-3}$)', fontsize=14)
-            ax4.set_ylabel('Depth (m)', fontsize=14)
-
-
-            ax4.scatter(Ts, model.GRID[1:],)
-            ax5.scatter(Tl, model.GRID[1:],)
-
-            for ax in (ax1, ax2, ax3, ax4, ax5):
+            for ax in (ax1, ax2, ax3):
                 ax.invert_yaxis()
 
+            fig.savefig('out/POC_fwd.png')
+            plt.close()
+
+            if 'Ti' in model.species:
+
+                fig, [ax1, ax2] = plt.subplots(1, 2, tight_layout=True)
+                fig.subplots_adjust(wspace=0.5)
+
+                ax1.set_xlabel('$Ti_{S}$ (mmol m$^{-3}$)', fontsize=14)
+                ax2.set_xlabel('$Ti_{L}$ (mmol m$^{-3}$)', fontsize=14)
+                ax1.set_ylabel('Depth (m)', fontsize=14)
+
+
+                ax1.scatter(Ts, model.GRID[1:])
+                ax2.scatter(Tl, model.GRID[1:])
+
+
+                for ax in (ax1, ax2):
+                    ax.invert_yaxis()
+
+                fig.savefig('out/Ti_fwd.png')
+                plt.close()
 
             return xkp1, b
 
@@ -2232,8 +2243,8 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
     args = (1, [0.01])
-    # model_1 = PyriteModel(*args)
-    # PlotterModelRuns('out/POC_modelruns_dev.pkl')
+    model_1 = PyriteModel(*args)
+    PlotterModelRuns('out/POC_modelruns_dev.pkl')
     twinX_1 = PyriteTwinX(*args)
     # PlotterTwinX('out/POC_twinX_dev.pkl')
 
