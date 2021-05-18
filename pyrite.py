@@ -56,30 +56,31 @@ class PyriteModel:
         self.DAYS_PER_YEAR = 365.24
 
         self.load_data()
-        self.define_tracers()
-        self.define_params()
-        # self.define_fluxes()
-        self.process_cp_data()
-        self.define_zones()
+        if str(self) != 'PyriteTwinX object':
+            self.define_tracers()
+            self.define_params()
+            # self.define_fluxes()
+            self.process_cp_data()
+            self.define_zones()
 
-        xo, xo_log, Co, Co_log = self.define_prior_vector_and_cov_matrix()
-        self.define_equation_elements()
+            xo, xo_log, Co, Co_log = self.define_prior_vector_and_cov_matrix()
+            self.define_equation_elements()
 
-        self.model_runs = []
-        for g in gammas:
-            run = PyriteModelRun(g)
-            Cf = self.define_model_error_matrix(g)
-            xhat = self.ATI(xo_log, Co_log, Cf, run)
-            self.calculate_total_POC(run)
-            self.calculate_residuals(xo, Co, xhat, Cf, run)
-            # if str(self) != 'PyriteTwinX object':
-            #     inventories = self.calculate_inventories(run)
-            #     fluxes_sym = self.calculate_fluxes(run)
-            #     flux_names, integrated_fluxes = self.integrate_fluxes(
-            #         fluxes_sym, run)
-            #     self.calculate_timescales(
-            #         inventories, flux_names, integrated_fluxes, run)
-            self.model_runs.append(run)
+            self.model_runs = []
+            for g in gammas:
+                run = PyriteModelRun(g)
+                Cf = self.define_model_error_matrix(g)
+                xhat = self.ATI(xo_log, Co_log, Cf, run)
+                self.calculate_total_POC(run)
+                self.calculate_residuals(xo, Co, xhat, Cf, run)
+                # if str(self) != 'PyriteTwinX object':
+                #     inventories = self.calculate_inventories(run)
+                #     fluxes_sym = self.calculate_fluxes(run)
+                #     flux_names, integrated_fluxes = self.integrate_fluxes(
+                #         fluxes_sym, run)
+                #     self.calculate_timescales(
+                #         inventories, flux_names, integrated_fluxes, run)
+                self.model_runs.append(run)
 
         self.pickle_model()
 
@@ -1010,8 +1011,14 @@ class PyriteTwinX(PyriteModel):
                 re = tracer_data[f'{t}_se']/tracer_data[t]
                 tracer_data[t] = model.slice_by_tracer(x, t)
                 tracer_data[f'{t}_se'] = tracer_data[t]*re
+                if t == 'POCS':
+                    Ps_pseudo = tracer_data[t]
+                if t == 'POCL':
+                    Pl_pseudo = tracer_data[t]
 
             self.data[f'{s}_means'] = tracer_data.copy()
+
+        self.Pt_constraint = Ps_pseudo + Pl_pseudo
 
     def get_target_values(self, model, gamma):
         """Get the target values with which to generate pseudodata.
@@ -1163,8 +1170,6 @@ class PyriteTwinX(PyriteModel):
             for ax in (ax1, ax2, ax3, ax4, ax5):
                 ax.invert_yaxis()
 
-            # sys.exit()
-
             return x
 
         def generate_nonlinear_solution():
@@ -1214,7 +1219,6 @@ class PyriteTwinX(PyriteModel):
             ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)', fontsize=14)
             ax1.set_ylabel('Depth (m)', fontsize=14)
 
-
             ax1.scatter(Ps, model.GRID[1:],)
             ax2.scatter(Pl, model.GRID[1:],)
             ax3.scatter(Ps + Pl, model.GRID[1:],)
@@ -1233,11 +1237,15 @@ class PyriteTwinX(PyriteModel):
             for ax in (ax1, ax2, ax3, ax4, ax5):
                 ax.invert_yaxis()
 
-            sys.exit()
 
-            return xkp1
+            return xkp1, b
 
-        return generate_nonlinear_solution()
+        xkp1, b = generate_nonlinear_solution()
+
+        self.pseudo_check = model.evaluate_model_equations(
+            xkp1, params_known=self.target_values) - b
+
+        return xkp1
 
     def define_fluxes(self):
         """Unused"""
@@ -2224,9 +2232,9 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
     args = (1, [0.01])
-    model1 = PyriteModel(*args)
-    PlotterModelRuns('out/POC_modelruns_dev.pkl')
-    # twinX = PyriteTwinX(*args)
+    # model_1 = PyriteModel(*args)
+    # PlotterModelRuns('out/POC_modelruns_dev.pkl')
+    twinX_1 = PyriteTwinX(*args)
     # PlotterTwinX('out/POC_twinX_dev.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
