@@ -143,7 +143,7 @@ class PyriteModel:
     def define_params(self):
         """Set prior estimates and errors of model parameters."""
         P30_prior, P30_prior_e, Lp_prior, Lp_prior_e = self.process_npp_data()
-        ti_dust = 1.37*0.0042*1000/47.867 #umol m-2 d-1
+        ti_dust = 2*0.0042*1000/47.867 #umol m-2 d-1
 
         self.ws = Param(2, 2, 'ws', '$w_S$')
         self.wl = Param(20, 15, 'wl', '$w_L$')
@@ -1234,8 +1234,8 @@ class PyriteTwinX(PyriteModel):
                 fig, [ax1, ax2] = plt.subplots(1, 2, tight_layout=True)
                 fig.subplots_adjust(wspace=0.5)
 
-                ax1.set_xlabel('$Ti_{S}$ (mmol m$^{-3}$)', fontsize=14)
-                ax2.set_xlabel('$Ti_{L}$ (mmol m$^{-3}$)', fontsize=14)
+                ax1.set_xlabel('$Ti_{S}$ (µmol m$^{-3}$)', fontsize=14)
+                ax2.set_xlabel('$Ti_{L}$ (µmol m$^{-3}$)', fontsize=14)
                 ax1.set_ylabel('Depth (m)', fontsize=14)
 
 
@@ -1736,8 +1736,8 @@ class PlotterModelRuns(PlotterTwinX):
         fig, [ax1, ax2] = plt.subplots(1, 2, tight_layout=True)
         fig.subplots_adjust(wspace=0.5)
 
-        ax1.set_xlabel('$Ti_{S}$ (nmol m$^{-3}$)', fontsize=14)
-        ax2.set_xlabel('$Ti_{L}$ (nmol m$^{-3}$)', fontsize=14)
+        ax1.set_xlabel('$Ti_{S}$ (µmol m$^{-3}$)', fontsize=14)
+        ax2.set_xlabel('$Ti_{L}$ (µmol m$^{-3}$)', fontsize=14)
         ax1.set_ylabel('Depth (m)', fontsize=14)
 
         ax1.errorbar(
@@ -1775,7 +1775,7 @@ class PlotterModelRuns(PlotterTwinX):
 
         ax1.set_xlabel('$P_{S}$ (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
         ax2.set_xlabel('$P_{L}$ (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
-        ax3.set_xlabel('$P_{T}$ (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+        ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)', fontsize=14)
         ax1.set_ylabel('Depth (m)', fontsize=14)
 
         ax1.scatter(run.tracer_results['POCS']['resids'], self.model.GRID[1:])
@@ -1792,8 +1792,8 @@ class PlotterModelRuns(PlotterTwinX):
             fig, [ax1, ax2] = plt.subplots(1, 2, tight_layout=True)
             fig.subplots_adjust(wspace=0.5)
 
-            ax1.set_xlabel('$Ti_{S}$ (nmol m$^{-2}$ d$^{-1}$)', fontsize=14)
-            ax2.set_xlabel('$Ti_{L}$ (nmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+            ax1.set_xlabel('$Ti_{S}$ (µmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+            ax2.set_xlabel('$Ti_{L}$ (µmol m$^{-2}$ d$^{-1}$)', fontsize=14)
             ax1.set_ylabel('Depth (m)', fontsize=14)
 
 
