@@ -35,7 +35,7 @@ class PyriteModel:
     (2021).
     """
 
-    def __init__(self, model_id, gammas,
+    def __init__(self, model_id, gammas, dvm=False,
                  pickle_into='out/POC_modelruns_dev.pkl'):
         """Define basic model attributes and run the model.
 
@@ -47,6 +47,7 @@ class PyriteModel:
                      1: ('POC', 'Ti')}
         self.species = model_ids[model_id]
         self.gammas = gammas
+        self.dvm = dvm
         self.pickled = pickle_into
         self.MIXED_LAYER_DEPTH = 30
         self.GRID = [0, 30, 50, 100, 150, 200, 330, 500]
@@ -155,14 +156,17 @@ class PyriteModel:
                          'Bm2', '$\\beta_{-2}$')
         self.Bm1s = Param(0.1, 0.1, 'Bm1s', '$\\beta_{-1,S}$')
         self.Bm1l = Param(0.15, 0.15, 'Bm1l', '$\\beta_{-1,L}$')
-        self.B3 = Param(0.8/self.DAYS_PER_YEAR, 0.9/self.DAYS_PER_YEAR,
-                        'B3', '$\\beta_3$', depth_vary=False)
         self.P30 = Param(P30_prior, P30_prior_e, 'P30', '$\.P_{S,30}$',
                          depth_vary=False)
         self.Lp = Param(Lp_prior, Lp_prior_e, 'Lp', '$L_P$', depth_vary=False)
 
         self.params = [self.ws, self.wl, self.B2p, self.Bm2, self.Bm1s,
-                       self.Bm1l, self.B3, self.P30, self.Lp]
+                       self.Bm1l, self.P30, self.Lp]
+
+        if self.dvm:
+            self.B3 = Param(0.8/self.DAYS_PER_YEAR, 0.9/self.DAYS_PER_YEAR,
+                'B3', '$\\beta_3$', depth_vary=False)
+            self.params.append(self.B3)
 
         if 'Ti' in self.species:
             self.Phi = Param(ti_dust, ti_dust, 'Phi', '$\\Phi_D$',
@@ -409,7 +413,8 @@ class PyriteModel:
             wl = sym.symbols(f'wl_{z}')
             P30 = sym.symbols('P30')
             Lp = sym.symbols('Lp')
-            B3 = sym.symbols('B3')
+            if self.dvm:
+                B3 = sym.symbols('B3')
             if zone.label != 'A':
                 wsm1 = sym.symbols(f'ws_{pz}')
                 wlm1 = sym.symbols(f'wl_{pz}')
@@ -422,9 +427,10 @@ class PyriteModel:
             Bm1l = params_known['Bm1l'][z]['est']
             P30 = params_known['P30']['est']
             Lp = params_known['Lp']['est']
-            B3 = params_known['B3']['est']
             ws = params_known['ws'][z]['est']
             wl = params_known['wl'][z]['est']
+            if self.dvm:
+                B3 = params_known['B3']['est']
             if zone.label != 'A':
                 wsm1 = params_known['ws'][pz]['est']
                 wlm1 = params_known['wl'][pz]['est']
@@ -433,7 +439,9 @@ class PyriteModel:
 
         if species == 'POCS':
             if zone.label == 'A':
-                eq = (-ws*Psi + Bm2*Pli*h - (B2p*Psi + Bm1s + B3)*Psi*h)
+                eq = (-ws*Psi + Bm2*Pli*h - (B2p*Psi + Bm1s)*Psi*h)
+                if self.dvm:
+                    eq += -B3*Psi*h
                 if not params_known:
                     eq += P30*h
             else:
@@ -446,7 +454,7 @@ class PyriteModel:
                 eq = -wl*Pli + B2p*Psi**2*h - (Bm2 + Bm1l)*Pli*h
             else:
                 eq = -wl*Pli + wlm1*Plim1 + B2p*Psa**2*h - (Bm2 + Bm1l)*Pla*h
-                if zone.label == 'F':
+                if self.dvm and zone.label == 'F':
                     Ps_A = sym.symbols('POCS_A')
                     alpha = 0.1
                     eq += alpha*B3*Ps_A*self.MIXED_LAYER_DEPTH
@@ -988,7 +996,7 @@ class PyriteTwinX(PyriteModel):
     but currently unused are labeled as such in their docstrings.
     """
 
-    def __init__(self, model_id, gammas,
+    def __init__(self, model_id, gammas, dvm=False,
                  pickled_model='out/POC_modelruns_dev.pkl',
                  pickle_into='out/POC_twinX_dev.pkl'):
         """Build a PyriteModel with gamma values to be used for the TwinX.
@@ -1234,7 +1242,7 @@ class PyriteTwinX(PyriteModel):
             for ax in (ax1, ax2, ax3):
                 ax.invert_yaxis()
 
-            fig.savefig('out/POC_fwd.png')
+            fig.savefig(f'out/POC_fwd_dvm{model.dvm}.png')
             plt.close()
 
             if 'Ti' in model.species:
@@ -1338,7 +1346,7 @@ class PlotterTwinX():
         ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',
                       fontsize=16)
 
-        filename = f'out/conv_gam{str(run.gamma).replace(".","")}'
+        filename = f'out/conv_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}'
         if self.is_twinX:
             filename += '_TE'
         fig.savefig(f'{filename}.png')
@@ -1351,7 +1359,7 @@ class PlotterTwinX():
         ax.set_ylabel('Cost, $J$', fontsize=16)
         ax.set_yscale('log')
 
-        filename = f'out/cost_gam{str(run.gamma).replace(".","")}'
+        filename = f'out/cost_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}'
         if self.is_twinX:
             filename += '_TE'
         fig.savefig(f'{filename}.png')
@@ -1438,7 +1446,7 @@ class PlotterTwinX():
                     ax.tick_params(bottom=False, labelbottom=False)
                     ax.set_xticks(np.arange(maxtick[self.is_twinX]))
 
-            filename = f'out/{p}_gam{str(run.gamma).replace(".","")}'
+            filename = f'out/{p}_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}'
             if self.is_twinX:
                 filename += '_TE'
             fig.savefig(f'{filename}.png')
@@ -1522,7 +1530,7 @@ class PlotterTwinX():
             if ax in (ax2, ax3):
                 ax.tick_params(labelleft=False)
 
-        filename = f'out/POCprofs_gam{str(run.gamma).replace(".","")}'
+        filename = f'out/POCprofs_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}'
         if self.is_twinX:
             filename += '_TE'
         fig.savefig(f'{filename}.png')
@@ -1575,7 +1583,7 @@ class PlotterTwinX():
                       loc='lower right')
             ax.tick_params(axis='both', which='major', labelsize=12)
 
-        filename = f'out/Tiprofs_gam{str(run.gamma).replace(".","")}'
+        filename = f'out/Tiprofs_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}'
         if self.is_twinX:
             filename += '_TE'
         fig.savefig(f'{filename}.png')
@@ -1594,7 +1602,7 @@ class PlotterTwinX():
         for ax in (ax1, ax2):
             ax1.set_xlim([-1, 1])
 
-        filename = f'out/pdfs_gam{str(run.gamma).replace(".","")}'
+        filename = f'out/pdfs_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}'
         if self.is_twinX:
             filename += '_TE'
         fig.savefig(f'{filename}.png')
@@ -1793,7 +1801,7 @@ class PlotterModelRuns(PlotterTwinX):
         for ax in (ax1, ax2, ax3):
             ax.invert_yaxis()
 
-        fig.savefig(f'out/POC_resids_gam{str(run.gamma).replace(".","")}.png')
+        fig.savefig(f'out/POC_resids_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}.png')
         plt.close()
 
         if 'Ti' in self.model.species:
@@ -1814,7 +1822,7 @@ class PlotterModelRuns(PlotterTwinX):
                 ax.invert_yaxis()
 
             fig.savefig(
-                f'out/Ti_resids_gam{str(run.gamma).replace(".","")}.png')
+                f'out/Ti_resids_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}.png')
             plt.close()
 
     def sinking_fluxes(self, run):
@@ -1882,7 +1890,7 @@ class PlotterModelRuns(PlotterTwinX):
         ax2.annotate(
             'B', xy=(0.91, 0.94), xycoords='axes fraction', fontsize=16)
 
-        fig.savefig(f'out/sinkfluxes_gam{str(run.gamma).replace(".","")}.png')
+        fig.savefig(f'out/sinkfluxes_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}.png')
         plt.close()
 
     def volumetric_fluxes(self, run):
@@ -1939,7 +1947,7 @@ class PlotterModelRuns(PlotterTwinX):
             ax.set_ylim(
                 top=0, bottom=self.model.MAX_DEPTH+self.model.GRID_STEP)
         fig.savefig(
-            f'out/fluxes_volumetric_gam{str(run.gamma).replace(".","")}.png')
+            f'out/fluxes_volumetric_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}.png')
         plt.close()
 
     def write_output(self):
@@ -2250,10 +2258,14 @@ if __name__ == '__main__':
 
     sys.setrecursionlimit(100000)
     start_time = time.time()
-    args = (0, [0.01])
-    model_1 = PyriteModel(*args)
+
+    model_no_dvm = PyriteModel(0, [0.01])
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
-    twinX_1 = PyriteTwinX(*args)
+    twinX_no_dvm = PyriteTwinX(0, [0.01])
+
+    model_w_dvm = PyriteModel(0, [0.01], dvm=True)
+    PlotterModelRuns('out/POC_modelruns_dev.pkl')
+    twinX_w_dvm = PyriteTwinX(0, [0.01], dvm=True)
     # PlotterTwinX('out/POC_twinX_dev.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
