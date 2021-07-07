@@ -335,7 +335,7 @@ class PyriteModel:
         """Return the matrix of model errors (Cf) given a value of gamma."""
 
         Cf_PsPl = np.diag(np.ones((len(self.GRID) - 1)*2)
-                          * ((self.P30.prior*self.MIXED_LAYER_DEPTH)**2)*0.01)
+                          * ((self.P30.prior*self.MIXED_LAYER_DEPTH)**2)*g)
 
         Cf_Pt = np.diag(np.ones(len(self.GRID) - 1)
                         * (self.cp_Pt_regression_nonlinear.mse_resid))
@@ -345,7 +345,7 @@ class PyriteModel:
         if 'Ti' in self.species:
             n_Ti = len([i for i, el in enumerate(self.state_elements)
                     if 'Ti' in el])
-            Cf_Ti = np.diag((np.ones(n_Ti)*(self.Phi.prior**2))*g)
+            Cf_Ti = np.diag((np.ones(n_Ti)*(self.Phi.prior**2))*2.5)
             blocks.append(Cf_Ti)
 
         Cf = splinalg.block_diag(*blocks)
@@ -2242,7 +2242,7 @@ if __name__ == '__main__':
 
     sys.setrecursionlimit(100000)
     start_time = time.time()
-    args = (1, [2.5])
+    args = (0, [0.01])
     model_1 = PyriteModel(*args)
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
     twinX_1 = PyriteTwinX(*args)
