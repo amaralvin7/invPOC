@@ -155,12 +155,14 @@ class PyriteModel:
                          'Bm2', '$\\beta_{-2}$')
         self.Bm1s = Param(0.1, 0.1, 'Bm1s', '$\\beta_{-1,S}$')
         self.Bm1l = Param(0.15, 0.15, 'Bm1l', '$\\beta_{-1,L}$')
+        self.B3 = Param(0.8/self.DAYS_PER_YEAR, 0.9/self.DAYS_PER_YEAR,
+                        'B3', '$\\beta_3$', depth_vary=False)
         self.P30 = Param(P30_prior, P30_prior_e, 'P30', '$\.P_{S,30}$',
                          depth_vary=False)
         self.Lp = Param(Lp_prior, Lp_prior_e, 'Lp', '$L_P$', depth_vary=False)
 
         self.params = [self.ws, self.wl, self.B2p, self.Bm2, self.Bm1s,
-                       self.Bm1l, self.P30, self.Lp]
+                       self.Bm1l, self.B3, self.P30, self.Lp]
 
         if 'Ti' in self.species:
             self.Phi = Param(ti_dust, ti_dust, 'Phi', '$\\Phi_D$',
@@ -407,6 +409,7 @@ class PyriteModel:
             wl = sym.symbols(f'wl_{z}')
             P30 = sym.symbols('P30')
             Lp = sym.symbols('Lp')
+            B3 = sym.symbols('B3')
             if zone.label != 'A':
                 wsm1 = sym.symbols(f'ws_{pz}')
                 wlm1 = sym.symbols(f'wl_{pz}')
@@ -419,6 +422,7 @@ class PyriteModel:
             Bm1l = params_known['Bm1l'][z]['est']
             P30 = params_known['P30']['est']
             Lp = params_known['Lp']['est']
+            B3 = params_known['B3']['est']
             ws = params_known['ws'][z]['est']
             wl = params_known['wl'][z]['est']
             if zone.label != 'A':
@@ -429,7 +433,7 @@ class PyriteModel:
 
         if species == 'POCS':
             if zone.label == 'A':
-                eq = (-ws*Psi + Bm2*Pli*h - (B2p*Psi + Bm1s)*Psi*h)
+                eq = (-ws*Psi + Bm2*Pli*h - (B2p*Psi + Bm1s + B3)*Psi*h)
                 if not params_known:
                     eq += P30*h
             else:
@@ -442,6 +446,10 @@ class PyriteModel:
                 eq = -wl*Pli + B2p*Psi**2*h - (Bm2 + Bm1l)*Pli*h
             else:
                 eq = -wl*Pli + wlm1*Plim1 + B2p*Psa**2*h - (Bm2 + Bm1l)*Pla*h
+                if zone.label == 'F':
+                    Ps_A = sym.symbols('POCS_A')
+                    alpha = 0.1
+                    eq += alpha*B3*Ps_A*self.MIXED_LAYER_DEPTH
         elif species == 'POCT':
             Pti = self.Pt_constraint[
                 (self.equation_elements.index(f'POCT_{z}') - self.nte)]
@@ -1420,7 +1428,7 @@ class PlotterTwinX():
                     ax.scatter(
                         tar[param.dv], self.model.target_values[p]['est'],
                         marker='+', s=90, c=self.ORANGE)
-                if p != 'Phi':
+                if p not in ('Phi', 'B3'):
                     ax.fill_between(
                         [0, 4],
                         params_out[p][0] + params_out[p][1],
