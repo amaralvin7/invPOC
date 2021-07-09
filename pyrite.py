@@ -55,12 +55,14 @@ class PyriteModel:
 
         self.MOLAR_MASS_C = 12
         self.DAYS_PER_YEAR = 365.24
+        
+        self.alpha = 0.3
 
         self.load_data()
         if str(self) != 'PyriteTwinX object':
             self.define_tracers()
             self.define_params()
-            # self.define_fluxes()
+            self.define_fluxes()
             self.process_cp_data()
             self.define_zones()
 
@@ -74,11 +76,11 @@ class PyriteModel:
                 xhat = self.ATI(xo_log, Co_log, Cf, run)
                 self.calculate_total_POC(run)
                 self.calculate_residuals(xo, Co, xhat, Cf, run)
-                # if str(self) != 'PyriteTwinX object':
+                if str(self) != 'PyriteTwinX object':
                 #     inventories = self.calculate_inventories(run)
-                #     fluxes_sym = self.calculate_fluxes(run)
-                #     flux_names, integrated_fluxes = self.integrate_fluxes(
-                #         fluxes_sym, run)
+                    fluxes_sym = self.calculate_fluxes(run)
+                    flux_names, integrated_fluxes = self.integrate_fluxes(
+                        fluxes_sym, run)
                 #     self.calculate_timescales(
                 #         inventories, flux_names, integrated_fluxes, run)
                 self.model_runs.append(run)
@@ -164,7 +166,8 @@ class PyriteModel:
                        self.Bm1l, self.P30, self.Lp]
 
         if self.dvm:
-            self.B3 = Param(0.8/self.DAYS_PER_YEAR, 0.9/self.DAYS_PER_YEAR,
+            # self.B3 = Param(0.8/self.DAYS_PER_YEAR, 0.9/self.DAYS_PER_YEAR,
+            self.B3 = Param(0.03, 0.03,
                 'B3', '$\\beta_3$', depth_vary=False)
             self.params.append(self.B3)
 
@@ -173,31 +176,37 @@ class PyriteModel:
                               depth_vary=False)
             self.params.append(self.Phi)
 
-    # def define_fluxes(self):
-    #     """Define fluxes to be calculated."""
-    #     self.sink_S = Flux('sink_S', '$w_SP_S$', 'POCS', 'ws')
-    #     self.sink_L = Flux('sink_L', '$w_LP_L$', 'POCL', 'wl')
-    #     self.sink_T = Flux('sink_T', '$w_TP_T$', 'POCT', 'wt')
-    #     self.sinkdiv_S = Flux(
-    #         'sinkdiv_S', '$\\frac{d}{dz}w_SP_S$', 'POCS', 'ws', wrt=('POCS',))
-    #     self.sinkdiv_L = Flux(
-    #         'sinkdiv_L', '$\\frac{d}{dz}w_LP_L$', 'POCL', 'wl', wrt=('POCL',))
-    #     self.remin_S = Flux(
-    #         'remin_S', '$\\beta_{-1,S}P_S$', 'POCS', 'Bm1s', wrt=('POCS',))
-    #     self.remin_L = Flux(
-    #         'remin_L', '$\\beta_{-1,L}P_L$', 'POCL', 'Bm1l', wrt=('POCL',))
-    #     self.aggregation = Flux(
-    #         'aggregation', '$\\beta^,_2P^2_S$', 'POCS', 'B2p',
-    #         wrt=('POCS', 'POCL'))
-    #     self.disaggregation = Flux(
-    #         'disaggregation', '$\\beta_{-2}P_L$', 'POCL', 'Bm2',
-    #         wrt=('POCS', 'POCL'))
-    #     self.production = Flux(
-    #         'production', '${\.P_S}$', 'POCS', None, wrt=('POCS',))
+    def define_fluxes(self):
+        """Define fluxes to be calculated."""
+        # self.sink_S = Flux('sink_S', '$w_SP_S$', 'POCS', 'ws')
+        # self.sink_L = Flux('sink_L', '$w_LP_L$', 'POCL', 'wl')
+        # self.sink_T = Flux('sink_T', '$w_TP_T$', 'POCT', 'wt')
+        self.sinkdiv_S = Flux(
+            'sinkdiv_S', '$\\frac{d}{dz}w_SP_S$', 'POCS', 'ws', wrt=('POCS',))
+        self.sinkdiv_L = Flux(
+            'sinkdiv_L', '$\\frac{d}{dz}w_LP_L$', 'POCL', 'wl', wrt=('POCL',))
+        self.remin_S = Flux(
+            'remin_S', '$\\beta_{-1,S}P_S$', 'POCS', 'Bm1s', wrt=('POCS',))
+        self.remin_L = Flux(
+            'remin_L', '$\\beta_{-1,L}P_L$', 'POCL', 'Bm1l', wrt=('POCL',))
+        self.aggregation = Flux(
+            'aggregation', '$\\beta^,_2P^2_S$', 'POCS', 'B2p',
+            wrt=('POCS', 'POCL'))
+        self.disaggregation = Flux(
+            'disaggregation', '$\\beta_{-2}P_L$', 'POCL', 'Bm2',
+            wrt=('POCS', 'POCL'))
+        self.production = Flux(
+            'production', '${\.P_S}$', 'POCS', None, wrt=('POCS',))
 
-    #     self.fluxes = (self.sink_S, self.sink_L, self.sink_T, self.sinkdiv_S,
-    #                    self.sinkdiv_L, self.remin_S, self.remin_L,
-    #                    self.aggregation, self.disaggregation, self.production)
+
+        # self.fluxes = [self.sink_S, self.sink_L, self.sink_T, self.sinkdiv_S,
+        self.fluxes = [self.sinkdiv_S,
+                        self.sinkdiv_L, self.remin_S, self.remin_L,
+                        self.aggregation, self.disaggregation, self.production]
+        if self.dvm:
+            self.dvm_flux = Flux(
+            'dvm', '$\\beta_3P_S$', 'POCS', 'B3', wrt=('POCS', 'POCL'))
+            self.fluxes.append(self.dvm_flux)
 
     def process_npp_data(self):
         """Obtain prior estiamtes of particle production parameters.
@@ -231,7 +240,7 @@ class PyriteModel:
 
     def define_zones(self):
         """Define the grid zones in the model."""
-        self.zone_names = ('A', 'B', 'C', 'D', 'E', 'F', 'G')
+        self.zone_names = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
         self.zones = [
             GridZone(self, i, z) for i, z in enumerate(self.zone_names)]
 
@@ -456,8 +465,7 @@ class PyriteModel:
                 eq = -wl*Pli + wlm1*Plim1 + B2p*Psa**2*h - (Bm2 + Bm1l)*Pla*h
                 if self.dvm and zone.label == 'F':
                     Ps_A = sym.symbols('POCS_A')
-                    alpha = 0.1
-                    eq += alpha*B3*Ps_A*self.MIXED_LAYER_DEPTH
+                    eq += self.alpha*B3*Ps_A*self.MIXED_LAYER_DEPTH
         elif species == 'POCT':
             Pti = self.Pt_constraint[
                 (self.equation_elements.index(f'POCT_{z}') - self.nte)]
@@ -773,7 +781,6 @@ class PyriteModel:
 
     def calculate_fluxes(self, run):
         """Calculate profiles of all model fluxes."""
-        MLD = self.MIXED_LAYER_DEPTH
         fluxes_sym = {}
 
         for flux in self.fluxes:
@@ -781,58 +788,52 @@ class PyriteModel:
             run.flux_profiles[f] = {'est': [], 'err': []}
             if flux.wrt:
                 fluxes_sym[f] = []
-            if 'div' in f:
-                for i in range(self.GRID):
-                    z = self.which_zone(i)
-                    pwi = f'{flux.param}_{z}'
-                    twi = f'{flux.tracer}_{i}'
-                    w, Pi = sym.symbols(f'{pwi} {twi}')
-                    if i == 0:
-                        y = w*Pi/MLD
-                    elif i in (1, 2):
-                        twip1 = f'{flux.tracer}_{i+1}'
-                        twim1 = f'{flux.tracer}_{i-1}'
-                        Pip1, Pim1 = sym.symbols(f'{twip1} {twim1}')
-                        y = w*(Pip1 - Pim1)/(2*self.GRID_STEP)
+            for zone in self.zones:
+                z = zone.label
+                zim1, zi = zone.depths
+                h = zi - zim1
+                if 'div' in f:
+                    wi, ti = sym.symbols(f'{flux.param}_{z} {flux.tracer}_{z}')
+                    if z == 'A':
+                        y = wi*ti
                     else:
-                        twim1 = f'{flux.tracer}_{i-1}'
-                        twim2 = f'{flux.tracer}_{i-2}'
-                        Pim1, Pim2 = sym.symbols(f'{twim1} {twim2}')
-                        y = w*(3*Pi - 4*Pim1 + Pim2)/(2*self.GRID_STEP)
-                    est, err = self.eval_symbolic_func(run, y)
-                    run.flux_profiles[f]['est'].append(est)
-                    run.flux_profiles[f]['err'].append(err)
-                    if flux.wrt:
-                        fluxes_sym[f].append(y)
-            else:
-                for i in range(self.GRID):
-                    if f == 'production':
-                        p30, lp = sym.symbols('P30 Lp')
-                        y = p30*sym.exp(-(self.GRID[i] - MLD)/lp)
+                        pz = self.previous_zone(z)
+                        wim1, tim1 = sym.symbols(
+                            f'{flux.param}_{pz} {flux.tracer}_{pz}')
+                        y = wi*ti - wim1*tim1
+                elif f == 'production':
+                    P30, Lp = sym.symbols('P30 Lp')
+                    if zone == 'A':
+                        y = P30*h
                     else:
-                        z = self.which_zone(i)
-                        if f == 'sink_T':
-                            wsi = f'ws_{z}'
-                            wli = f'wl_{z}'
-                            Psi = f'POCS_{i}'
-                            Pli = f'POCL_{i}'
-                            ws, wl, Ps, Pl = sym.symbols(
-                                f'{wsi} {wli} {Psi} {Pli}')
-                            y = ws*Ps + wl*Pl
-                        else:
-                            if f == 'aggregation':
-                                order = 2
-                            else:
-                                order = 1
-                            pwi = f'{flux.param}_{z}'
-                            twi = f'{flux.tracer}_{i}'
-                            p, t = sym.symbols(f'{pwi} {twi}')
-                            y = p*t**order
-                    if flux.wrt:
-                        fluxes_sym[f].append(y)
-                    est, err = self.eval_symbolic_func(run, y)
-                    run.flux_profiles[f]['est'].append(est)
-                    run.flux_profiles[f]['err'].append(err)
+                        y = Lp*P30*(sym.exp(-zim1/Lp) - sym.exp(-zi/Lp))
+                elif f == 'dvm':
+                    pi, ti = sym.symbols(f'B3 {flux.tracer}_{z}')
+                    if z == 'A':
+                        y = pi*ti*h
+                    elif z == 'F':
+                        y = self.alpha*pi*ti*h
+                    else:
+                        y = sym.sympify(0)
+                else:
+                    if f == 'aggregation':
+                        order = 2
+                    else:
+                        order = 1
+                    pi, ti = sym.symbols(
+                        f'{flux.param}_{z} {flux.tracer}_{z}')
+                    if z == 'A':
+                        y = pi*ti**order*h
+                    else:
+                        pz = self.previous_zone(z)
+                        tim1 = sym.symbols(f'{flux.tracer}_{pz}')
+                        t_av = (ti + tim1)/2
+                        y = pi*t_av**order*h
+                est, err = self.eval_symbolic_func(run, y)
+                run.flux_profiles[f]['est'].append(est)
+                run.flux_profiles[f]['err'].append(err)
+                if flux.wrt:
+                    fluxes_sym[f].append(y)
 
         return fluxes_sym
 
@@ -841,19 +842,29 @@ class PyriteModel:
         fluxes = fluxes_sym.keys()
         flux_integrals_sym = {}
 
-        for zone in self.zones:
+        for super_zone in ('LEZ', 'UMZ'):
+            sz = super_zone
+            flux_integrals_sym[sz] = {}
+            run.flux_integrals[sz] = {}
+            for f in fluxes:
+                if sz == 'LEZ':
+                    sz_indices = [0, 1, 2]
+                else:
+                    sz_indices = [3, 4, 5, 6]
+                zone_expressions = [fluxes_sym[f][i] for i in sz_indices]
+                to_integrate = 0
+                for ex in zone_expressions:
+                    to_integrate += ex
+                flux_integrals_sym[sz][f] = to_integrate
+                run.flux_integrals[sz][f] = self.eval_symbolic_func(
+                    run, to_integrate)
+        
+        for i, zone in enumerate(self.zones):
             z = zone.label
-            dz = zone.integration_intervals
-            flux_integrals_sym[z] = {}
             run.flux_integrals[z] = {}
             for f in fluxes:
-                zone_expressions = [fluxes_sym[f][i] for i in zone.indices]
-                to_integrate = 0
-                for i, ex in enumerate(zone_expressions):
-                    to_integrate += ex*dz[i]
-                flux_integrals_sym[z][f] = to_integrate
                 run.flux_integrals[z][f] = self.eval_symbolic_func(
-                    run, to_integrate)
+                    run, fluxes_sym[f][i])
 
         return fluxes, flux_integrals_sym
 
@@ -1636,7 +1647,7 @@ class PlotterModelRuns(PlotterTwinX):
         # self.param_sensitivity()
         # self.param_relative_errors()
 
-        # self.write_output()
+        self.write_output()
 
     def cp_Pt_regression(self):
 
@@ -1952,7 +1963,7 @@ class PlotterModelRuns(PlotterTwinX):
 
     def write_output(self):
 
-        file = 'out/pyrite_out.txt'
+        file = f'out/pyrite_out_dvm{self.model.dvm}.txt'
         with open(file, 'w') as f:
             for run in self.model.model_runs:
                 print('#################################', file=f)
@@ -1973,33 +1984,35 @@ class PlotterModelRuns(PlotterTwinX):
                         est = run.param_results[p]['est']
                         err = run.param_results[p]['err']
                         print(f'{p}: {est:.3f} ± {err:.3f}', file=f)
-                print('+++++++++++++++++++++++++++', file=f)
-                print('Tracer Inventories', file=f)
-                print('+++++++++++++++++++++++++++', file=f)
-                for z in self.model.zones:
-                    print(f'--------{z.label}--------', file=f)
-                    for t in run.inventories[z.label]:
-                        est, err = run.inventories[z.label][t]
-                        print(f'{t}: {est:.0f} ± {err:.0f}', file=f)
+                # print('+++++++++++++++++++++++++++', file=f)
+                # print('Tracer Inventories', file=f)
+                # print('+++++++++++++++++++++++++++', file=f)
+                # for z in self.model.zones:
+                #     print(f'--------{z.label}--------', file=f)
+                #     for t in run.inventories[z.label]:
+                #         est, err = run.inventories[z.label][t]
+                #         print(f'{t}: {est:.0f} ± {err:.0f}', file=f)
                 print('+++++++++++++++++++++++++++', file=f)
                 print('Integrated Fluxes', file=f)
                 print('+++++++++++++++++++++++++++', file=f)
-                for z in self.model.zones:
-                    print(f'--------{z.label}--------', file=f)
-                    for flux in run.flux_integrals[z.label]:
-                        est, err = run.flux_integrals[z.label][flux]
+                #for z in self.model.zones:
+                zones_to_print = ['LEZ', 'UMZ'] + self.model.zone_names
+                for z in zones_to_print:
+                    print(f'--------{z}--------', file=f)
+                    for flux in run.flux_integrals[z]:
+                        est, err = run.flux_integrals[z][flux]
                         print(f'{flux}: {est:.2f} ± {err:.2f}', file=f)
-                print('+++++++++++++++++++++++++++', file=f)
-                print('Timescales', file=f)
-                print('+++++++++++++++++++++++++++', file=f)
-                for z in self.model.zones:
-                    print(f'--------{z.label}--------', file=f)
-                    for t in run.integrated_resids[z.label]:
-                        print(f'***{t}***', file=f)
-                        for flux in run.timescales[z.label][t]:
-                            est, err = run.timescales[z.label][t][flux]
-                            print(f'{flux}: {est:.3f} ± {err:.3f}',
-                                  file=f)
+                # print('+++++++++++++++++++++++++++', file=f)
+                # print('Timescales', file=f)
+                # print('+++++++++++++++++++++++++++', file=f)
+                # for z in self.model.zones:
+                #     print(f'--------{z.label}--------', file=f)
+                #     for t in run.integrated_resids[z.label]:
+                #         print(f'***{t}***', file=f)
+                #         for flux in run.timescales[z.label][t]:
+                #             est, err = run.timescales[z.label][t][flux]
+                #             print(f'{flux}: {est:.3f} ± {err:.3f}',
+                #                   file=f)
 
     def param_comparison(self, run):
 
