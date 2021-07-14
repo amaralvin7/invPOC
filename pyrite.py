@@ -208,7 +208,7 @@ class PyriteModel:
             self.fluxes.append(self.dvm_flux)
 
     def process_npp_data(self):
-        """Obtain prior estiamtes of particle production parameters.
+        """Obtain prior estimates of particle production parameters.
 
         Lp -- vertical length scale of particle production
         P30 -- production of small POC at the base of the mixed layer
@@ -1017,7 +1017,7 @@ class PyriteModelRun():
 class PyriteTwinX(PyriteModel):
     """Twin experiment class for PyriteModel.
 
-    Verifies that the model is able to produce accurate estiamtes of the state
+    Verifies that the model is able to produce accurate estimates of the state
     elements. Inherits from the PyriteModel class. load_data() is the only
     method that is practically overridden. Other methods that are inherited
     but currently unused are labeled as such in their docstrings.
@@ -1033,7 +1033,7 @@ class PyriteTwinX(PyriteModel):
         generate pseudodata.
         """
         self.pickled_model = pickled_model
-        super().__init__(model_id, gammas, pickle_into)
+        super().__init__(model_id, gammas, dvm=dvm, pickle_into=pickle_into)
 
     def __repr__(self):
 
