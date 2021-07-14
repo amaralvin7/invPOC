@@ -166,8 +166,8 @@ class PyriteModel:
                        self.Bm1l, self.P30, self.Lp]
 
         if self.dvm:
-            # self.B3 = Param(0.8/self.DAYS_PER_YEAR, 0.9/self.DAYS_PER_YEAR,
-            self.B3 = Param(0.03, 0.03,
+            self.B3 = Param(0.8/self.DAYS_PER_YEAR, 0.9/self.DAYS_PER_YEAR,
+            # self.B3 = Param(0.03, 0.03,
                 'B3', '$\\beta_3$', depth_vary=False)
             self.params.append(self.B3)
 
@@ -178,9 +178,9 @@ class PyriteModel:
 
     def define_fluxes(self):
         """Define fluxes to be calculated."""
-        # self.sink_S = Flux('sink_S', '$w_SP_S$', 'POCS', 'ws')
-        # self.sink_L = Flux('sink_L', '$w_LP_L$', 'POCL', 'wl')
-        # self.sink_T = Flux('sink_T', '$w_TP_T$', 'POCT', 'wt')
+        self.sink_S = Flux('sink_S', '$w_SP_S$', 'POCS', 'ws')
+        self.sink_L = Flux('sink_L', '$w_LP_L$', 'POCL', 'wl')
+        self.sink_T = Flux('sink_T', '$w_TP_T$', 'POCT', 'wt')
         self.sinkdiv_S = Flux(
             'sinkdiv_S', '$\\frac{d}{dz}w_SP_S$', 'POCS', 'ws', wrt=('POCS',))
         self.sinkdiv_L = Flux(
@@ -199,10 +199,9 @@ class PyriteModel:
             'production', '${\.P_S}$', 'POCS', None, wrt=('POCS',))
 
 
-        # self.fluxes = [self.sink_S, self.sink_L, self.sink_T, self.sinkdiv_S,
-        self.fluxes = [self.sinkdiv_S,
-                        self.sinkdiv_L, self.remin_S, self.remin_L,
-                        self.aggregation, self.disaggregation, self.production]
+        self.fluxes = [self.sink_S, self.sink_L, self.sink_T, self.sinkdiv_S,
+                       self.sinkdiv_L, self.remin_S, self.remin_L,
+                       self.aggregation, self.disaggregation, self.production]
         if self.dvm:
             self.dvm_flux = Flux(
             'dvm', '$\\beta_3P_S$', 'POCS', 'B3', wrt=('POCS', 'POCL'))
@@ -801,12 +800,14 @@ class PyriteModel:
                         wim1, tim1 = sym.symbols(
                             f'{flux.param}_{pz} {flux.tracer}_{pz}')
                         y = wi*ti - wim1*tim1
+                    y_discrete = y/h
                 elif f == 'production':
                     P30, Lp = sym.symbols('P30 Lp')
                     if zone == 'A':
                         y = P30*h
                     else:
                         y = Lp*P30*(sym.exp(-zim1/Lp) - sym.exp(-zi/Lp))
+                    y_discrete = P30*sym.exp(-(zi - self.MIXED_LAYER_DEPTH)/Lp)
                 elif f == 'dvm':
                     pi, ti = sym.symbols(f'B3 {flux.tracer}_{z}')
                     if z == 'A':
@@ -815,6 +816,20 @@ class PyriteModel:
                         y = self.alpha*pi*ti*h
                     else:
                         y = sym.sympify(0)
+                    y_discrete = y/h
+                elif 'sink_' in f:
+                    if f[-1] == 'T':
+                        wsi = f'ws_{z}'
+                        wli = f'wl_{z}'
+                        Psi = f'POCS_{z}'
+                        Pli = f'POCL_{z}'
+                        ws, wl, Ps, Pl = sym.symbols(
+                            f'{wsi} {wli} {Psi} {Pli}')
+                        y_discrete = ws*Ps + wl*Pl
+                    else:                       
+                        wi, ti = sym.symbols(
+                            f'{flux.param}_{z} {flux.tracer}_{z}')
+                        y_discrete = wi*ti                        
                 else:
                     if f == 'aggregation':
                         order = 2
@@ -829,7 +844,8 @@ class PyriteModel:
                         tim1 = sym.symbols(f'{flux.tracer}_{pz}')
                         t_av = (ti + tim1)/2
                         y = pi*t_av**order*h
-                est, err = self.eval_symbolic_func(run, y)
+                    y_discrete = y/h
+                est, err = self.eval_symbolic_func(run, y_discrete)
                 run.flux_profiles[f]['est'].append(est)
                 run.flux_profiles[f]['err'].append(err)
                 if flux.wrt:
@@ -1638,8 +1654,8 @@ class PlotterModelRuns(PlotterTwinX):
 
         for run in self.model.model_runs:
             self.residual_profiles(run)
-            # self.sinking_fluxes(run)
-            # self.volumetric_fluxes(run)
+            self.sinking_fluxes(run)
+            self.volumetric_fluxes(run)
             # if run.gamma == 0.02:
             #     self.param_comparison(run)
 
@@ -1856,20 +1872,18 @@ class PlotterModelRuns(PlotterTwinX):
             fontsize=14, ha='center', va='center')
         for ax in (ax1, ax2):
             ax.invert_yaxis()
-            ax.axhline(self.model.BOUNDARY, c=self.BLACK, ls='--', lw=0.5)
             ax.set_ylim(
-                top=0, bottom=self.model.MAX_DEPTH+self.model.GRID_STEP*2)
+                top=0, bottom=520)
 
         eb1 = ax1.errorbar(
-            run.flux_profiles['sink_S']['est'], self.model.GRID, fmt='o',
+            run.flux_profiles['sink_S']['est'], self.model.GRID[1:], fmt='o',
             xerr=run.flux_profiles['sink_S']['err'], ecolor=self.BLUE,
             elinewidth=0.5, c=self.BLUE, ms=3, capsize=2,
             label=self.model.sink_S.label, fillstyle='none',
             markeredgewidth=0.5)
         eb1[-1][0].set_linestyle('--')
-        ax1.axhline(self.model.BOUNDARY, c='k', ls='--', lw=0.5)
         eb2 = ax1.errorbar(
-            run.flux_profiles['sink_L']['est'], self.model.GRID, fmt='o',
+            run.flux_profiles['sink_L']['est'], self.model.GRID[1:], fmt='o',
             xerr=run.flux_profiles['sink_L']['err'], ecolor=self.ORANGE,
             elinewidth=0.5, c=self.ORANGE, ms=3, capsize=2,
             label=self.model.sink_L.label, fillstyle='none',
@@ -1881,9 +1895,9 @@ class PlotterModelRuns(PlotterTwinX):
 
         ax2.tick_params(labelleft=False)
         eb3 = ax2.errorbar(
-            run.flux_profiles['sink_T']['est'], self.model.GRID, fmt='o',
+            run.flux_profiles['sink_T']['est'], self.model.GRID[1:], fmt='o',
             xerr=run.flux_profiles['sink_T']['err'], ecolor=self.SKY,
-            elinewidth=0.5, c=self.SKY, ms=3, capsize=2,
+            elinewidth=0.5, c=self.SKY, ms=3, capsize=2, zorder=3,
             label=self.model.sink_T.label, fillstyle='none',
             markeredgewidth=0.5)
         eb3[-1][0].set_linestyle('--')
@@ -1908,8 +1922,6 @@ class PlotterModelRuns(PlotterTwinX):
 
         fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
         fig.subplots_adjust(left=0.15, bottom=0.15, wspace=0.1)
-        c1 = self.BLUE
-        c2 = self.ORANGE
         axs = (ax1, ax2, ax3, ax4)
         panels = ('A', 'B', 'C', 'D')
         fig.text(0.5, 0.05, 'Volumetric POC Flux (mmol m$^{-3}$ d$^{-1}$)',
@@ -1922,41 +1934,66 @@ class PlotterModelRuns(PlotterTwinX):
 
         for i, pr in enumerate(pairs):
             ax = axs[i]
-            eb1 = ax.errorbar(
-                run.flux_profiles[pr[0]]['est'], self.model.GRID, fmt='o',
-                xerr=run.flux_profiles[pr[0]]['err'], ecolor=c1,
-                elinewidth=0.5, c=c1, ms=1.5, capsize=2,
-                label=eval(f'self.model.{pr[0]}.label'), fillstyle='none',
-                markeredgewidth=0.5)
-            eb1[-1][0].set_linestyle('--')
+            if pr[0] != 'production':
+                for j, z in enumerate(self.model.zones):
+                    depths = z.depths     
+                    ax.scatter(
+                        run.flux_profiles[pr[0]]['est'][j], np.mean(depths), marker='o',
+                        c=self.BLUE, s=7, label=eval(f'self.model.{pr[0]}.label'),
+                        zorder=3, lw=0.7)
+                    ax.fill_betweenx(
+                        depths,
+                        (run.flux_profiles[pr[0]]['est'][j]
+                         - run.flux_profiles[pr[0]]['err'][j]),
+                        (run.flux_profiles[pr[0]]['est'][j]
+                         + run.flux_profiles[pr[0]]['err'][j]),
+                        color=self.BLUE, alpha=0.25)
+                    ax.scatter(
+                        run.flux_profiles[pr[1]]['est'][j], np.mean(depths), marker='o',
+                        c=self.ORANGE, s=7, label=eval(f'self.model.{pr[1]}.label'),
+                        zorder=3, lw=0.7)
+                    ax.fill_betweenx(
+                        depths,
+                        (run.flux_profiles[pr[1]]['est'][j]
+                         - run.flux_profiles[pr[1]]['err'][j]),
+                        (run.flux_profiles[pr[1]]['est'][j]
+                         + run.flux_profiles[pr[1]]['err'][j]),
+                        color=self.ORANGE, alpha=0.25)
 
-            if len(pr) > 1:
-                eb2 = ax.errorbar(
-                    run.flux_profiles[pr[1]]['est'], self.model.GRID, fmt='o',
-                    xerr=run.flux_profiles[pr[1]]['err'], ecolor=c2,
-                    elinewidth=0.5, c=c2, ms=1.5, capsize=2,
-                    label=eval(f'self.model.{pr[1]}.label'), fillstyle='none',
-                    markeredgewidth=0.5)
-                eb2[-1][0].set_linestyle(':')
-
-            if pr[0] == 'production':
+            else:
+                depths = self.model.GRID[1:]
                 df = self.model.data['NPP']
                 H = self.model.MIXED_LAYER_DEPTH
                 npp = df.loc[df['target_depth'] >= H]['NPP']
                 depth = df.loc[df['target_depth'] >= H]['target_depth']
-                ax.scatter(npp/self.model.MOLAR_MASS_C, depth, c=c2,
+                ax.scatter(npp/self.model.MOLAR_MASS_C, depth, c=self.ORANGE,
                            alpha=0.5, label='NPP', s=10)
+                ax.scatter(
+                    run.flux_profiles[pr[0]]['est'], depths, marker='o',
+                    c=self.BLUE, s=7, label=eval(f'self.model.{pr[0]}.label'),
+                    zorder=3, lw=0.7)
+                eb1 = ax.errorbar(
+                    run.flux_profiles[pr[0]]['est'], depths, fmt='o',
+                    xerr=run.flux_profiles[pr[0]]['err'], ecolor=self.BLUE,
+                    elinewidth=0.5, c=self.BLUE, ms=1.5, capsize=2,
+                    label=eval(f'self.model.{pr[0]}.label'), fillstyle='none',
+                    markeredgewidth=0.5)
+                eb1[-1][0].set_linestyle('--')
 
-            ax.legend(loc='lower right', fontsize=12)
+            handles, labels = ax.get_legend_handles_labels()
+            unique = [
+                (h, l) for i, (h, l) in enumerate(
+                    zip(handles, labels)) if l not in labels[:i]]
+            ax.legend(*zip(*unique), loc='lower right', fontsize=12)
+            
             ax.annotate(panels[i], xy=(0.9, 0.8), xycoords='axes fraction',
                         fontsize=12)
-            ax.axhline(self.model.BOUNDARY, c=self.BLACK, ls='--', lw=0.5)
             ax.set_yticks([0, 100, 200, 300, 400, 500])
             if i % 2:
                 ax.tick_params(labelleft=False)
             ax.invert_yaxis()
             ax.set_ylim(
-                top=0, bottom=self.model.MAX_DEPTH+self.model.GRID_STEP)
+                top=0, bottom=505)
         fig.savefig(
             f'out/fluxes_volumetric_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}.png')
         plt.close()
@@ -2272,13 +2309,13 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
 
-    model_no_dvm = PyriteModel(0, [0.01])
+    model_no_dvm = PyriteModel(0, [0.02])
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
-    twinX_no_dvm = PyriteTwinX(0, [0.01])
+    twinX_no_dvm = PyriteTwinX(0, [0.02])
 
-    model_w_dvm = PyriteModel(0, [0.01], dvm=True)
+    model_w_dvm = PyriteModel(0, [0.02], dvm=True)
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
-    twinX_w_dvm = PyriteTwinX(0, [0.01], dvm=True)
+    twinX_w_dvm = PyriteTwinX(0, [0.02], dvm=True)
     # PlotterTwinX('out/POC_twinX_dev.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
