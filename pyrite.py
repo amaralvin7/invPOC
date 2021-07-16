@@ -49,7 +49,7 @@ class PyriteModel:
         self.gammas = gammas
         self.dvm = dvm
         self.pickled = pickle_into
-        self.MIXED_LAYER_DEPTH = 30
+        self.MLD= 30  # mixed layer depth
         self.GRID = [0, 30, 50, 100, 150, 200, 330, 500]
         self.MAX_DEPTH = self.GRID[-1]
 
@@ -349,7 +349,7 @@ class PyriteModel:
         """Return the matrix of model errors (Cf) given a value of gamma."""
 
         Cf_PsPl = np.diag(np.ones((len(self.GRID) - 1)*2)
-                          * ((self.P30.prior*self.MIXED_LAYER_DEPTH)**2)*g)
+                          * ((self.P30.prior*self.MLD)**2)*g)
 
         Cf_Pt = np.diag(np.ones(len(self.GRID) - 1)
                         * (self.cp_Pt_regression_nonlinear.mse_resid))
@@ -451,12 +451,13 @@ class PyriteModel:
                 if self.dvm:
                     eq += -B3*Psi*h
                 if not params_known:
-                    eq += P30*h
+                    eq += P30*self.MLD
             else:
                 eq = (-ws*Psi + wsm1*Psim1 + Bm2*Pla*h
                       - (B2p*Psa + Bm1s)*Psa*h)
                 if not params_known:
-                    eq += Lp*P30*(sym.exp(-zim1/Lp) - sym.exp(-zi/Lp))
+                    eq += Lp*P30*(sym.exp(-(zim1 - self.MLD)/Lp)
+                                  - sym.exp(-(zi - self.MLD)/Lp))
         elif species == 'POCL':
             if zone.label == 'A':
                 eq = -wl*Pli + B2p*Psi**2*h - (Bm2 + Bm1l)*Pli*h
@@ -464,7 +465,7 @@ class PyriteModel:
                 eq = -wl*Pli + wlm1*Plim1 + B2p*Psa**2*h - (Bm2 + Bm1l)*Pla*h
                 if self.dvm and zone.label == 'F':
                     Ps_A = sym.symbols('POCS_A')
-                    eq += self.alpha*B3*Ps_A*self.MIXED_LAYER_DEPTH
+                    eq += self.alpha*B3*Ps_A*self.MLD
         elif species == 'POCT':
             Pti = self.Pt_constraint[
                 (self.equation_elements.index(f'POCT_{z}') - self.nte)]
@@ -804,10 +805,11 @@ class PyriteModel:
                 elif f == 'production':
                     P30, Lp = sym.symbols('P30 Lp')
                     if zone == 'A':
-                        y = P30*h
+                        y = P30*self.MLD
                     else:
-                        y = Lp*P30*(sym.exp(-zim1/Lp) - sym.exp(-zi/Lp))
-                    y_discrete = P30*sym.exp(-(zi - self.MIXED_LAYER_DEPTH)/Lp)
+                        y = Lp*P30*(sym.exp(-(zim1 - self.MLD)/Lp)
+                                    - sym.exp(-(zi - self.MLD)/Lp))
+                    y_discrete = P30*sym.exp(-(zi - self.MLD)/Lp)
                 elif f == 'dvm':
                     pi, ti = sym.symbols(f'B3 {flux.tracer}_{z}')
                     if z == 'A':
@@ -1144,13 +1146,14 @@ class PyriteTwinX(PyriteModel):
                     if z == 'A':
                         A[i, iPsi] = ws + (Bm1s + B2)*h
                         A[i, iPli] = -Bm2*h
-                        b[i] = P30*h
+                        b[i] = P30*self.model.MLD
                     else:
                         A[i, iPsi] = ws + 0.5*(Bm1s + B2)*h
                         A[i, iPsim1] = -wsm1 + 0.5*(Bm1s + B2)*h
                         A[i, iPli] = -0.5*Bm2*h
                         A[i, iPlim1] = -0.5*Bm2*h
-                        b[i] = Lp*P30*(np.exp(-zim1/Lp) - np.exp(-zi/Lp))
+                        b[i] = Lp*P30*(np.exp(-(zim1 - self.model.MLD)/Lp)
+                                       - np.exp(-(zi - self.model.MLD)/Lp))
                 elif species == 'POCL':
                     if z == 'A':
                         A[i, iPli] = wl + (Bm1l + Bm2)*h
@@ -1233,9 +1236,10 @@ class PyriteTwinX(PyriteModel):
             for i, z in enumerate(model.zones):
                 zim1, zi = z.depths
                 if z.label == 'A':
-                    b[i] = -P30*zi
+                    b[i] = -P30*self.model.MLD
                 else:
-                    b[i] = -Lp*P30*(np.exp(-zim1/Lp) - np.exp(-zi/Lp))
+                    b[i] = -Lp*P30*(np.exp(-(zim1 - self.model.MLD)/Lp)
+                                    - np.exp(-(zi - self.model.MLD)/Lp))
             if 'Ti' in model.species:
                 phi = self.target_values['Phi']['est']
                 b[model.state_elements.index('TiS_A')] = -phi
@@ -1400,6 +1404,7 @@ class PlotterTwinX():
                 False: {True: {'LEZ': 2, 'UMZ': 3}, False: 3}}
         maxtick = {True: 7, False: 5}
 
+        
         params_out = {'ws':{'LEZ':(1.243,0.384), 'UMZ':(3.660,3.308)},
               'wl':{'LEZ':(19.076,8.833), 'UMZ':(25.320,18.386)},
               'B2p':{'LEZ':(0.021,0.009), 'UMZ':(0.024,0.022)},
@@ -1963,7 +1968,7 @@ class PlotterModelRuns(PlotterTwinX):
             else:
                 depths = self.model.GRID[1:]
                 df = self.model.data['NPP']
-                H = self.model.MIXED_LAYER_DEPTH
+                H = self.model.MLD
                 npp = df.loc[df['target_depth'] >= H]['NPP']
                 depth = df.loc[df['target_depth'] >= H]['target_depth']
                 ax.scatter(npp/self.model.MOLAR_MASS_C, depth, c=self.ORANGE,
@@ -2311,11 +2316,11 @@ if __name__ == '__main__':
 
     model_no_dvm = PyriteModel(0, [0.02])
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
-    twinX_no_dvm = PyriteTwinX(0, [0.02])
+    # twinX_no_dvm = PyriteTwinX(0, [0.02])
 
-    model_w_dvm = PyriteModel(0, [0.02], dvm=True)
-    PlotterModelRuns('out/POC_modelruns_dev.pkl')
-    twinX_w_dvm = PyriteTwinX(0, [0.02], dvm=True)
+    # model_w_dvm = PyriteModel(0, [0.02], dvm=True)
+    # PlotterModelRuns('out/POC_modelruns_dev.pkl')
+    # twinX_w_dvm = PyriteTwinX(0, [0.02], dvm=True)
     # PlotterTwinX('out/POC_twinX_dev.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
