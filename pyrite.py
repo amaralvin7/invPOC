@@ -59,31 +59,30 @@ class PyriteModel:
         self.alpha = 0.3
 
         self.load_data()
-        if str(self) != 'PyriteTwinX object':
-            self.define_tracers()
-            self.define_params()
-            self.define_fluxes()
-            self.process_cp_data()
-            self.define_zones()
+        self.define_tracers()
+        self.define_params()
+        self.define_fluxes()
+        self.process_cp_data()
+        self.define_zones()
 
-            xo, xo_log, Co, Co_log = self.define_prior_vector_and_cov_matrix()
-            self.define_equation_elements()
+        xo, xo_log, Co, Co_log = self.define_prior_vector_and_cov_matrix()
+        self.define_equation_elements()
 
-            self.model_runs = []
-            for g in gammas:
-                run = PyriteModelRun(g)
-                Cf = self.define_model_error_matrix(g)
-                xhat = self.ATI(xo_log, Co_log, Cf, run)
-                self.calculate_total_POC(run)
-                self.calculate_residuals(xo, Co, xhat, Cf, run)
-                if str(self) != 'PyriteTwinX object':
-                #     inventories = self.calculate_inventories(run)
-                    fluxes_sym = self.calculate_fluxes(run)
-                    flux_names, integrated_fluxes = self.integrate_fluxes(
-                        fluxes_sym, run)
-                #     self.calculate_timescales(
-                #         inventories, flux_names, integrated_fluxes, run)
-                self.model_runs.append(run)
+        self.model_runs = []
+        for g in gammas:
+            run = PyriteModelRun(g)
+            Cf = self.define_model_error_matrix(g)
+            xhat = self.ATI(xo_log, Co_log, Cf, run)
+            self.calculate_total_POC(run)
+            self.calculate_residuals(xo, Co, xhat, Cf, run)
+            if str(self) != 'PyriteTwinX object':
+            #     inventories = self.calculate_inventories(run)
+                fluxes_sym = self.calculate_fluxes(run)
+                flux_names, integrated_fluxes = self.integrate_fluxes(
+                    fluxes_sym, run)
+            #     self.calculate_timescales(
+            #         inventories, flux_names, integrated_fluxes, run)
+            self.model_runs.append(run)
 
         self.pickle_model()
 
@@ -1077,18 +1076,6 @@ class PyriteTwinX(PyriteModel):
                 break
 
         self.target_values = reference_run.param_results.copy()
-        # d = {}
-
-        # for param in model.params:
-        #     d[param.name] = {}
-        #     if param.dv:
-        #         for z in model.zone_names:
-        #             d[param.name][z] = {}
-        #             d[param.name][z]['est'] = param.prior
-        #     else:
-        #         d[param.name]['est'] = param.prior
-
-        # self.target_values = d.copy()
 
     def generate_pseudodata(self, model):
         """Generate pseudodata from the model equations."""
@@ -1146,14 +1133,14 @@ class PyriteTwinX(PyriteModel):
                     if z == 'A':
                         A[i, iPsi] = ws + (Bm1s + B2)*h
                         A[i, iPli] = -Bm2*h
-                        b[i] = P30*self.model.MLD
+                        b[i] = P30*model.MLD
                     else:
                         A[i, iPsi] = ws + 0.5*(Bm1s + B2)*h
                         A[i, iPsim1] = -wsm1 + 0.5*(Bm1s + B2)*h
                         A[i, iPli] = -0.5*Bm2*h
                         A[i, iPlim1] = -0.5*Bm2*h
-                        b[i] = Lp*P30*(np.exp(-(zim1 - self.model.MLD)/Lp)
-                                       - np.exp(-(zi - self.model.MLD)/Lp))
+                        b[i] = Lp*P30*(np.exp(-(zim1 - model.MLD)/Lp)
+                                       - np.exp(-(zi - model.MLD)/Lp))
                 elif species == 'POCL':
                     if z == 'A':
                         A[i, iPli] = wl + (Bm1l + Bm2)*h
@@ -1183,6 +1170,7 @@ class PyriteTwinX(PyriteModel):
                         A[i, iTsi] = -0.5*B2*h
                         A[i, iTsim1] = -0.5*B2*h
             x = np.linalg.solve(A, b)
+            x = np.clip(x, 10**-10, None)
 
             # Ps = x[:7]
             # Pl = x[7:14]
@@ -1236,10 +1224,10 @@ class PyriteTwinX(PyriteModel):
             for i, z in enumerate(model.zones):
                 zim1, zi = z.depths
                 if z.label == 'A':
-                    b[i] = -P30*self.model.MLD
+                    b[i] = -P30*model.MLD
                 else:
-                    b[i] = -Lp*P30*(np.exp(-(zim1 - self.model.MLD)/Lp)
-                                    - np.exp(-(zi - self.model.MLD)/Lp))
+                    b[i] = -Lp*P30*(np.exp(-(zim1 - model.MLD)/Lp)
+                                    - np.exp(-(zi - model.MLD)/Lp))
             if 'Ti' in model.species:
                 phi = self.target_values['Phi']['est']
                 b[model.state_elements.index('TiS_A')] = -phi
@@ -1252,11 +1240,11 @@ class PyriteTwinX(PyriteModel):
                 if np.max(change) < max_change_limit:
                     break
                 xk = xkp1
+                
+            xkp1 = np.clip(xkp1, 10**-10, None)
 
             Ps = xkp1[:7]
             Pl = xkp1[7:14]
-            Ts = xkp1[14:21]
-            Tl = xkp1[21:]
 
             fig, [ax1, ax2, ax3] = plt.subplots(1, 3, tight_layout=True)
             fig.subplots_adjust(wspace=0.5)
@@ -1277,6 +1265,9 @@ class PyriteTwinX(PyriteModel):
             plt.close()
 
             if 'Ti' in model.species:
+                
+                Ts = xkp1[14:21]
+                Tl = xkp1[21:]
 
                 fig, [ax1, ax2] = plt.subplots(1, 2, tight_layout=True)
                 fig.subplots_adjust(wspace=0.5)
@@ -1404,15 +1395,6 @@ class PlotterTwinX():
                 False: {True: {'LEZ': 2, 'UMZ': 3}, False: 3}}
         maxtick = {True: 7, False: 5}
 
-        
-        params_out = {'ws':{'LEZ':(1.243,0.384), 'UMZ':(3.660,3.308)},
-              'wl':{'LEZ':(19.076,8.833), 'UMZ':(25.320,18.386)},
-              'B2p':{'LEZ':(0.021,0.009), 'UMZ':(0.024,0.022)},
-              'Bm2':{'LEZ':(0.599,0.329), 'UMZ':(0.127,0.104)},
-              'Bm1s':{'LEZ':(0.064,0.008), 'UMZ':(0.029,0.013)},
-              'Bm1l':{'LEZ':(0.186,0.183), 'UMZ':(0.105,0.094)},
-              'P30':(0.207,0.015), 'Lp':(27.007,2.640)}
-
         for i, param in enumerate(self.model.params):
             p = param.name
             fig, ax = plt.subplots(tight_layout=True)
@@ -1422,20 +1404,6 @@ class PlotterTwinX():
                 ax.invert_yaxis()
                 ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH+30)
                 ax.tick_params(axis='both', which='major', labelsize=12)
-                # ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
-                #           loc='lower right')
-                ax.fill_betweenx(
-                    [0, 112.5],
-                    params_out[p]['LEZ'][0] + params_out[p]['LEZ'][1],
-                    params_out[p]['LEZ'][0] - params_out[p]['LEZ'][1],
-                    color=self.GREEN, alpha=0.25,
-                    zorder=2)
-                ax.fill_betweenx(
-                    [112.5, 500],
-                    params_out[p]['UMZ'][0] + params_out[p]['LEZ'][1],
-                    params_out[p]['UMZ'][0] - params_out[p]['LEZ'][1],
-                    color=self.GREEN, alpha=0.25,
-                    zorder=2)
                 ax.axvline(param.prior - param.prior_e, c=self.BLUE, lw=2)
                 ax.axvline(param.prior + param.prior_e, c=self.BLUE, lw=2)
                 for i, z in enumerate(self.model.zone_names):
@@ -1451,6 +1419,12 @@ class PlotterTwinX():
                         ecolor=self.ORANGE, elinewidth=1, c=self.ORANGE, ms=8,
                         capsize=6, fillstyle='none', zorder=3,
                         markeredgewidth=1)
+                    if self.is_twinX:
+                        ax.scatter(
+                            self.model.target_values[p][z]['est'], depth,
+                            marker='x', s=90, c=self.GREEN)
+                    if p == 'Bm2':
+                        ax.set_xlim([-30, 30])
             else:
                 ax.set_xlabel(eval(f'self.model.{p}.label'), fontsize=14)
                 ax.errorbar(
@@ -1467,14 +1441,8 @@ class PlotterTwinX():
                 if self.is_twinX:
                     ax.scatter(
                         tar[param.dv], self.model.target_values[p]['est'],
-                        marker='+', s=90, c=self.ORANGE)
+                        marker='x', s=90, c=self.GREEN)
                 if p not in ('Phi', 'B3'):
-                    ax.fill_between(
-                        [0, 4],
-                        params_out[p][0] + params_out[p][1],
-                        params_out[p][0] - params_out[p][1],
-                        color=self.GREEN, alpha=0.25,
-                        zorder=2)
                     ax.tick_params(bottom=False, labelbottom=False)
                     ax.set_xticks(np.arange(maxtick[self.is_twinX]))
 
@@ -1547,11 +1515,6 @@ class PlotterTwinX():
             elinewidth=1, c=self.ORANGE, ms=8, capsize=5,
             label=art[self.is_twinX]['inv_label'], fillstyle='none',
             zorder=3, markeredgewidth=1)
-
-        ax1.set_xticks(art[self.is_twinX]['ax1_ticks'])
-        ax2.set_xticks(art[self.is_twinX]['ax2_ticks'])
-        ax2.set_xticklabels(art[self.is_twinX]['ax2_labels'])
-        ax3.set_xticks([0, 1, 2])
 
         for ax in (ax1, ax2, ax3):
             ax.invert_yaxis()
@@ -2314,13 +2277,14 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
 
-    model_no_dvm = PyriteModel(0, [0.02])
+    model_no_dvm = PyriteModel(0, [0.01])
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
-    # twinX_no_dvm = PyriteTwinX(0, [0.02])
+    twinX_no_dvm = PyriteTwinX(0, [0.01])
+    PlotterTwinX('out/POC_twinX_dev.pkl')
 
-    # model_w_dvm = PyriteModel(0, [0.02], dvm=True)
+    # model_w_dvm = PyriteModel(0, [0.01], dvm=True)
     # PlotterModelRuns('out/POC_modelruns_dev.pkl')
-    # twinX_w_dvm = PyriteTwinX(0, [0.02], dvm=True)
+    # twinX_w_dvm = PyriteTwinX(0, [0.01], dvm=True)
     # PlotterTwinX('out/POC_twinX_dev.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
