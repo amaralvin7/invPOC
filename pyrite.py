@@ -76,7 +76,7 @@ class PyriteModel:
             self.calculate_total_POC(run)
             self.calculate_residuals(xo, Co, xhat, Cf, run)
             if str(self) != 'PyriteTwinX object':
-            #     inventories = self.calculate_inventories(run)
+                inventories = self.calculate_inventories(run)
                 fluxes_sym = self.calculate_fluxes(run)
                 flux_names, integrated_fluxes = self.integrate_fluxes(
                     fluxes_sym, run)
@@ -757,24 +757,35 @@ class PyriteModel:
 
     def calculate_inventories(self, run):
         """Calculate inventories of the model tracers in each grid zone."""
-        inventory_sym = {}
 
-        for zone in self.zones:
-            z = zone.label
-            dz = zone.integration_intervals
-            run.inventories[z] = {}
-            run.integrated_resids[z] = {}
-            inventory_sym[z] = {}
-            for t in run.tracer_results:
-                inventory = 0
-                int_resids = 0
-                for i, di in enumerate(zone.indices):
-                    tracer_sym = sym.symbols(f'{t}_{di}')
-                    inventory += tracer_sym*dz[i]
-                    int_resids += (run.tracer_results[t]['resids'][di]*dz[i])
-                run.inventories[z][t] = self.eval_symbolic_func(run, inventory)
-                run.integrated_resids[z][t] = int_resids
-                inventory_sym[z][t] = inventory
+        inventory_sym = {}
+        zone_dict = {'LEZ': self.zones[:3], 'UMZ': self.zones[3:]}
+
+        for t in ('POCS', 'POCL'):
+            run.inventories[t] = {}
+            inventory_sym[t] = {}                   
+            for sz in zone_dict.keys():
+                sz_inventory = 0 
+                run.inventories[t][sz] = {}
+                inventory_sym[t][sz] = {}
+                for zone in zone_dict[sz]:
+                    z = zone.label
+                    zim1, zi = zone.depths
+                    h = zi - zim1
+                    run.inventories[t][z] = {}
+                    inventory_sym[t][z] = {}
+                    if z == 'A':
+                        t_sym = sym.symbols(f'{t}_{z}')
+                    else:
+                        pz = self.previous_zone(z)
+                        ti, tim1 = sym.symbols(f'{t}_{z} {t}_{pz}')
+                        t_sym = (ti + tim1)/2                   
+                    z_inventory = t_sym*h
+                    run.inventories[t][z] = self.eval_symbolic_func(run, z_inventory)
+                    inventory_sym[t][z] = z_inventory
+                    sz_inventory += z_inventory
+                run.inventories[t][sz] = self.eval_symbolic_func(run, sz_inventory)
+                inventory_sym[t][sz] = sz_inventory
 
         return inventory_sym
 
@@ -1989,19 +2000,18 @@ class PlotterModelRuns(PlotterTwinX):
                         est = run.param_results[p]['est']
                         err = run.param_results[p]['err']
                         print(f'{p}: {est:.3f} ± {err:.3f}', file=f)
-                # print('+++++++++++++++++++++++++++', file=f)
-                # print('Tracer Inventories', file=f)
-                # print('+++++++++++++++++++++++++++', file=f)
-                # for z in self.model.zones:
-                #     print(f'--------{z.label}--------', file=f)
-                #     for t in run.inventories[z.label]:
-                #         est, err = run.inventories[z.label][t]
-                #         print(f'{t}: {est:.0f} ± {err:.0f}', file=f)
+                zones_to_print = ['LEZ', 'UMZ'] + self.model.zone_names
+                print('+++++++++++++++++++++++++++', file=f)
+                print('Tracer Inventories', file=f)
+                print('+++++++++++++++++++++++++++', file=f)
+                for z in zones_to_print:
+                    print(f'--------{z}--------', file=f)
+                    for t in run.inventories.keys():
+                        est, err = run.inventories[t][z]
+                        print(f'{t}: {est:.2f} ± {err:.2f}', file=f)
                 print('+++++++++++++++++++++++++++', file=f)
                 print('Integrated Fluxes', file=f)
                 print('+++++++++++++++++++++++++++', file=f)
-                #for z in self.model.zones:
-                zones_to_print = ['LEZ', 'UMZ'] + self.model.zone_names
                 for z in zones_to_print:
                     print(f'--------{z}--------', file=f)
                     for flux in run.flux_integrals[z]:
@@ -2279,8 +2289,8 @@ if __name__ == '__main__':
 
     model_no_dvm = PyriteModel(0, [0.01])
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
-    twinX_no_dvm = PyriteTwinX(0, [0.01])
-    PlotterTwinX('out/POC_twinX_dev.pkl')
+    # twinX_no_dvm = PyriteTwinX(0, [0.01])
+    # PlotterTwinX('out/POC_twinX_dev.pkl')
 
     # model_w_dvm = PyriteModel(0, [0.01], dvm=True)
     # PlotterModelRuns('out/POC_modelruns_dev.pkl')
