@@ -80,6 +80,7 @@ class PyriteModel:
                 fluxes_sym = self.calculate_fluxes(run)
                 flux_names, integrated_fluxes = self.integrate_fluxes(
                     fluxes_sym, run)
+                self.integrate_residuals(flux_names, integrated_fluxes, run)
             #     self.calculate_timescales(
             #         inventories, flux_names, integrated_fluxes, run)
             self.model_runs.append(run)
@@ -881,16 +882,38 @@ class PyriteModel:
                 flux_integrals_sym[f][sz] = {}
                 run.flux_integrals[f][sz] = {} 
                 for z in zone_dict[sz]:
+                    flux_integrals_sym[f][z] = {}
                     run.flux_integrals[f][z] = {}
                     zone_flux = fluxes_sym[f][self.zone_names.index(z)]
                     run.flux_integrals[f][z] = self.eval_symbolic_func(
                         run, zone_flux)
                     to_integrate += zone_flux
+                    flux_integrals_sym[f][z] = zone_flux
                 flux_integrals_sym[f][sz] = to_integrate
                 run.flux_integrals[f][sz] = self.eval_symbolic_func(
                     run, to_integrate)
 
         return fluxes, flux_integrals_sym
+    
+    def integrate_residuals(self, fluxes, flux_int_sym, run):
+        """Integrate model equation residuals within each model grid zone."""
+
+        for t in ('POCS', 'POCL'):
+            run.integrated_resids[t] = {}          
+            for z in flux_int_sym['sinkdiv_S'].keys():
+                if t == 'POCS':
+                    resid = (flux_int_sym['production'][z]
+                             + flux_int_sym['disaggregation'][z]
+                             - flux_int_sym['sinkdiv_S'][z]
+                             - flux_int_sym['remin_S'][z]
+                             - flux_int_sym['aggregation'][z])
+                if t == 'POCL':
+                    resid = (flux_int_sym['aggregation'][z]
+                             - flux_int_sym['sinkdiv_L'][z]
+                             - flux_int_sym['remin_L'][z]
+                             - flux_int_sym['disaggregation'][z])
+                run.integrated_resids[t][z] = self.eval_symbolic_func(
+                    run, resid)
 
     def calculate_timescales(self, inventory_sym, fluxes, flux_int_sym, run):
         """Calculate turnover timescales associated with each model flux."""
@@ -2013,6 +2036,14 @@ class PlotterModelRuns(PlotterTwinX):
                     for flx in run.flux_integrals.keys():
                         est, err = run.flux_integrals[flx][z]
                         print(f'{flx}: {est:.2f} ± {err:.2f}', file=f)
+                print('+++++++++++++++++++++++++++', file=f)
+                print('Integrated Residuals', file=f)
+                print('+++++++++++++++++++++++++++', file=f)
+                for z in zones_to_print:
+                    print(f'--------{z}--------', file=f)
+                    for t in run.integrated_resids.keys():
+                        est, err = run.integrated_resids[t][z]
+                        print(f'{t}: {est:.2f} ± {err:.2f}', file=f)
                 # print('+++++++++++++++++++++++++++', file=f)
                 # print('Timescales', file=f)
                 # print('+++++++++++++++++++++++++++', file=f)
@@ -2283,14 +2314,14 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
 
-    model_no_dvm = PyriteModel(0, [0.01])
+    model_no_dvm = PyriteModel(0, [0.02])
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
-    # twinX_no_dvm = PyriteTwinX(0, [0.01])
+    # twinX_no_dvm = PyriteTwinX(0, [0.02])
     # PlotterTwinX('out/POC_twinX_dev.pkl')
 
-    # model_w_dvm = PyriteModel(0, [0.01], dvm=True)
+    # model_w_dvm = PyriteModel(0, [0.02], dvm=True)
     # PlotterModelRuns('out/POC_modelruns_dev.pkl')
-    # twinX_w_dvm = PyriteTwinX(0, [0.01], dvm=True)
+    # twinX_w_dvm = PyriteTwinX(0, [0.02], dvm=True)
     # PlotterTwinX('out/POC_twinX_dev.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
