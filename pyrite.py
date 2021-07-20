@@ -867,32 +867,28 @@ class PyriteModel:
 
     def integrate_fluxes(self, fluxes_sym, run):
         """Integrate fluxes within each model grid zone."""
+        
         fluxes = fluxes_sym.keys()
         flux_integrals_sym = {}
 
-        for super_zone in ('LEZ', 'UMZ'):
-            sz = super_zone
-            flux_integrals_sym[sz] = {}
-            run.flux_integrals[sz] = {}
-            for f in fluxes:
-                if sz == 'LEZ':
-                    sz_indices = [0, 1, 2]
-                else:
-                    sz_indices = [3, 4, 5, 6]
-                zone_expressions = [fluxes_sym[f][i] for i in sz_indices]
-                to_integrate = 0
-                for ex in zone_expressions:
-                    to_integrate += ex
-                flux_integrals_sym[sz][f] = to_integrate
-                run.flux_integrals[sz][f] = self.eval_symbolic_func(
+        zone_dict = {'LEZ': self.zone_names[:3], 'UMZ': self.zone_names[3:]}
+
+        for f in fluxes:
+            flux_integrals_sym[f] = {}
+            run.flux_integrals[f] = {}                 
+            for sz in zone_dict.keys():
+                to_integrate = 0 
+                flux_integrals_sym[f][sz] = {}
+                run.flux_integrals[f][sz] = {} 
+                for z in zone_dict[sz]:
+                    run.flux_integrals[f][z] = {}
+                    zone_flux = fluxes_sym[f][self.zone_names.index(z)]
+                    run.flux_integrals[f][z] = self.eval_symbolic_func(
+                        run, zone_flux)
+                    to_integrate += zone_flux
+                flux_integrals_sym[f][sz] = to_integrate
+                run.flux_integrals[f][sz] = self.eval_symbolic_func(
                     run, to_integrate)
-        
-        for i, zone in enumerate(self.zones):
-            z = zone.label
-            run.flux_integrals[z] = {}
-            for f in fluxes:
-                run.flux_integrals[z][f] = self.eval_symbolic_func(
-                    run, fluxes_sym[f][i])
 
         return fluxes, flux_integrals_sym
 
@@ -2014,9 +2010,9 @@ class PlotterModelRuns(PlotterTwinX):
                 print('+++++++++++++++++++++++++++', file=f)
                 for z in zones_to_print:
                     print(f'--------{z}--------', file=f)
-                    for flux in run.flux_integrals[z]:
-                        est, err = run.flux_integrals[z][flux]
-                        print(f'{flux}: {est:.2f} ± {err:.2f}', file=f)
+                    for flx in run.flux_integrals.keys():
+                        est, err = run.flux_integrals[flx][z]
+                        print(f'{flx}: {est:.2f} ± {err:.2f}', file=f)
                 # print('+++++++++++++++++++++++++++', file=f)
                 # print('Timescales', file=f)
                 # print('+++++++++++++++++++++++++++', file=f)
