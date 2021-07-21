@@ -1654,6 +1654,7 @@ class PlotterModelRuns(PlotterTwinX):
             self.residual_profiles(run)
             self.sinking_fluxes(run)
             self.volumetric_fluxes(run)
+            self.budgets(run)
             # if run.gamma == 0.02:
             #     self.param_comparison(run)
 
@@ -2307,6 +2308,34 @@ class PlotterModelRuns(PlotterTwinX):
         ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
         fig.savefig('out/paramrelerror.png')
         plt.close()
+    
+    def budgets(self, run):
+        
+        zones = ['LEZ', 'UMZ'] + self.model.zone_names
+
+        for z in zones:           
+            fig, ax = plt.subplots(1, 1, tight_layout=True)
+            ax.set_ylabel('Integrated flux (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+            ax.set_xlabel(z, fontsize=14)
+            ax.axhline(0, c='k', lw=1)
+            
+            fluxes = [run.flux_integrals[f][z][0] for f in run.flux_integrals.keys()]
+            flux_errs = [run.flux_integrals[f][z][1] for f in run.flux_integrals.keys()]
+            flux_labels = list(run.flux_integrals.keys())
+            resids = [run.integrated_resids[t][z][0] for t in run.integrated_resids.keys()]
+            resid_errs = [run.integrated_resids[t][z][1] for t in run.integrated_resids.keys()]
+            resid_labels = [s + '_resid' for s in list(run.integrated_resids.keys())]
+            
+            bars = fluxes + resids
+            errors = flux_errs + resid_errs
+            labels = flux_labels + resid_labels
+            
+            ax.bar(list(range(len(bars))), bars, yerr=errors, tick_label=labels)
+            plt.xticks(rotation=70)
+
+            fig.savefig(
+                f'out/budget_{z}_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}.png')
+            plt.close()
 
 
 if __name__ == '__main__':
@@ -2314,14 +2343,14 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
 
-    model_no_dvm = PyriteModel(0, [0.02])
+    # model_no_dvm = PyriteModel(0, [0.01])
     PlotterModelRuns('out/POC_modelruns_dev.pkl')
-    # twinX_no_dvm = PyriteTwinX(0, [0.02])
+    # twinX_no_dvm = PyriteTwinX(0, [0.01])
     # PlotterTwinX('out/POC_twinX_dev.pkl')
 
-    # model_w_dvm = PyriteModel(0, [0.02], dvm=True)
+    # model_w_dvm = PyriteModel(0, [0.01], dvm=True)
     # PlotterModelRuns('out/POC_modelruns_dev.pkl')
-    # twinX_w_dvm = PyriteTwinX(0, [0.02], dvm=True)
+    # twinX_w_dvm = PyriteTwinX(0, [0.01], dvm=True)
     # PlotterTwinX('out/POC_twinX_dev.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
