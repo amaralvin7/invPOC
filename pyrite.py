@@ -36,7 +36,7 @@ class PyriteModel:
     """
 
     def __init__(self, model_id, gammas, dvm=False,
-                 pickle_into='out/POC_modelruns_dev.pkl'):
+                 pickle_into='out/POC_modelruns_'):
         """Define basic model attributes and run the model.
 
         Model is run for every value of gamma in gammas.
@@ -48,15 +48,17 @@ class PyriteModel:
         self.species = model_ids[model_id]
         self.gammas = gammas
         self.dvm = dvm
-        self.pickled = pickle_into
+        self.pickled = pickle_into + f'dvm{dvm}.pkl'
         self.MLD= 30  # mixed layer depth
         self.GRID = [0, 30, 50, 100, 150, 200, 330, 500]
-        self.MAX_DEPTH = self.GRID[-1]
+        self.MAX_D = self.GRID[-1]
 
         self.MOLAR_MASS_C = 12
         self.DAYS_PER_YEAR = 365.24
         
         self.alpha = 0.3
+        self.zg = 100
+        self.co = np.pi/(2*(self.MAX_D - self.zg))*self.alpha*self.zg
 
         self.load_data()
         self.define_tracers()
@@ -166,8 +168,8 @@ class PyriteModel:
                        self.Bm1l, self.P30, self.Lp]
 
         if self.dvm:
-            self.B3 = Param(0.8/self.DAYS_PER_YEAR, 0.9/self.DAYS_PER_YEAR,
-            # self.B3 = Param(0.03, 0.03,
+            # self.B3 = Param(0.8/self.DAYS_PER_YEAR, 0.9/self.DAYS_PER_YEAR,
+            self.B3 = Param(0.05, 0.05,
                 'B3', '$\\beta_3$', depth_vary=False)
             self.params.append(self.B3)
 
@@ -339,12 +341,6 @@ class PyriteModel:
 
         self.nee = len(self.equation_elements)
 
-    # def which_zone(self, depth):
-    #     """Given a depth index, return the corresponding grid zone."""
-    #     if int(depth) in self.LEZ.indices:
-    #         return 'LEZ'
-    #     return 'UMZ'
-
     def define_model_error_matrix(self, g):
         """Return the matrix of model errors (Cf) given a value of gamma."""
 
@@ -455,6 +451,8 @@ class PyriteModel:
             else:
                 eq = (-ws*Psi + wsm1*Psim1 + Bm2*Pla*h
                       - (B2p*Psa + Bm1s)*Psa*h)
+                if self.dvm and (zone.label in ('B', 'C')):
+                    eq += -B3*Psa*h
                 if not params_known:
                     eq += Lp*P30*(sym.exp(-(zim1 - self.MLD)/Lp)
                                   - sym.exp(-(zi - self.MLD)/Lp))
@@ -463,9 +461,16 @@ class PyriteModel:
                 eq = -wl*Pli + B2p*Psi**2*h - (Bm2 + Bm1l)*Pli*h
             else:
                 eq = -wl*Pli + wlm1*Plim1 + B2p*Psa**2*h - (Bm2 + Bm1l)*Pla*h
-                if self.dvm and zone.label == 'F':
-                    Ps_A = sym.symbols('POCS_A')
-                    eq += self.alpha*B3*Ps_A*self.MLD
+                if self.dvm and (zone.label in ('D', 'E', 'F', 'G')):
+                    D = self.MAX_D
+                    zg = self.zg
+                    Ps_A, Ps_B, Ps_C = sym.symbols('POCS_A POCS_B POCS_C')
+                    B3Ps_av = (B3/zg)*(Ps_A*30
+                                       + (Ps_A + Ps_B)/2*20
+                                       + (Ps_B + Ps_C)/2*50)
+                    eq += B3Ps_av*self.co*((D - zg)/np.pi*(
+                            np.cos(np.pi*(zim1 - zg)/(D - zg))
+                            - np.cos(np.pi*(zi - zg)/(D - zg))))
         elif species == 'POCT':
             Pti = self.Pt_constraint[
                 (self.equation_elements.index(f'POCT_{z}') - self.nte)]
@@ -656,7 +661,7 @@ class PyriteModel:
 
         def find_solution():
             """Iteratively finds a solution of the state vector."""
-            max_iterations = 100
+            max_iterations = 200
 
             xk = xo_log  # estimate of state vector at iteration k
             xkp1 = np.ones(len(xk))  # at iteration k+1
@@ -822,14 +827,28 @@ class PyriteModel:
                                     - sym.exp(-(zi - self.MLD)/Lp))
                     y_discrete = P30*sym.exp(-(zi - self.MLD)/Lp)
                 elif f == 'dvm':
-                    pi, ti = sym.symbols(f'B3 {flux.tracer}_{z}')
-                    if z == 'A':
-                        y = pi*ti*h
-                    elif z == 'F':
-                        y = self.alpha*pi*ti*h
+                    B3 = sym.symbols('B3')
+                    if z in ('A', 'B', 'C'):
+                        ti = sym.symbols(f'POCS_{z}')
+                        if z == 'A':
+                            y = B3*ti*h
+                        else:
+                            tim1 = sym.symbols(f'POCS_{self.previous_zone(z)}')
+                            t_av = (ti + tim1)/2
+                            y = B3*t_av*h
+                        y_discrete = y/h
                     else:
-                        y = sym.sympify(0)
-                    y_discrete = y/h
+                        D = self.MAX_D
+                        zg = self.zg
+                        Ps_A, Ps_B, Ps_C = sym.symbols('POCS_A POCS_B POCS_C')
+                        B3Ps_av = (B3/zg)*(Ps_A*30
+                                           + (Ps_A + Ps_B)/2*20
+                                           + (Ps_B + Ps_C)/2*50)                      
+                        y = B3Ps_av*self.co*((D - zg)/np.pi*(
+                                np.cos(np.pi*(zim1 - zg)/(D - zg))
+                                - np.cos(np.pi*(zi - zg)/(D - zg))))
+                        y_discrete = B3Ps_av*self.co*(
+                            np.sin(np.pi*(zi - zg)/(D - zg)))
                 elif 'sink_' in f:
                     if f[-1] == 'T':
                         wsi = f'ws_{z}'
@@ -907,11 +926,15 @@ class PyriteModel:
                              - flux_int_sym['sinkdiv_S'][z]
                              - flux_int_sym['remin_S'][z]
                              - flux_int_sym['aggregation'][z])
+                    if self.dvm and z in ('LEZ', 'A', 'B', 'C'):
+                        resid += -flux_int_sym['dvm'][z]
                 if t == 'POCL':
                     resid = (flux_int_sym['aggregation'][z]
                              - flux_int_sym['sinkdiv_L'][z]
                              - flux_int_sym['remin_L'][z]
                              - flux_int_sym['disaggregation'][z])
+                    if self.dvm and z in ('UMZ', 'D', 'E', 'F', 'G'):
+                        resid += flux_int_sym['dvm'][z]
                 run.integrated_resids[t][z] = self.eval_symbolic_func(
                     run, resid)
 
@@ -1055,15 +1078,15 @@ class PyriteTwinX(PyriteModel):
     """
 
     def __init__(self, model_id, gammas, dvm=False,
-                 pickled_model='out/POC_modelruns_dev.pkl',
-                 pickle_into='out/POC_twinX_dev.pkl'):
+                 pickled_model='out/POC_modelruns_',
+                 pickle_into='out/POC_twinX_'):
         """Build a PyriteModel with gamma values to be used for the TwinX.
 
         gammas -- list of gamma values with which to perform twin experiments.
         self.pickled_model -- the pickled model from which to draw results to
         generate pseudodata.
         """
-        self.pickled_model = pickled_model
+        self.pickled_model = pickled_model + f'dvm{dvm}.pkl'
         super().__init__(model_id, gammas, dvm=dvm, pickle_into=pickle_into)
 
     def __repr__(self):
@@ -1432,7 +1455,7 @@ class PlotterTwinX():
                 ax.set_xlabel(eval(f'self.model.{p}.label'), fontsize=14)
                 ax.set_ylabel('Depth (m)', fontsize=14)
                 ax.invert_yaxis()
-                ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH+30)
+                ax.set_ylim(top=0, bottom=self.model.MAX_D+30)
                 ax.tick_params(axis='both', which='major', labelsize=12)
                 ax.axvline(param.prior - param.prior_e, c=self.BLUE, lw=2)
                 ax.axvline(param.prior + param.prior_e, c=self.BLUE, lw=2)
@@ -1548,7 +1571,7 @@ class PlotterTwinX():
 
         for ax in (ax1, ax2, ax3):
             ax.invert_yaxis()
-            ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH+30)
+            ax.set_ylim(top=0, bottom=self.model.MAX_D+30)
             ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
                       loc='lower right')
             ax.tick_params(axis='both', which='major', labelsize=12)
@@ -1603,7 +1626,7 @@ class PlotterTwinX():
 
         for ax in (ax1, ax2):
             ax.invert_yaxis()
-            ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH+30)
+            ax.set_ylim(top=0, bottom=self.model.MAX_D+30)
             ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
                       loc='lower right')
             ax.tick_params(axis='both', which='major', labelsize=12)
@@ -1763,7 +1786,7 @@ class PlotterModelRuns(PlotterTwinX):
 
         for ax in (ax1, ax2, ax3):
             ax.invert_yaxis()
-            ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH + 30)
+            ax.set_ylim(top=0, bottom=self.model.MAX_D + 30)
             ax.tick_params(axis='both', which='major', labelsize=12)
             if ax in (ax2, ax3):
                 ax.tick_params(labelleft=False)
@@ -1804,7 +1827,7 @@ class PlotterModelRuns(PlotterTwinX):
 
         for ax in (ax1, ax2):
             ax.invert_yaxis()
-            ax.set_ylim(top=0, bottom=self.model.MAX_DEPTH + 30)
+            ax.set_ylim(top=0, bottom=self.model.MAX_D + 30)
             ax.tick_params(axis='both', which='major', labelsize=12)
 
         fig.savefig('out/ti_data.png')
@@ -1996,6 +2019,62 @@ class PlotterModelRuns(PlotterTwinX):
         fig.savefig(
             f'out/fluxes_volumetric_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}.png')
         plt.close()
+        
+        if self.model.dvm:
+            fig, (ax1, ax2) = plt.subplots(1, 2)
+            fig.subplots_adjust(left=0.15, bottom=0.15, wspace=0.1)
+            fig.text(0.3, 0.05, 'Consumption Flux (mmol m$^{-3}$ d$^{-1}$)',
+                     fontsize=10, ha='center', va='center')
+            fig.text(0.7, 0.05, 'Excretion Flux (mmol m$^{-3}$ d$^{-1}$)',
+                     fontsize=10, ha='center', va='center')
+            fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center',
+                     va='center', rotation='vertical')
+            
+            for j, z in enumerate(self.model.zones[:3]):
+                depths = z.depths
+                ax1.scatter(
+                    run.flux_profiles['dvm']['est'][j], np.mean(depths), marker='o',
+                    c=self.BLUE, s=7, label=eval(f'self.model.{"dvm_flux"}.label'),
+                    zorder=3, lw=0.7)
+                ax1.fill_betweenx(
+                    depths,
+                    (run.flux_profiles['dvm']['est'][j]
+                     - run.flux_profiles['dvm']['err'][j]),
+                    (run.flux_profiles['dvm']['est'][j]
+                     + run.flux_profiles['dvm']['err'][j]),
+                    color=self.BLUE, alpha=0.25)
+
+            ax2.scatter(
+                run.flux_profiles['dvm']['est'][3:], self.model.GRID[4:], marker='o',
+                c=self.BLUE, s=7, label=eval(f'self.model.{"dvm_flux"}.label'),
+                zorder=3, lw=0.7)
+            eb1 = ax2.errorbar(
+                run.flux_profiles['dvm']['est'][3:], self.model.GRID[4:], fmt='o',
+                xerr=run.flux_profiles['dvm']['err'][3:], ecolor=self.BLUE,
+                elinewidth=0.5, c=self.BLUE, ms=1.5, capsize=2,
+                label=eval(f'self.model.{"dvm_flux"}.label'), fillstyle='none',
+                markeredgewidth=0.5)
+            eb1[-1][0].set_linestyle('--')
+            
+            B3 = run.param_results['B3']['est']
+            Ps_A = run.tracer_results['POCS']['est'][0]
+            Ps_B = np.mean(run.tracer_results['POCS']['est'][0:2])
+            Ps_C = np.mean(run.tracer_results['POCS']['est'][1:3])
+            B3Ps_av = (B3/self.model.zg)*(Ps_A*30 + Ps_B*20 + Ps_C*50)
+            curve = B3Ps_av*self.model.co*(
+                np.sin(np.pi*(np.arange(100, 500, 20) - self.model.zg)/(self.model.MAX_D - self.model.zg)))
+            ax2.scatter(curve, np.arange(100, 500, 20), s=0.5, c=self.BLUE)
+
+            for ax in (ax1, ax2):
+                ax.set_yticks([0, 100, 200, 300, 400, 500])           
+                ax.invert_yaxis()
+                ax.set_ylim(top=0, bottom=505)
+                ax.axhline(self.model.zg, ls=':', c=self.BLACK)
+            ax2.tick_params(labelleft=False)
+                    
+            fig.savefig(
+                f'out/dvmflux_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}.png')
+            plt.close()
 
     def write_output(self):
 
@@ -2343,14 +2422,14 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
 
-    # model_no_dvm = PyriteModel(0, [0.01])
-    PlotterModelRuns('out/POC_modelruns_dev.pkl')
-    # twinX_no_dvm = PyriteTwinX(0, [0.01])
-    # PlotterTwinX('out/POC_twinX_dev.pkl')
+    model_no_dvm = PyriteModel(0, [0.01])
+    PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
+    twinX_no_dvm = PyriteTwinX(0, [0.01])
+    PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
 
-    # model_w_dvm = PyriteModel(0, [0.01], dvm=True)
-    # PlotterModelRuns('out/POC_modelruns_dev.pkl')
-    # twinX_w_dvm = PyriteTwinX(0, [0.01], dvm=True)
-    # PlotterTwinX('out/POC_twinX_dev.pkl')
+    model_w_dvm = PyriteModel(0, [0.01], dvm=True)
+    PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
+    twinX_w_dvm = PyriteTwinX(0, [0.01], dvm=True)
+    PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
