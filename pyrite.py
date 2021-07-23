@@ -164,9 +164,8 @@ class PyriteModel:
                        self.Bm1l, self.P30, self.Lp]
 
         if self.dvm:
-            # self.B3 = Param(0.8/self.DAYS_PER_YEAR, 0.9/self.DAYS_PER_YEAR,
             self.zg = 100
-            self.B3 = Param(0.05, 0.05, 'B3', '$\\beta_3$', depth_vary=False)
+            self.B3 = Param(0.14, 0.14, 'B3', '$\\beta_3$', depth_vary=False)
             self.a = Param(0.3, 0.3, 'a', '$\\alpha$', depth_vary=False)
             self.D = Param(500, 250, 'D', '$D_M$', depth_vary=False)
             self.params.extend([self.B3, self.a, self.D])
@@ -2430,14 +2429,14 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
 
-    model_no_dvm = PyriteModel(0, [0.08])
+    model_no_dvm = PyriteModel(0, [0.1])
     PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
-    twinX_no_dvm = PyriteTwinX(0, [0.08])
+    twinX_no_dvm = PyriteTwinX(0, [0.1])
     PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
 
-    model_w_dvm = PyriteModel(0, [0.08], dvm=True)
+    model_w_dvm = PyriteModel(0, [0.1], dvm=True)
     PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
-    twinX_w_dvm = PyriteTwinX(0, [0.08], dvm=True)
+    twinX_w_dvm = PyriteTwinX(0, [0.1], dvm=True)
     PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
