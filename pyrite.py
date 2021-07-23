@@ -55,10 +55,6 @@ class PyriteModel:
 
         self.MOLAR_MASS_C = 12
         self.DAYS_PER_YEAR = 365.24
-        
-        self.alpha = 0.3
-        self.zg = 100
-        self.co = np.pi/(2*(self.MAX_D - self.zg))*self.alpha*self.zg
 
         self.load_data()
         self.define_tracers()
@@ -169,9 +165,11 @@ class PyriteModel:
 
         if self.dvm:
             # self.B3 = Param(0.8/self.DAYS_PER_YEAR, 0.9/self.DAYS_PER_YEAR,
-            self.B3 = Param(0.05, 0.05,
-                'B3', '$\\beta_3$', depth_vary=False)
-            self.params.append(self.B3)
+            self.zg = 100
+            self.B3 = Param(0.05, 0.05, 'B3', '$\\beta_3$', depth_vary=False)
+            self.a = Param(0.3, 0.3, 'a', '$\\alpha$', depth_vary=False)
+            self.D = Param(500, 250, 'D', '$D_M$', depth_vary=False)
+            self.params.extend([self.B3, self.a, self.D])
 
         if 'Ti' in self.species:
             self.Phi = Param(ti_dust, ti_dust, 'Phi', '$\\Phi_D$',
@@ -419,6 +417,8 @@ class PyriteModel:
             Lp = sym.symbols('Lp')
             if self.dvm:
                 B3 = sym.symbols('B3')
+                a = sym.symbols('a')
+                D = sym.symbols('D')
             if zone.label != 'A':
                 wsm1 = sym.symbols(f'ws_{pz}')
                 wlm1 = sym.symbols(f'wl_{pz}')
@@ -435,6 +435,8 @@ class PyriteModel:
             wl = params_known['wl'][z]['est']
             if self.dvm:
                 B3 = params_known['B3']['est']
+                a = params_known['a']['est']
+                D = params_known['D']['est']
             if zone.label != 'A':
                 wsm1 = params_known['ws'][pz]['est']
                 wlm1 = params_known['wl'][pz]['est']
@@ -442,7 +444,7 @@ class PyriteModel:
                 phi = params_known['Phi']['est']
 
         if species == 'POCS':
-            if zone.label == 'A':
+            if z == 'A':
                 eq = (-ws*Psi + Bm2*Pli*h - (B2p*Psi + Bm1s)*Psi*h)
                 if self.dvm:
                     eq += -B3*Psi*h
@@ -451,39 +453,39 @@ class PyriteModel:
             else:
                 eq = (-ws*Psi + wsm1*Psim1 + Bm2*Pla*h
                       - (B2p*Psa + Bm1s)*Psa*h)
-                if self.dvm and (zone.label in ('B', 'C')):
+                if self.dvm and (z in ('B', 'C')):
                     eq += -B3*Psa*h
                 if not params_known:
                     eq += Lp*P30*(sym.exp(-(zim1 - self.MLD)/Lp)
                                   - sym.exp(-(zi - self.MLD)/Lp))
         elif species == 'POCL':
-            if zone.label == 'A':
+            if z == 'A':
                 eq = -wl*Pli + B2p*Psi**2*h - (Bm2 + Bm1l)*Pli*h
             else:
                 eq = -wl*Pli + wlm1*Plim1 + B2p*Psa**2*h - (Bm2 + Bm1l)*Pla*h
-                if self.dvm and (zone.label in ('D', 'E', 'F', 'G')):
-                    D = self.MAX_D
+                if self.dvm and (z in ('D', 'E', 'F', 'G')):
                     zg = self.zg
                     Ps_A, Ps_B, Ps_C = sym.symbols('POCS_A POCS_B POCS_C')
                     B3Ps_av = (B3/zg)*(Ps_A*30
                                        + (Ps_A + Ps_B)/2*20
                                        + (Ps_B + Ps_C)/2*50)
-                    eq += B3Ps_av*self.co*((D - zg)/np.pi*(
-                            np.cos(np.pi*(zim1 - zg)/(D - zg))
-                            - np.cos(np.pi*(zi - zg)/(D - zg))))
+                    co = np.pi/(2*(D - zg))*a*zg
+                    eq += B3Ps_av*co*((D - zg)/np.pi*(
+                            sym.cos(np.pi*(zim1 - zg)/(D - zg))
+                            - sym.cos(np.pi*(zi - zg)/(D - zg))))
         elif species == 'POCT':
             Pti = self.Pt_constraint[
                 (self.equation_elements.index(f'POCT_{z}') - self.nte)]
             eq = Pti - (Psi + Pli)
         elif species == 'TiS':
-            if zone.label == 'A':
+            if z == 'A':
                 eq = -ws*Tsi + (Bm2*Tli - B2p*Psi*Tsi)*h
                 if not params_known:
                     eq += phi
             else:
                 eq = -ws*Tsi + wsm1*Tsim1 + (Bm2*Tla - B2p*Psa*Tsa)*h
         elif species == 'TiL':
-            if zone.label == 'A':
+            if z == 'A':
                 eq = -wl*Tli + (B2p*Psi*Tsi - Bm2*Tli)*h
             else:
                 eq = -wl*Tli + wlm1*Tlim1 + (B2p*Psa*Tsa - Bm2*Tla)*h
@@ -672,6 +674,7 @@ class PyriteModel:
                 calculate_cost(xk, f)
                 run.converged = check_convergence(xk, xkp1)
                 if run.converged:
+
                     break
                 xk = xkp1
             print(f'{run.gamma}: {run.converged}')
@@ -828,6 +831,8 @@ class PyriteModel:
                     y_discrete = P30*sym.exp(-(zi - self.MLD)/Lp)
                 elif f == 'dvm':
                     B3 = sym.symbols('B3')
+                    a = sym.symbols('a')
+                    D = sym.symbols('D')
                     if z in ('A', 'B', 'C'):
                         ti = sym.symbols(f'POCS_{z}')
                         if z == 'A':
@@ -838,17 +843,17 @@ class PyriteModel:
                             y = B3*t_av*h
                         y_discrete = y/h
                     else:
-                        D = self.MAX_D
                         zg = self.zg
                         Ps_A, Ps_B, Ps_C = sym.symbols('POCS_A POCS_B POCS_C')
                         B3Ps_av = (B3/zg)*(Ps_A*30
                                            + (Ps_A + Ps_B)/2*20
-                                           + (Ps_B + Ps_C)/2*50)                      
-                        y = B3Ps_av*self.co*((D - zg)/np.pi*(
-                                np.cos(np.pi*(zim1 - zg)/(D - zg))
-                                - np.cos(np.pi*(zi - zg)/(D - zg))))
-                        y_discrete = B3Ps_av*self.co*(
-                            np.sin(np.pi*(zi - zg)/(D - zg)))
+                                           + (Ps_B + Ps_C)/2*50)
+                        co = np.pi/(2*(D - zg))*a*zg
+                        y = B3Ps_av*co*((D - zg)/np.pi*(
+                                sym.cos(np.pi*(zim1 - zg)/(D - zg))
+                                - sym.cos(np.pi*(zi - zg)/(D - zg))))
+                        y_discrete = B3Ps_av*co*(
+                            sym.sin(np.pi*(zi - zg)/(D - zg)))
                 elif 'sink_' in f:
                     if f[-1] == 'T':
                         wsi = f'ws_{z}'
@@ -2057,12 +2062,15 @@ class PlotterModelRuns(PlotterTwinX):
             eb1[-1][0].set_linestyle('--')
             
             B3 = run.param_results['B3']['est']
+            a = run.param_results['a']['est']
+            D = run.param_results['D']['est']
             Ps_A = run.tracer_results['POCS']['est'][0]
             Ps_B = np.mean(run.tracer_results['POCS']['est'][0:2])
             Ps_C = np.mean(run.tracer_results['POCS']['est'][1:3])
             B3Ps_av = (B3/self.model.zg)*(Ps_A*30 + Ps_B*20 + Ps_C*50)
-            curve = B3Ps_av*self.model.co*(
-                np.sin(np.pi*(np.arange(100, 500, 20) - self.model.zg)/(self.model.MAX_D - self.model.zg)))
+            co = np.pi/(2*(D - self.model.zg))*a*self.model.zg
+            curve = B3Ps_av*co*(
+                np.sin(np.pi*(np.arange(100, 500, 20) - self.model.zg)/(D - self.model.zg)))
             ax2.scatter(curve, np.arange(100, 500, 20), s=0.5, c=self.BLUE)
 
             for ax in (ax1, ax2):
@@ -2422,14 +2430,14 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
 
-    model_no_dvm = PyriteModel(0, [0.01])
+    model_no_dvm = PyriteModel(0, [0.08])
     PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
-    twinX_no_dvm = PyriteTwinX(0, [0.01])
+    twinX_no_dvm = PyriteTwinX(0, [0.08])
     PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
 
-    model_w_dvm = PyriteModel(0, [0.01], dvm=True)
+    model_w_dvm = PyriteModel(0, [0.08], dvm=True)
     PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
-    twinX_w_dvm = PyriteTwinX(0, [0.01], dvm=True)
+    twinX_w_dvm = PyriteTwinX(0, [0.08], dvm=True)
     PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
