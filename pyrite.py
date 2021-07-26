@@ -165,8 +165,8 @@ class PyriteModel:
 
         if self.dvm:
             self.zg = 100
-            self.B3 = Param(0.14, 0.14, 'B3', '$\\beta_3$', depth_vary=False)
-            self.a = Param(0.3, 0.3, 'a', '$\\alpha$', depth_vary=False)
+            self.B3 = Param(0.06, 0.03, 'B3', '$\\beta_3$', depth_vary=False)
+            self.a = Param(0.3, 0.15, 'a', '$\\alpha$', depth_vary=False)
             self.D = Param(500, 250, 'D', '$D_M$', depth_vary=False)
             self.params.extend([self.B3, self.a, self.D])
 
