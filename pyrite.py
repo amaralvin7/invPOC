@@ -771,7 +771,8 @@ class PyriteModel:
 
         for t in ('POCS', 'POCL'):
             run.inventories[t] = {}
-            inventory_sym[t] = {}                   
+            inventory_sym[t] = {}
+            run.integrated_resids_check[t]   = {}              
             for sz in zone_dict.keys():
                 sz_inventory = 0 
                 run.inventories[t][sz] = {}
@@ -792,9 +793,11 @@ class PyriteModel:
                     run.inventories[t][z] = self.eval_symbolic_func(run, z_inventory)
                     inventory_sym[t][z] = z_inventory
                     sz_inventory += z_inventory
+                    run.integrated_resids_check[t][z] = (
+                        run.tracer_results[t]['resids'][
+                            self.zone_names.index(z)])
                 run.inventories[t][sz] = self.eval_symbolic_func(run, sz_inventory)
                 inventory_sym[t][sz] = sz_inventory
-
         return inventory_sym
 
     def calculate_fluxes(self, run):
@@ -822,7 +825,7 @@ class PyriteModel:
                     y_discrete = y/h
                 elif f == 'production':
                     P30, Lp = sym.symbols('P30 Lp')
-                    if zone == 'A':
+                    if z == 'A':
                         y = P30*self.MLD
                     else:
                         y = Lp*P30*(sym.exp(-(zim1 - self.MLD)/Lp)
@@ -1005,8 +1008,6 @@ class GridZone:
         self.indices = (index, index + 1)
         self.depths = model.GRID[index:index + 2]
 
-        # self.set_integration_intervals()
-
     def __repr__(self):
 
         return f'GridZone({self.label})'
@@ -1063,6 +1064,7 @@ class PyriteModelRun():
         self.f_resids = None
         self.inventories = {}
         self.integrated_resids = {}
+        self.integrated_resids_check = {}
         self.flux_profiles = {}
         self.flux_integrals = {}
         self.timescales = {}
