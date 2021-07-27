@@ -1082,7 +1082,7 @@ class PyriteTwinX(PyriteModel):
     but currently unused are labeled as such in their docstrings.
     """
 
-    def __init__(self, model_id, gammas, dvm=False,
+    def __init__(self, model_id, gammas, has_dvm=False,
                  pickled_model='out/POC_modelruns_',
                  pickle_into='out/POC_twinX_'):
         """Build a PyriteModel with gamma values to be used for the TwinX.
@@ -1092,7 +1092,8 @@ class PyriteTwinX(PyriteModel):
         generate pseudodata.
         """
         self.pickled_model = pickled_model + f'dvm{has_dvm}.pkl'
-        super().__init__(model_id, gammas, dvm=dvm, pickle_into=pickle_into)
+        super().__init__(model_id, gammas, has_dvm=has_dvm,
+                         pickle_into=pickle_into)
 
     def __repr__(self):
 
@@ -1319,7 +1320,7 @@ class PyriteTwinX(PyriteModel):
             for ax in (ax1, ax2, ax3):
                 ax.invert_yaxis()
 
-            fig.savefig(f'out/POC_fwd_dvm{model.dvm}.png')
+            fig.savefig(f'out/POC_fwd_dvm{model.has_dvm}.png')
             plt.close()
 
             if 'Ti' in model.species:
@@ -1426,7 +1427,7 @@ class PlotterTwinX():
         ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',
                       fontsize=16)
 
-        filename = f'out/conv_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}'
+        filename = f'out/conv_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}'
         if self.is_twinX:
             filename += '_TE'
         fig.savefig(f'{filename}.png')
@@ -1439,7 +1440,7 @@ class PlotterTwinX():
         ax.set_ylabel('Cost, $J$', fontsize=16)
         ax.set_yscale('log')
 
-        filename = f'out/cost_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}'
+        filename = f'out/cost_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}'
         if self.is_twinX:
             filename += '_TE'
         fig.savefig(f'{filename}.png')
@@ -1503,7 +1504,7 @@ class PlotterTwinX():
                 ax.tick_params(bottom=False, labelbottom=False)
                 ax.set_xticks(np.arange(maxtick[self.is_twinX]))
 
-            filename = f'out/{p}_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}'
+            filename = f'out/{p}_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}'
             if self.is_twinX:
                 filename += '_TE'
             fig.savefig(f'{filename}.png')
@@ -1582,7 +1583,7 @@ class PlotterTwinX():
             if ax in (ax2, ax3):
                 ax.tick_params(labelleft=False)
 
-        filename = f'out/POCprofs_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}'
+        filename = f'out/POCprofs_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}'
         if self.is_twinX:
             filename += '_TE'
         fig.savefig(f'{filename}.png')
@@ -1635,7 +1636,7 @@ class PlotterTwinX():
                       loc='lower right')
             ax.tick_params(axis='both', which='major', labelsize=12)
 
-        filename = f'out/Tiprofs_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}'
+        filename = f'out/Tiprofs_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}'
         if self.is_twinX:
             filename += '_TE'
         fig.savefig(f'{filename}.png')
@@ -1654,7 +1655,7 @@ class PlotterTwinX():
         for ax in (ax1, ax2):
             ax1.set_xlim([-1, 1])
 
-        filename = f'out/pdfs_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}'
+        filename = f'out/pdfs_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}'
         if self.is_twinX:
             filename += '_TE'
         fig.savefig(f'{filename}.png')
@@ -1854,7 +1855,7 @@ class PlotterModelRuns(PlotterTwinX):
         for ax in (ax1, ax2, ax3):
             ax.invert_yaxis()
 
-        fig.savefig(f'out/POC_resids_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}.png')
+        fig.savefig(f'out/POC_resids_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}.png')
         plt.close()
 
         if 'Ti' in self.model.species:
@@ -1875,7 +1876,7 @@ class PlotterModelRuns(PlotterTwinX):
                 ax.invert_yaxis()
 
             fig.savefig(
-                f'out/Ti_resids_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}.png')
+                f'out/Ti_resids_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}.png')
             plt.close()
 
     def sinking_fluxes(self, run):
@@ -1941,7 +1942,7 @@ class PlotterModelRuns(PlotterTwinX):
         ax2.annotate(
             'B', xy=(0.91, 0.94), xycoords='axes fraction', fontsize=16)
 
-        fig.savefig(f'out/sinkfluxes_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}.png')
+        fig.savefig(f'out/sinkfluxes_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}.png')
         plt.close()
 
     def volumetric_fluxes(self, run):
@@ -2021,10 +2022,10 @@ class PlotterModelRuns(PlotterTwinX):
             ax.set_ylim(
                 top=0, bottom=505)
         fig.savefig(
-            f'out/fluxes_volumetric_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}.png')
+            f'out/fluxes_volumetric_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}.png')
         plt.close()
         
-        if self.model.dvm:
+        if self.model.has_dvm:
             fig, (ax1, ax2) = plt.subplots(1, 2)
             fig.subplots_adjust(left=0.15, bottom=0.15, wspace=0.1)
             fig.text(0.3, 0.05, 'Consumption Flux (mmol m$^{-3}$ d$^{-1}$)',
@@ -2038,7 +2039,7 @@ class PlotterModelRuns(PlotterTwinX):
                 depths = z.depths
                 ax1.scatter(
                     run.flux_profiles['dvm']['est'][j], np.mean(depths), marker='o',
-                    c=self.BLUE, s=7, label=eval(f'self.model.{"dvm_flux"}.label'),
+                    c=self.BLUE, s=7, label=eval(f'self.model.{"dvm"}.label'),
                     zorder=3, lw=0.7)
                 ax1.fill_betweenx(
                     depths,
@@ -2050,13 +2051,13 @@ class PlotterModelRuns(PlotterTwinX):
 
             ax2.scatter(
                 run.flux_profiles['dvm']['est'][3:], self.model.GRID[4:], marker='o',
-                c=self.BLUE, s=7, label=eval(f'self.model.{"dvm_flux"}.label'),
+                c=self.BLUE, s=7, label=eval(f'self.model.{"dvm"}.label'),
                 zorder=3, lw=0.7)
             eb1 = ax2.errorbar(
                 run.flux_profiles['dvm']['est'][3:], self.model.GRID[4:], fmt='o',
                 xerr=run.flux_profiles['dvm']['err'][3:], ecolor=self.BLUE,
                 elinewidth=0.5, c=self.BLUE, ms=1.5, capsize=2,
-                label=eval(f'self.model.{"dvm_flux"}.label'), fillstyle='none',
+                label=eval(f'self.model.{"dvm"}.label'), fillstyle='none',
                 markeredgewidth=0.5)
             eb1[-1][0].set_linestyle('--')
             
@@ -2080,12 +2081,12 @@ class PlotterModelRuns(PlotterTwinX):
             ax2.tick_params(labelleft=False)
                     
             fig.savefig(
-                f'out/dvmflux_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}.png')
+                f'out/dvmflux_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}.png')
             plt.close()
 
     def write_output(self):
 
-        file = f'out/pyrite_out_dvm{self.model.dvm}.txt'
+        file = f'out/pyrite_out_dvm{self.model.has_dvm}.txt'
         with open(file, 'w') as f:
             for run in self.model.model_runs:
                 print('#################################', file=f)
@@ -2131,17 +2132,17 @@ class PlotterModelRuns(PlotterTwinX):
                     for t in run.integrated_resids.keys():
                         est, err = run.integrated_resids[t][z]
                         print(f'{t}: {est:.2f} ± {err:.2f}', file=f)
-                # print('+++++++++++++++++++++++++++', file=f)
-                # print('Timescales', file=f)
-                # print('+++++++++++++++++++++++++++', file=f)
-                # for z in self.model.zones:
-                #     print(f'--------{z.label}--------', file=f)
-                #     for t in run.integrated_resids[z.label]:
-                #         print(f'***{t}***', file=f)
-                #         for flux in run.timescales[z.label][t]:
-                #             est, err = run.timescales[z.label][t][flux]
-                #             print(f'{flux}: {est:.3f} ± {err:.3f}',
-                #                   file=f)
+                print('+++++++++++++++++++++++++++', file=f)
+                print('Timescales', file=f)
+                print('+++++++++++++++++++++++++++', file=f)
+                for z in zones_to_print:
+                    print(f'--------{z}--------', file=f)
+                    for t in run.integrated_resids.keys():
+                        print(f'***{t}***', file=f)
+                        for flx in run.timescales[t][z]:
+                            est, err = run.timescales[t][z][flx]
+                            print(f'{flx}: {est:.3f} ± {err:.3f}',
+                                  file=f)
 
     def param_comparison(self, run):
 
@@ -2420,7 +2421,7 @@ class PlotterModelRuns(PlotterTwinX):
             plt.xticks(rotation=70)
 
             fig.savefig(
-                f'out/budget_{z}_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}.png')
+                f'out/budget_{z}_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}.png')
             plt.close()
 
 
@@ -2429,14 +2430,14 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
 
-    # model_no_dvm = PyriteModel(0, [0.08])
-    # PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
-    # twinX_no_dvm = PyriteTwinX(0, [0.08])
-    # PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
+    model_no_dvm = PyriteModel(0, [0.08])
+    PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
+    twinX_no_dvm = PyriteTwinX(0, [0.08])
+    PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
 
     model_w_dvm = PyriteModel(0, [0.08], has_dvm=True)
-    # PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
-    # twinX_w_dvm = PyriteTwinX(0, [0.08], has_dvm=True)
-    # PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
+    PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
+    twinX_w_dvm = PyriteTwinX(0, [0.08], has_dvm=True)
+    PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
