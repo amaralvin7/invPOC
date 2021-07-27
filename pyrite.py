@@ -35,7 +35,7 @@ class PyriteModel:
     (2021).
     """
 
-    def __init__(self, model_id, gammas, dvm=False,
+    def __init__(self, model_id, gammas, has_dvm=False,
                  pickle_into='out/POC_modelruns_'):
         """Define basic model attributes and run the model.
 
@@ -47,8 +47,8 @@ class PyriteModel:
                      1: ('POC', 'Ti')}
         self.species = model_ids[model_id]
         self.gammas = gammas
-        self.dvm = dvm
-        self.pickled = pickle_into + f'dvm{dvm}.pkl'
+        self.has_dvm = has_dvm
+        self.pickled = pickle_into + f'dvm{has_dvm}.pkl'
         self.MLD= 30  # mixed layer depth
         self.GRID = [0, 30, 50, 100, 150, 200, 330, 500]
         self.MAX_D = self.GRID[-1]
@@ -79,8 +79,8 @@ class PyriteModel:
                 flux_names, integrated_fluxes = self.integrate_fluxes(
                     fluxes_sym, run)
                 self.integrate_residuals(flux_names, integrated_fluxes, run)
-            #     self.calculate_timescales(
-            #         inventories, flux_names, integrated_fluxes, run)
+                self.calculate_timescales(
+                    inventories, flux_names, integrated_fluxes, run)
             self.model_runs.append(run)
 
         self.pickle_model()
@@ -163,7 +163,7 @@ class PyriteModel:
         self.params = [self.ws, self.wl, self.B2p, self.Bm2, self.Bm1s,
                        self.Bm1l, self.P30, self.Lp]
 
-        if self.dvm:
+        if self.has_dvm:
             self.zg = 100
             self.B3 = Param(0.06, 0.03, 'B3', '$\\beta_3$', depth_vary=False)
             self.a = Param(0.3, 0.15, 'a', '$\\alpha$', depth_vary=False)
@@ -201,10 +201,10 @@ class PyriteModel:
         self.fluxes = [self.sink_S, self.sink_L, self.sink_T, self.sinkdiv_S,
                        self.sinkdiv_L, self.remin_S, self.remin_L,
                        self.aggregation, self.disaggregation, self.production]
-        if self.dvm:
-            self.dvm_flux = Flux(
+        if self.has_dvm:
+            self.dvm = Flux(
             'dvm', '$\\beta_3P_S$', 'POCS', 'B3', wrt=('POCS', 'POCL'))
-            self.fluxes.append(self.dvm_flux)
+            self.fluxes.append(self.dvm)
 
     def process_npp_data(self):
         """Obtain prior estimates of particle production parameters.
@@ -414,7 +414,7 @@ class PyriteModel:
             wl = sym.symbols(f'wl_{z}')
             P30 = sym.symbols('P30')
             Lp = sym.symbols('Lp')
-            if self.dvm:
+            if self.has_dvm:
                 B3 = sym.symbols('B3')
                 a = sym.symbols('a')
                 D = sym.symbols('D')
@@ -432,7 +432,7 @@ class PyriteModel:
             Lp = params_known['Lp']['est']
             ws = params_known['ws'][z]['est']
             wl = params_known['wl'][z]['est']
-            if self.dvm:
+            if self.has_dvm:
                 B3 = params_known['B3']['est']
                 a = params_known['a']['est']
                 D = params_known['D']['est']
@@ -445,14 +445,14 @@ class PyriteModel:
         if species == 'POCS':
             if z == 'A':
                 eq = (-ws*Psi + Bm2*Pli*h - (B2p*Psi + Bm1s)*Psi*h)
-                if self.dvm:
+                if self.has_dvm:
                     eq += -B3*Psi*h
                 if not params_known:
                     eq += P30*self.MLD
             else:
                 eq = (-ws*Psi + wsm1*Psim1 + Bm2*Pla*h
                       - (B2p*Psa + Bm1s)*Psa*h)
-                if self.dvm and (z in ('B', 'C')):
+                if self.has_dvm and (z in ('B', 'C')):
                     eq += -B3*Psa*h
                 if not params_known:
                     eq += Lp*P30*(sym.exp(-(zim1 - self.MLD)/Lp)
@@ -462,7 +462,7 @@ class PyriteModel:
                 eq = -wl*Pli + B2p*Psi**2*h - (Bm2 + Bm1l)*Pli*h
             else:
                 eq = -wl*Pli + wlm1*Plim1 + B2p*Psa**2*h - (Bm2 + Bm1l)*Pla*h
-                if self.dvm and (z in ('D', 'E', 'F', 'G')):
+                if self.has_dvm and (z in ('D', 'E', 'F', 'G')):
                     zg = self.zg
                     Ps_A, Ps_B, Ps_C = sym.symbols('POCS_A POCS_B POCS_C')
                     B3Ps_av = (B3/zg)*(Ps_A*30
@@ -933,34 +933,33 @@ class PyriteModel:
                              - flux_int_sym['sinkdiv_S'][z]
                              - flux_int_sym['remin_S'][z]
                              - flux_int_sym['aggregation'][z])
-                    if self.dvm and z in ('LEZ', 'A', 'B', 'C'):
+                    if self.has_dvm and z in ('LEZ', 'A', 'B', 'C'):
                         resid += -flux_int_sym['dvm'][z]
                 if t == 'POCL':
                     resid = (flux_int_sym['aggregation'][z]
                              - flux_int_sym['sinkdiv_L'][z]
                              - flux_int_sym['remin_L'][z]
                              - flux_int_sym['disaggregation'][z])
-                    if self.dvm and z in ('UMZ', 'D', 'E', 'F', 'G'):
+                    if self.has_dvm and z in ('UMZ', 'D', 'E', 'F', 'G'):
                         resid += flux_int_sym['dvm'][z]
                 run.integrated_resids[t][z] = self.eval_symbolic_func(
                     run, resid)
 
     def calculate_timescales(self, inventory_sym, fluxes, flux_int_sym, run):
         """Calculate turnover timescales associated with each model flux."""
-        for zone in self.zones:
-            z = zone.label
-            run.timescales[z] = {}
-            for tracer in inventory_sym[z]:
-                run.timescales[z][tracer] = {}
-                for flux in fluxes:
-                    if tracer in eval(f'self.{flux}.wrt'):
-                        run.timescales[z][tracer][flux] = (
-                            self.eval_symbolic_func(run,
-                                                    inventory_sym[z][tracer]
-                                                    / flux_int_sym[z][flux]))
+
+        for t in inventory_sym.keys():
+            run.timescales[t] = {}
+            for z in inventory_sym[t].keys():
+                run.timescales[t][z] = {}
+                for f in fluxes:
+                    if t in eval(f'self.{f}.wrt'):
+                        run.timescales[t][z][f] = (self.eval_symbolic_func(
+                            run, inventory_sym[t][z]/flux_int_sym[f][z]))
 
     def pickle_model(self):
         """Pickle (save) the model for future plotting and analysis."""
+
         with open(self.pickled, 'wb') as file:
             pickle.dump(self, file)
 
@@ -1092,7 +1091,7 @@ class PyriteTwinX(PyriteModel):
         self.pickled_model -- the pickled model from which to draw results to
         generate pseudodata.
         """
-        self.pickled_model = pickled_model + f'dvm{dvm}.pkl'
+        self.pickled_model = pickled_model + f'dvm{has_dvm}.pkl'
         super().__init__(model_id, gammas, dvm=dvm, pickle_into=pickle_into)
 
     def __repr__(self):
@@ -1501,9 +1500,8 @@ class PlotterTwinX():
                     ax.scatter(
                         tar[param.dv], self.model.target_values[p]['est'],
                         marker='x', s=90, c=self.GREEN)
-                if p not in ('Phi', 'B3'):
-                    ax.tick_params(bottom=False, labelbottom=False)
-                    ax.set_xticks(np.arange(maxtick[self.is_twinX]))
+                ax.tick_params(bottom=False, labelbottom=False)
+                ax.set_xticks(np.arange(maxtick[self.is_twinX]))
 
             filename = f'out/{p}_gam{str(run.gamma).replace(".","")}_dvm{self.model.dvm}'
             if self.is_twinX:
@@ -2431,14 +2429,14 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
 
-    model_no_dvm = PyriteModel(0, [0.1])
-    PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
-    twinX_no_dvm = PyriteTwinX(0, [0.1])
-    PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
+    # model_no_dvm = PyriteModel(0, [0.08])
+    # PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
+    # twinX_no_dvm = PyriteTwinX(0, [0.08])
+    # PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
 
-    model_w_dvm = PyriteModel(0, [0.1], dvm=True)
-    PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
-    twinX_w_dvm = PyriteTwinX(0, [0.1], dvm=True)
-    PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
+    model_w_dvm = PyriteModel(0, [0.08], has_dvm=True)
+    # PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
+    # twinX_w_dvm = PyriteTwinX(0, [0.08], has_dvm=True)
+    # PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
