@@ -1679,16 +1679,16 @@ class PlotterModelRuns(PlotterTwinX):
         #     self.ti_data()
 
         for run in self.model.model_runs:
-            self.residual_profiles(run)
-            self.sinking_fluxes(run)
-            self.volumetric_fluxes(run)
+            # self.residual_profiles(run)
+            # self.sinking_fluxes(run)
+            # self.volumetric_fluxes(run)
             self.budgets(run)
             # if run.gamma == 0.08:
             #     self.param_comparison(run)
 
-        self.integrated_residuals()
-        self.param_sensitivity()
-        self.param_relative_errors()
+        # self.integrated_residuals()
+        # self.param_sensitivity()
+        # self.param_relative_errors()
 
         self.write_output()
 
@@ -2468,26 +2468,47 @@ class PlotterModelRuns(PlotterTwinX):
     def budgets(self, run):
         
         zones = ['LEZ', 'UMZ'] + self.model.zone_names
+        rfi = run.flux_integrals
 
         for z in zones:           
-            fig, ax = plt.subplots(1, 1, tight_layout=True)
-            ax.set_ylabel('Integrated flux (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
-            ax.set_xlabel(z, fontsize=14)
-            ax.axhline(0, c='k', lw=1)
-            
-            fluxes = [run.flux_integrals[f][z][0] for f in run.flux_integrals.keys()]
-            flux_errs = [run.flux_integrals[f][z][1] for f in run.flux_integrals.keys()]
-            flux_labels = list(run.flux_integrals.keys())
-            resids = [run.integrated_resids[t][z][0] for t in run.integrated_resids.keys()]
-            resid_errs = [run.integrated_resids[t][z][1] for t in run.integrated_resids.keys()]
-            resid_labels = [s + '_resid' for s in list(run.integrated_resids.keys())]
-            
-            bars = fluxes + resids
-            errors = flux_errs + resid_errs
-            labels = flux_labels + resid_labels
-            
-            ax.bar(list(range(len(bars))), bars, yerr=errors, tick_label=labels)
-            plt.xticks(rotation=70)
+            fig, (ax1, ax2) = plt.subplots(1, 2, tight_layout=True)
+            fig.suptitle(f'{z}')
+            ax1.set_ylabel('Integrated flux (mmol m$^{-2}$ d$^{-1}$)',
+                           fontsize=14)
+
+            for group in ((ax1, 'S', -1, 1), (ax2, 'L', 1, -1)):
+                ax, sf, agg_sign, dagg_sign = group
+                ax.axhline(0, c='k', lw=1)
+                ax.set_xlabel(f'$P_{sf}$ fluxes', fontsize=14)
+                labels = ['SFD', 'Remin.', 'Agg.', 'Disagg.', 'Resid.']
+                fluxes = [-rfi[f'sinkdiv_{sf}'][z][0],
+                          -rfi[f'remin_{sf}'][z][0],
+                          agg_sign*rfi['aggregation'][z][0],
+                          dagg_sign*rfi['disaggregation'][z][0],
+                          run.integrated_resids[f'POC{sf}'][z][0]]
+                flux_errs = [rfi[f'sinkdiv_{sf}'][z][1],
+                             rfi[f'remin_{sf}'][z][1],
+                             rfi['aggregation'][z][1],
+                             rfi['disaggregation'][z][1],
+                             run.integrated_resids[f'POC{sf}'][z][1]]
+                if sf == 'S':
+                    labels.insert(-1, 'Prod.')
+                    fluxes.insert(-1, rfi['production'][z][0])
+                    flux_errs.insert(-1, rfi['production'][z][1])
+                if self.model.has_dvm:
+                    if sf == 'S' and z in ('LEZ', 'A', 'B', 'C'):
+                        labels.insert(-1, 'DVM')
+                        fluxes.insert(-1, -rfi['dvm'][z][0])
+                        flux_errs.insert(-1, rfi['dvm'][z][1])
+                    elif sf == 'L' and z in ('UMZ', 'D', 'E', 'F', 'G'):
+                        labels.insert(-1, 'DVM')
+                        fluxes.insert(-1, rfi['dvm'][z][0])
+                        flux_errs.insert(-1, rfi['dvm'][z][1])
+                
+                ax.bar(list(range(len(fluxes))), fluxes, yerr=flux_errs,
+                       tick_label=labels, color=self.BLUE)
+                for tick in ax.get_xticklabels():
+                    tick.set_rotation(45)
 
             fig.savefig(
                 f'out/budget_{z}_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}.png')
