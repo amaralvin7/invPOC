@@ -1673,22 +1673,22 @@ class PlotterModelRuns(PlotterTwinX):
     def __init__(self, pickled_model):
         super().__init__(pickled_model)
 
-        self.cp_Pt_regression()
-        self.poc_data()
-        if 'Ti' in self.model.species:
-            self.ti_data()
+        # self.cp_Pt_regression()
+        # self.poc_data()
+        # if 'Ti' in self.model.species:
+        #     self.ti_data()
 
         for run in self.model.model_runs:
             self.residual_profiles(run)
             self.sinking_fluxes(run)
             self.volumetric_fluxes(run)
             self.budgets(run)
-            # if run.gamma == 0.02:
+            # if run.gamma == 0.08:
             #     self.param_comparison(run)
 
-        # self.integrated_residuals()
-        # self.param_sensitivity()
-        # self.param_relative_errors()
+        self.integrated_residuals()
+        self.param_sensitivity()
+        self.param_relative_errors()
 
         self.write_output()
 
@@ -2146,127 +2146,196 @@ class PlotterModelRuns(PlotterTwinX):
 
     def param_comparison(self, run):
 
-        LEZ, UMZ = self.model.zones
         dpy = self.model.DAYS_PER_YEAR
-        Ps_LEZ_mean = run.tracer_results['POCS']['est'][LEZ.indices].mean()
-        Ps_UMZ_mean = run.tracer_results['POCS']['est'][UMZ.indices].mean()
-        B2_EX_LEZ = run.param_results['B2p']['LEZ']['est']*Ps_LEZ_mean
-        B2_EX_UMZ = run.param_results['B2p']['UMZ']['est']*Ps_UMZ_mean
 
-        data = {'EXP': {'B2': {'EZ': (B2_EX_LEZ,), 'MZ': (B2_EX_UMZ,)},
-                        'Bm2': {
-                            'EZ': (run.param_results['Bm2']['LEZ']['est'],
-                                   run.param_results['Bm2']['LEZ']['err']),
-                            'MZ': (run.param_results['Bm2']['UMZ']['est'],
-                                   run.param_results['Bm2']['UMZ']['err'])},
-                        'Bm1s': {
-                            'EZ': (run.param_results['Bm1s']['LEZ']['est'],
-                                   run.param_results['Bm1s']['LEZ']['err']),
-                            'MZ': (run.param_results['Bm1s']['UMZ']['est'],
-                                   run.param_results['Bm1s']['UMZ']['err'])}},
-                'MOSP': {'B2': {'BZ': (0.8/dpy, 0.9/dpy)},
-                         'Bm2': {'BZ': (400/dpy, 10000/dpy)},
-                         'Bm1s': {'BZ': (1.7/dpy, 0.9/dpy)}},
-                'MNABE': {'B2': {'MZ': {'t1': (2/dpy, 0.2/dpy),
-                                        't2': (12/dpy, 1/dpy),
-                                        't3': (76/dpy, 9/dpy)}},
-                          'Bm2': {'MZ': {'t1': (156/dpy, 17/dpy),
-                                         't2': (321/dpy, 32/dpy),
-                                         't3': (524/dpy, 74/dpy)}},
-                          'Bm1s': {'MZ': {'t1': (13/dpy, 1/dpy),
-                                          't2': (32/dpy, 2/dpy),
-                                          't3': (596/dpy, 6/dpy)}}},
-                'MNWA': {'B2': {'EZ': {'lo': (9/dpy, 24/dpy),
-                                       'hi': (11/dpy, 30/dpy)},
-                                'MZ': {'lo': (13/dpy, 50/dpy),
-                                       'hi': (18/dpy, 89/dpy)}},
-                         'Bm2': {'EZ': {'lo': (2280/dpy, 10000/dpy),
-                                        'hi': (2690/dpy, 10000/dpy)},
-                                 'MZ': {'lo': (870/dpy, 5000/dpy),
-                                        'hi': (1880/dpy, 10000/dpy)}},
-                         'Bm1s': {'EZ': {'lo': (70/dpy, 137/dpy),
-                                         'hi': (798/dpy, 7940/dpy)},
-                                  'MZ': {'lo': (113/dpy, 10000/dpy),
-                                         'hi': (1766/dpy, 10000000/dpy)}}}}
+        B2 = {}
+        for z in self.model.zone_names:
+            B2p, Psi = sym.symbols(f'B2p_{z} POCS_{z}')
+            if z == 'A':
+                Psa = Psi
+            else:
+                Psim1 = sym.symbols(f'POCS_{self.model.previous_zone(z)}')
+                Psa = (Psi + Psim1)/2
+            y = B2p*Psa
+            B2[z] = self.model.eval_symbolic_func(run, y)
+            
 
-        fig, ([ax1, ax2, ax3], [ax4, ax5, ax6]) = plt.subplots(
-            2, 3, tight_layout=True)
-        axs = [ax1, ax2, ax3, ax4, ax5]
-        for ax in axs:
-            ax.tick_params(bottom=False, labelbottom=False)
-            ax.set_yscale('log')
-            # next line from https://stackoverflow.com/questions/21920233/
-            ax.yaxis.set_major_formatter(
-                ticker.FuncFormatter(lambda y, _: '{:g}'.format(y)))
-        ax1.set_ylabel('Estimate (d$^{-1}$)', fontsize=14)
+        data = {
+                'MOSP': {'B2': (0.8/dpy, 0.9/dpy),
+                          'Bm2': (400/dpy, 10000/dpy),
+                          'Bm1s': (1.7/dpy, 0.9/dpy)},
+                'MNABE': {'B2': (2/dpy, 0.2/dpy),
+                          'Bm2': (156/dpy, 17/dpy),
+                          'Bm1s': (13/dpy, 1/dpy)},
+                'MNWA': {0: {'depth': 25.5, 'thick':50.9,
+                             'Bm1s': (70/dpy, 137/dpy),
+                             'B2': (9/dpy, 24/dpy),
+                             'Bm2': (2690/dpy, 10000/dpy)},
+                         1: {'depth': 85.1, 'thick':68.4,
+                             'Bm1s': (798/dpy, 7940/dpy),
+                             'B2': (11/dpy, 30/dpy),
+                             'Bm2': (2280/dpy, 10000/dpy)},
+                         2: {'depth': 169.5, 'thick':100.4,
+                             'Bm1s': (378/dpy, 3520/dpy),
+                             'B2': (13/dpy, 50/dpy),
+                             'Bm2': (1880/dpy, 10000/dpy)},
+                         3: {'depth': 295.3, 'thick':151.1,
+                             'Bm1s': (1766/dpy, 10000000/dpy),
+                             'B2': (18/dpy, 89/dpy),
+                             'Bm2': (950/dpy, 5700/dpy)},
+                         4: {'depth': 482.8, 'thick':224,
+                             'Bm1s': (113/dpy, 10000/dpy),
+                             'B2': (17/dpy, 77/dpy),
+                             'Bm2': (870/dpy, 5000/dpy)}}
+                }
+
+        """
+        # OPTION 1
+        """
+
+        fig, ([ax1, ax2, ax3], [ax4, ax5, ax6]) = plt.subplots(2, 3)
+        fig.subplots_adjust(bottom=0.2)
+        capsize = 4
+        for i, ax in enumerate((ax1, ax2, ax3, ax4, ax5, ax6)):
+            if i in (0, 3):
+                p = 'Bm1s'
+            elif i in (1, 4):
+                p = 'Bm2'
+                ax.tick_params(labelleft=False)
+            else:
+                p = 'B2'
+                ax.tick_params(labelleft=False)
+            if i < 3:
+                str_index = 'est'
+                int_index = 0
+            else:
+                str_index = 'err'
+                int_index = 1
+            ax.invert_yaxis()
+            ax.set_xscale('log')
+            for zone in self.model.zones:
+                z = zone.label
+                ub, lb = zone.depths
+                d_av = (ub + lb)/2
+                d_err = (lb - ub)/2
+                if p == 'B2':
+                    data_point = B2[z][int_index]
+                else:
+                    data_point = run.param_results[p][z][str_index]
+                ax.errorbar(data_point, d_av, fmt='o', yerr=d_err,
+                            c=self.GREEN, mec=self.BLACK, capsize=capsize)
+            for z in data['MNWA'].keys():
+                d_av = data['MNWA'][z]['depth']
+                d_err = data['MNWA'][z]['thick']/2
+                ax.errorbar(data['MNWA'][z][p][int_index], d_av, fmt='^',
+                            yerr=d_err, c=self.RADISH, mec=self.BLACK,
+                            capsize=4)
+            ax.scatter(data['MOSP'][p][int_index], 650, marker='s',
+                        c=self.BLUE, edgecolors=self.BLACK)
+            ax.errorbar(data['MNABE'][p][int_index], 225, fmt='d', yerr=75,
+                        c=self.ORANGE, mec=self.BLACK, capsize=capsize)
+
         ax1.set_title('$\\beta_{-1,S}$', fontsize=14)
         ax2.set_title('$\\beta_{-2}$', fontsize=14)
         ax3.set_title('$\\beta_2$', fontsize=14)
-        ax4.set_ylabel('Error (d$^{-1}$)', fontsize=14)
-        ax6.axis('off')
 
-        study_colors = {'EXP': self.GREEN, 'MOSP': self.BLUE,
-                        'MNABE': self.ORANGE, 'MNWA': self.RADISH}
-        zone_shapes = {'EZ': 's', 'MZ': '^', 'BZ': 'd'}
-        axs_dict = {ax1: {'ylim': (0.001, 10), 'panel': 'A'},
-                    ax2: {'ylim': (0.1, 10), 'panel': 'B'},
-                    ax3: {'ylim': (0.001, 1), 'panel': 'C'},
-                    ax4: {'ylim': (0.001, 100000), 'panel': 'D'},
-                    ax5: {'ylim': (0.01, 100), 'panel': 'E'}}
+        ax3.yaxis.set_label_position('right')
+        ax6.yaxis.set_label_position('right')
 
-        for (ax, p) in ((ax1, 'Bm1s'), (ax2, 'Bm2'), (ax3, 'B2')):
-            ct = 0
-            for s in data:
-                c = study_colors[s]
-                for z, vals in data[s][p].items():
-                    m = zone_shapes[z]
-                    if isinstance(vals, dict):
-                        for k in vals:
-                            ax.scatter(
-                                ct, data[s][p][z][k][0], s=60, marker=m, c=c,
-                                edgecolors=self.BLACK, lw=0.5)
-                            if p != 'B2':
-                                axs[axs.index(ax)+3].scatter(
-                                    ct, data[s][p][z][k][1], s=60, marker=m,
-                                    c=c, edgecolors=self.BLACK, lw=0.5)
-                            ct += 1
-                    else:
-                        ax.scatter(
-                            ct, data[s][p][z][0], s=60, marker=m, c=c,
-                            edgecolors=self.BLACK, lw=0.5)
-                        if p != 'B2':
-                            axs[axs.index(ax)+3].scatter(
-                                ct, data[s][p][z][1], s=60, marker=m, c=c,
-                                edgecolors=self.BLACK, lw=0.5)
-                        ct += 1
+
         leg_elements = [
-            Line2D([0], [0], marker=zone_shapes['EZ'], c=self.WHITE,
-                   label='Euphotic Zone', markerfacecolor=self.WHITE,
-                   markeredgecolor=self.BLACK, ms=9, lw=0.5),
-            Line2D([0], [0], marker=zone_shapes['MZ'], c=self.WHITE,
-                   label='Mesopelagic Zone', markerfacecolor=self.WHITE,
-                   markeredgecolor=self.BLACK, ms=9, lw=0.5),
-            Line2D([0], [0], marker=zone_shapes['BZ'], c=self.WHITE,
-                   label='Bathypelagic Zone', markerfacecolor=self.WHITE,
-                   markeredgecolor=self.BLACK, ms=9, lw=0.5),
-            Line2D([0], [0], marker='o', c=self.WHITE,
-                   label='This study (I2)\nStation P',
-                   markerfacecolor=self.GREEN, ms=9),
-            Line2D([0], [0], marker='o', c=self.WHITE,
-                   label='Murnane (1994)\nStation P',
-                   markerfacecolor=self.BLUE, ms=9),
-            Line2D([0], [0], marker='o', c=self.WHITE,
-                   label='Murnane et al. (1996)\nNABE',
-                   markerfacecolor=self.ORANGE, ms=9),
-            Line2D([0], [0], marker='o', c=self.WHITE,
-                   label='Murnane et al. (1994)\nNWAO',
-                   markerfacecolor=self.RADISH, ms=9)]
-        ax6.legend(handles=leg_elements, loc='center', fontsize=10,
-                   frameon=False)
-        for ax in axs:
-            ax.set_ylim(axs_dict[ax]['ylim'])
-            ax.annotate(axs_dict[ax]['panel'], xy=(0.82, 0.05),
-                        xycoords='axes fraction', fontsize=14)
+            Line2D([0], [0], marker='o', mec=self.BLACK, c=self.WHITE,
+                    label='This study \nStation P',
+                    markerfacecolor=self.GREEN, ms=9),
+            Line2D([0], [0], marker='s', mec=self.BLACK, c=self.WHITE,
+                    label='Murnane (1994)\nStation P',
+                    markerfacecolor=self.BLUE, ms=9),
+            Line2D([0], [0], marker='^', mec=self.BLACK, c=self.WHITE,
+                    label='Murnane et al. (1994)\nNWAO',
+                    markerfacecolor=self.RADISH, ms=9),
+            Line2D([0], [0], marker='d', mec=self.BLACK, c=self.WHITE,
+                    label='Murnane et al. (1996)\nNABE',
+                    markerfacecolor=self.ORANGE, ms=9)]
+        ax5.legend(handles=leg_elements, fontsize=8, loc='upper center',
+                    bbox_to_anchor=(0.5, -0.2), ncol=4, frameon=False)
+        
+        """
+        # OPTION 2
+        """
+        
+        
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+        fig.subplots_adjust(bottom=0.2)
+        capsize = 4
+        for i, ax in enumerate((ax1, ax2, ax3)):
+            if i == 0:
+                p = 'Bm1s'
+            elif i == 1:
+                p = 'Bm2'
+                ax.tick_params(labelleft=False)
+            else:
+                p = 'B2'
+                ax.tick_params(labelleft=False)
+
+            ax.invert_yaxis()
+            ax.set_xscale('log')
+            for zone in self.model.zones:
+                z = zone.label
+                ub, lb = zone.depths
+                d_av = (ub + lb)/2
+                d_err = (lb - ub)/2
+                if p == 'B2':
+                    data_point = B2[z][0]
+                    data_err = B2[z][1]
+                else:
+                    data_point = run.param_results[p][z]['est']
+                    data_err = run.param_results[p][z]['err']
+                ax.errorbar(data_point, d_av, fmt='o', yerr=d_err,
+                            c=self.GREEN, capsize=capsize)
+                ax.scatter(data_err, d_av, marker='o',
+                           facecolors='none', edgecolors=self.BLACK, zorder=10)
+            for z in data['MNWA'].keys():
+                d_av = data['MNWA'][z]['depth']
+                d_err = data['MNWA'][z]['thick']/2
+                ax.errorbar(data['MNWA'][z][p][0], d_av, fmt='^',
+                            yerr=d_err, c=self.RADISH, capsize=4)
+                ax.scatter(data['MNWA'][z][p][1], d_av, marker='^',
+                           facecolors='none', edgecolors=self.BLACK, zorder=10)
+            ax.scatter(data['MOSP'][p][0], 650, marker='s', c=self.BLUE)
+            ax.scatter(data['MOSP'][p][1], 650, marker='s', facecolors='none',
+                       edgecolors=self.BLACK, zorder=10)
+            ax.errorbar(data['MNABE'][p][0], 225, fmt='d', yerr=75,
+                        c=self.ORANGE, capsize=capsize, zorder=4)
+            ax.scatter(data['MNABE'][p][1], 225, marker='d', facecolors='none',
+                       edgecolors=self.BLACK, zorder=10)
+            
+        ax1.set_title('$\\beta_{-1,S}$', fontsize=14)
+        ax2.set_title('$\\beta_{-2}$', fontsize=14)
+        ax3.set_title('$\\beta_2$', fontsize=14)
+        
+        ax1.set_xlim([0.001, 100000])
+        ax2.set_xlim([0.01, 100])
+        ax3.set_xlim([0.0001, 1])
+
+        ax3.yaxis.set_label_position('right')
+
+
+        leg_elements = [
+            Line2D([0], [0], marker='o', mec=self.BLACK, c=self.WHITE,
+                    label='This study \nStation P',
+                    markerfacecolor=self.GREEN, ms=9),
+            Line2D([0], [0], marker='s', mec=self.BLACK, c=self.WHITE,
+                    label='Murnane (1994)\nStation P',
+                    markerfacecolor=self.BLUE, ms=9),
+            Line2D([0], [0], marker='^', mec=self.BLACK, c=self.WHITE,
+                    label='Murnane et al. (1994)\nNWAO',
+                    markerfacecolor=self.RADISH, ms=9),
+            Line2D([0], [0], marker='d', mec=self.BLACK, c=self.WHITE,
+                    label='Murnane et al. (1996)\nNABE',
+                    markerfacecolor=self.ORANGE, ms=9)]
+        ax2.legend(handles=leg_elements, fontsize=8, loc='upper center',
+                    bbox_to_anchor=(0.5, -0.1), ncol=4, frameon=False)
+
         fig.savefig('out/compare_params.png')
         plt.close()
 
@@ -2430,14 +2499,14 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
 
-    model_no_dvm = PyriteModel(0, [0.08])
-    PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
-    twinX_no_dvm = PyriteTwinX(0, [0.08])
-    PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
+    # model_no_dvm = PyriteModel(0, [0.08])
+    # PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
+    # twinX_no_dvm = PyriteTwinX(0, [0.08])
+    # PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
 
-    model_w_dvm = PyriteModel(0, [0.08], has_dvm=True)
+    # model_w_dvm = PyriteModel(0, [0.08], has_dvm=True)
     PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
-    twinX_w_dvm = PyriteTwinX(0, [0.08], has_dvm=True)
-    PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
+    # twinX_w_dvm = PyriteTwinX(0, [0.08], has_dvm=True)
+    # PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
