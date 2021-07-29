@@ -1396,13 +1396,13 @@ class PlotterTwinX():
 
         self.define_colors()
 
-        for run in self.model.model_runs:
-            self.cost_and_convergence(run)
-            self.params(run)
-            self.poc_profiles(run)
-            self.residual_pdfs(run)
-            if 'Ti' in self.model.species:
-                self.ti_profiles(run)
+        # for run in self.model.model_runs:
+        #     self.cost_and_convergence(run)
+        #     self.params(run)
+        #     self.poc_profiles(run)
+        #     self.residual_pdfs(run)
+        #     if 'Ti' in self.model.species:
+        #         self.ti_profiles(run)
 
     def define_colors(self):
 
@@ -2385,36 +2385,56 @@ class PlotterModelRuns(PlotterTwinX):
 
     def param_sensitivity(self):
         
+        art = {0.08: {'c': self.BLUE, 'm': 'o'},
+               1: {'c': self.GREEN, 'm': '^'},
+               5: {'c': self.ORANGE, 'm': 's'},
+               10: {'c': self.RADISH, 'm': 'd'}}
+        
         for param in self.model.params:
             p = param.name
             fig, ax = plt.subplots(tight_layout=True)
+            ax.axes.yaxis.set_ticks([])
+            ax.axes.yaxis.set_ticklabels([])
             if param.units:
                 ax.set_xlabel(f'{param.label} ({param.units})', fontsize=14)
             else:
                 ax.set_xlabel(param.label, fontsize=14)
             ax.invert_yaxis()
             if param.dv:
-                ax.set_ylabel('Layer', fontsize=14)
-                ax.set_ylim(top=-0.5, bottom=6.5)
-                ax.set_yticks(range(33))
-                for run in self.model.model_runs:
+                ax.set_ylabel('Layer', fontsize=14, labelpad=30)
+                label_pos = np.arange(
+                    1/(len(self.model.zones)*2), 1, 1/len(self.model.zones))
+                for y, run in enumerate(self.model.model_runs):
                     g = run.gamma
-                    for t in run.integrated_resids.keys():
-                        for i, zone in enumerate(self.model.zones):
-                            z = zone.label
-                            # ax.errorbar(
-                            #     run.integrated_resids[t][z][0], d,
-                            #     fmt=art[g], xerr=run.integrated_resids[t][z][1],
-                            #     elinewidth=1, fillstyle=art[t]['fs'], c=art[t]['c'],
-                            #     capsize=6, zorder=3, ms=art[t]['s'],
-                            #     markeredgewidth=1)
-            # handles, labels = ax.get_legend_handles_labels()
-            # by_label = dict(zip(labels, handles))
-            # ax.legend(by_label.values(), by_label.keys(), fontsize=12,
-            #           loc='lower center', bbox_to_anchor=(0.5, 1.05), ncol=4,
-            #           frameon=False, labelspacing=1)
-            # fig.savefig(f'out/sensitivity_{p}.png')
-            # plt.close()
+                    for x, zone in enumerate(self.model.zones):
+                        z = zone.label
+                        ax.errorbar(
+                            run.param_results[p][z]['est'], 5*x + y, capsize=6,
+                            fmt=art[g]['m'], elinewidth=1, c=art[g]['c'],
+                            xerr=run.param_results[p][z]['err'],
+                            markeredgewidth=1, label=g)
+                        if y == 0:
+                            ax.annotate(z, xy=(-0.05, 1 - label_pos[x]),
+                                        xycoords='axes fraction', fontsize=12)
+                            if x < len(self.model.zones) - 1:
+                                ax.axhline(5*x + 4, c=self.BLACK, ls='--')
+            else:
+                for y, run in enumerate(self.model.model_runs):
+                    g = run.gamma
+                    z = zone.label
+                    ax.errorbar(
+                        run.param_results[p]['est'], y, capsize=6,
+                        fmt=art[g]['m'], elinewidth=1, c=art[g]['c'],
+                        xerr=run.param_results[p]['err'],
+                        markeredgewidth=1, label=g)
+                
+            handles, labels = ax.get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            ax.legend(by_label.values(), by_label.keys(), fontsize=12,
+                      loc='lower center', bbox_to_anchor=(0.5, 1), ncol=4,
+                      frameon=False, labelspacing=1)
+            fig.savefig(f'out/sensitivity_{p}.png')
+            plt.close()
 
     def param_relative_errors(self):
 
@@ -2519,7 +2539,7 @@ if __name__ == '__main__':
     # twinX_no_dvm = PyriteTwinX(0, [0.08])
     # PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
 
-    model_w_dvm = PyriteModel(0, [0.08, 1, 5, 10], has_dvm=True)
+    # model_w_dvm = PyriteModel(0, [0.08, 1, 5, 10], has_dvm=True)
     PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
     # twinX_w_dvm = PyriteTwinX(0, [0.08], has_dvm=True)
     # PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
