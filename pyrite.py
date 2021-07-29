@@ -146,28 +146,30 @@ class PyriteModel:
         P30_prior, P30_prior_e, Lp_prior, Lp_prior_e = self.process_npp_data()
         ti_dust = 2*0.0042*1000/47.867 #umol m-2 d-1
 
-        self.ws = Param(2, 2, 'ws', '$w_S$')
-        self.wl = Param(20, 15, 'wl', '$w_L$')
+        self.ws = Param(2, 2, 'ws', '$w_S$', 'm d$^{-1}$')
+        self.wl = Param(20, 15, 'wl', '$w_L$', 'm d$^{-1}$')
         self.B2p = Param(0.5*self.MOLAR_MASS_C/self.DAYS_PER_YEAR,
                          0.5*self.MOLAR_MASS_C/self.DAYS_PER_YEAR,
-                         'B2p', '$\\beta^,_2$')
+                         'B2p', '$\\beta^,_2$', 'm$^{3}$ mmol$^{-1}$ d$^{-1}$')
         self.Bm2 = Param(400/self.DAYS_PER_YEAR,
                          10000/self.DAYS_PER_YEAR,
-                         'Bm2', '$\\beta_{-2}$')
-        self.Bm1s = Param(0.1, 0.1, 'Bm1s', '$\\beta_{-1,S}$')
-        self.Bm1l = Param(0.15, 0.15, 'Bm1l', '$\\beta_{-1,L}$')
+                         'Bm2', '$\\beta_{-2}$', 'd$^{-1}$')
+        self.Bm1s = Param(0.1, 0.1, 'Bm1s', '$\\beta_{-1,S}$', 'd$^{-1}$')
+        self.Bm1l = Param(0.15, 0.15, 'Bm1l', '$\\beta_{-1,L}$', 'd$^{-1}$')
         self.P30 = Param(P30_prior, P30_prior_e, 'P30', '$\.P_{S,30}$',
-                         depth_vary=False)
-        self.Lp = Param(Lp_prior, Lp_prior_e, 'Lp', '$L_P$', depth_vary=False)
+                         'mmol m$^{-3}$ d$^{-1}$', depth_vary=False)
+        self.Lp = Param(Lp_prior, Lp_prior_e, 'Lp', '$L_P$',
+                        'm', depth_vary=False)
 
         self.params = [self.ws, self.wl, self.B2p, self.Bm2, self.Bm1s,
                        self.Bm1l, self.P30, self.Lp]
 
         if self.has_dvm:
             self.zg = 100
-            self.B3 = Param(0.06, 0.03, 'B3', '$\\beta_3$', depth_vary=False)
+            self.B3 = Param(0.06, 0.03, 'B3', '$\\beta_3$',
+                            'd$^{-1}$', depth_vary=False)
             self.a = Param(0.3, 0.15, 'a', '$\\alpha$', depth_vary=False)
-            self.D = Param(500, 250, 'D', '$D_M$', depth_vary=False)
+            self.D = Param(500, 250, 'D', '$D_M$', 'm', depth_vary=False)
             self.params.extend([self.B3, self.a, self.D])
 
         if 'Ti' in self.species:
@@ -983,12 +985,14 @@ class Tracer:
 class Param:
     """Container for metadata of model parameters."""
 
-    def __init__(self, prior, prior_error, name, label, depth_vary=True):
+    def __init__(self, prior, prior_error, name, label, units=None,
+                 depth_vary=True):
 
         self.prior = prior
         self.prior_e = prior_error
         self.name = name
         self.label = label
+        self.units = units
         self.dv = depth_vary
 
     def __repr__(self):
@@ -1687,8 +1691,8 @@ class PlotterModelRuns(PlotterTwinX):
         #     if run.gamma == 0.08:
         #         self.param_comparison(run)
 
-        self.integrated_residuals()
-        # self.param_sensitivity()
+        # self.integrated_residuals()
+        self.param_sensitivity()
         # self.param_relative_errors()
 
         self.write_output()
@@ -2344,14 +2348,13 @@ class PlotterModelRuns(PlotterTwinX):
         
         art = {'POCS': {'s': 200, 'ec': 'none', 'fc': self.GREEN, 'zo': 1},
                'POCL': {'s': 400, 'ec': self.BLACK, 'fc': 'none', 'zo': 2},
-               0.08: 'o', 1: '^', 10: 's'}
+               0.08: 'o', 1: '^', 5: 'd', 10: 's'}
 
         fig, ax = plt.subplots(tight_layout=True)
         ax.set_xlabel('Integrated residuals (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
         ax.set_ylabel('Layer', fontsize=14)
         ax.invert_yaxis()
         ax.set_ylim(top=-0.5, bottom=6.5)
-        ax.set_xlim([0.1, 100])
         ax.set_yticks(range(7))
         ax.set_yticklabels(self.model.zone_names)
         ax.tick_params(axis='both', which='major', labelsize=12)
@@ -2375,62 +2378,43 @@ class PlotterModelRuns(PlotterTwinX):
         handles, labels = ax.get_legend_handles_labels()
         by_label = dict(zip(labels, handles))
         ax.legend(by_label.values(), by_label.keys(), fontsize=12,
-                  loc='lower center', bbox_to_anchor=(0.5, 1.05), ncol=3,
-                  frameon=False)
+                  loc='lower center', bbox_to_anchor=(0.5, 1.05), ncol=4,
+                  frameon=False, labelspacing=1)
         fig.savefig('out/intresids.png')
         plt.close()
 
     def param_sensitivity(self):
-
-        fig, ([ax1, ax2, ax3], [ax4, ax5, ax6], [ax7, ax8, ax9]) = (
-            plt.subplots(3, 3, figsize=(8, 8)))
-        fig.subplots_adjust(wspace=0.3, hspace=0.8)
-        axs = [ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8, ax9]
-        axs[-1].axis('off')
-        for i, param in enumerate(self.model.params):
+        
+        for param in self.model.params:
             p = param.name
-            ax = axs[i]
-            ax.set_title(param.label, fontsize=14)
-            if param.dv:
-                ax.axvline(9, ls='--', c=self.BLACK, lw=1)
-                j = 0
-                for zone in self.model.zones:
-                    z = zone.label
-                    c = self.GREEN if z == 'LEZ' else self.ORANGE
-                    for run in self.model.model_runs:
-                        ax.errorbar(
-                            j*2, run.param_results[p][z]['est'],
-                            yerr=run.param_results[p][z]['err'], fmt='o', c=c,
-                            ms=8, elinewidth=1.5, ecolor=c, capsize=6,
-                            label=z, markeredgewidth=1.5)
-                        j += 1
-                    ax.set_xticks([k*2 for k in list(
-                        range(len(self.model.model_runs)*2))])
-                    ax.get_xaxis().set_major_formatter(
-                        ticker.ScalarFormatter())
-                    ax.set_xticklabels(self.model.gammas + self.model.gammas,
-                                       rotation=60)
-                if i == 5:
-                    handles, labels = ax.get_legend_handles_labels()
-                    by_label = dict(zip(labels, handles))
-                    ax.legend(by_label.values(), by_label.keys(),
-                              loc='upper center', bbox_to_anchor=(0.5, -1),
-                              ncol=1, fontsize=12, frameon=False)
+            fig, ax = plt.subplots(tight_layout=True)
+            if param.units:
+                ax.set_xlabel(f'{param.label} ({param.units})', fontsize=14)
             else:
-                j = 0
+                ax.set_xlabel(param.label, fontsize=14)
+            ax.invert_yaxis()
+            if param.dv:
+                ax.set_ylabel('Layer', fontsize=14)
+                ax.set_ylim(top=-0.5, bottom=6.5)
+                ax.set_yticks(range(33))
                 for run in self.model.model_runs:
-                    ax.errorbar(j*3, run.param_results[p]['est'],
-                                yerr=run.param_results[p]['err'], fmt='o',
-                                c=self.RADISH, ms=8, elinewidth=1.5,
-                                ecolor=self.RADISH, capsize=6,
-                                markeredgewidth=1.5)
-                    j += 1
-                ax.set_xticks([k*3 for k in list(
-                    range(len(self.model.model_runs)))])
-                ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
-                ax.set_xticklabels(self.model.gammas, rotation=60)
-        fig.savefig('out/sensitivity_params.png')
-        plt.close()
+                    g = run.gamma
+                    for t in run.integrated_resids.keys():
+                        for i, zone in enumerate(self.model.zones):
+                            z = zone.label
+                            # ax.errorbar(
+                            #     run.integrated_resids[t][z][0], d,
+                            #     fmt=art[g], xerr=run.integrated_resids[t][z][1],
+                            #     elinewidth=1, fillstyle=art[t]['fs'], c=art[t]['c'],
+                            #     capsize=6, zorder=3, ms=art[t]['s'],
+                            #     markeredgewidth=1)
+            # handles, labels = ax.get_legend_handles_labels()
+            # by_label = dict(zip(labels, handles))
+            # ax.legend(by_label.values(), by_label.keys(), fontsize=12,
+            #           loc='lower center', bbox_to_anchor=(0.5, 1.05), ncol=4,
+            #           frameon=False, labelspacing=1)
+            # fig.savefig(f'out/sensitivity_{p}.png')
+            # plt.close()
 
     def param_relative_errors(self):
 
@@ -2535,7 +2519,7 @@ if __name__ == '__main__':
     # twinX_no_dvm = PyriteTwinX(0, [0.08])
     # PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
 
-    # model_w_dvm = PyriteModel(0, [0.08, 1, 10], has_dvm=True)
+    model_w_dvm = PyriteModel(0, [0.08, 1, 5, 10], has_dvm=True)
     PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
     # twinX_w_dvm = PyriteTwinX(0, [0.08], has_dvm=True)
     # PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
