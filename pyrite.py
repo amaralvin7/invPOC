@@ -1687,7 +1687,7 @@ class PlotterModelRuns(PlotterTwinX):
         #     if run.gamma == 0.08:
         #         self.param_comparison(run)
 
-        # self.integrated_residuals()
+        self.integrated_residuals()
         # self.param_sensitivity()
         # self.param_relative_errors()
 
@@ -2341,33 +2341,42 @@ class PlotterModelRuns(PlotterTwinX):
         plt.close()
 
     def integrated_residuals(self):
+        
+        art = {'POCS': {'s': 200, 'ec': 'none', 'fc': self.GREEN, 'zo': 1},
+               'POCL': {'s': 400, 'ec': self.BLACK, 'fc': 'none', 'zo': 2},
+               0.08: 'o', 1: '^', 10: 's'}
 
-        fig, ax = plt.subplots()
-        ax.set_xticks([k for k in list(range(len(self.model.model_runs)))])
-        ax.set_xticklabels(self.model.gammas)
-        ax.set_yticks(list(range(-11, 2)))
-        ax.grid(axis='y', zorder=1)
-        plt.subplots_adjust(bottom=0.1)
-        tracerdict = {'POCS': {'marker': 's', 'label': self.model.POCS.label},
-                      'POCL': {'marker': '^', 'label': self.model.POCL.label}}
-        zone_colors = {'LEZ': self.GREEN, 'UMZ': self.ORANGE}
-        for t in tracerdict:
-            m = tracerdict[t]['marker']
-            lbl = tracerdict[t]['label']
-            for z in zone_colors:
-                j = 0
-                c = zone_colors[z]
-                for run in self.model.model_runs:
+        fig, ax = plt.subplots(tight_layout=True)
+        ax.set_xlabel('Integrated residuals (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+        ax.set_ylabel('Layer', fontsize=14)
+        ax.invert_yaxis()
+        ax.set_ylim(top=-0.5, bottom=6.5)
+        ax.set_xlim([0.1, 100])
+        ax.set_yticks(range(7))
+        ax.set_yticklabels(self.model.zone_names)
+        ax.tick_params(axis='both', which='major', labelsize=12)
+        for run in self.model.model_runs:
+            g = run.gamma
+            for t in run.integrated_resids.keys():
+                for i, zone in enumerate(self.model.zones):
+                    z = zone.label
+                    # ax.errorbar(
+                    #     run.integrated_resids[t][z][0], d,
+                    #     fmt=art[g], xerr=run.integrated_resids[t][z][1],
+                    #     elinewidth=1, fillstyle=art[t]['fs'], c=art[t]['c'],
+                    #     capsize=6, zorder=3, ms=art[t]['s'],
+                    #     markeredgewidth=1)
                     ax.scatter(
-                        j, run.integrated_resids[z][t], marker=m, c=c, s=64,
-                        label=f'{lbl}$^{{{z}}}$', zorder=2)
-                    j += 1
+                        np.abs(run.integrated_resids[t][z][0]), i,
+                        marker=art[g], facecolors=art[t]['fc'],
+                        edgecolors=art[t]['ec'], zorder=art[t]['zo'],
+                        s=art[t]['s'], label=f'${t[0]}_{t[-1]}, \\gamma = {g}$')
+                    ax.set_xscale('log')
         handles, labels = ax.get_legend_handles_labels()
         by_label = dict(zip(labels, handles))
-        ax.legend(by_label.values(), by_label.keys(), fontsize=12)
-        ax.set_ylabel('Integrated Residuals (mmol m$^{-2}$ d$^{-1}$)',
-                      fontsize=14)
-        ax.set_xlabel('$\gamma$', fontsize=14)
+        ax.legend(by_label.values(), by_label.keys(), fontsize=12,
+                  loc='lower center', bbox_to_anchor=(0.5, 1.05), ncol=3,
+                  frameon=False)
         fig.savefig('out/intresids.png')
         plt.close()
 
@@ -2526,7 +2535,7 @@ if __name__ == '__main__':
     # twinX_no_dvm = PyriteTwinX(0, [0.08])
     # PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
 
-    model_w_dvm = PyriteModel(0, [0.08], has_dvm=True)
+    # model_w_dvm = PyriteModel(0, [0.08, 1, 10], has_dvm=True)
     PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
     # twinX_w_dvm = PyriteTwinX(0, [0.08], has_dvm=True)
     # PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
