@@ -385,7 +385,7 @@ class PyriteModel:
         should only exist if function is evoked from a TwinX object
         """
         zim1, zi = zone.depths
-        h = zi - zim1
+        h = zone.thick
         z = zone.label
         if z == 'A':
             Psi = sym.symbols('POCS_A')
@@ -779,8 +779,7 @@ class PyriteModel:
                 inventory_sym[t][sz] = {}
                 for zone in zone_dict[sz]:
                     z = zone.label
-                    zim1, zi = zone.depths
-                    h = zi - zim1
+                    h = zone.thick
                     run.inventories[t][z] = {}
                     inventory_sym[t][z] = {}
                     if z == 'A':
@@ -812,7 +811,7 @@ class PyriteModel:
             for zone in self.zones:
                 z = zone.label
                 zim1, zi = zone.depths
-                h = zi - zim1
+                h = zone.thick
                 if 'div' in f:
                     wi, ti = sym.symbols(f'{flux.param}_{z} {flux.tracer}_{z}')
                     if z == 'A':
@@ -1006,6 +1005,8 @@ class GridZone:
         self.label = label
         self.indices = (index, index + 1)
         self.depths = model.GRID[index:index + 2]
+        self.thick = self.depths[1] - self.depths[0]
+        self.mid = np.mean(self.depths)
 
     def __repr__(self):
 
@@ -1158,7 +1159,7 @@ class PyriteTwinX(PyriteModel):
                         zone = zo
                         break
                 zim1, zi = zone.depths
-                h = zi - zim1
+                h = zone.thick
 
                 iPsi = element_index.index(f'POCS_{z}')
                 iPli = element_index.index(f'POCL_{z}')
@@ -1471,7 +1472,7 @@ class PlotterTwinX():
                     if 'w' in p:
                         depth = zone.depths[1]
                     else:
-                        depth = np.mean(zone.depths)
+                        depth = zone.mid
                     ax.errorbar(
                         run.param_results[p][z]['est'], depth,
                         fmt='o', xerr=run.param_results[p][z]['err'],
@@ -1678,13 +1679,13 @@ class PlotterModelRuns(PlotterTwinX):
         # if 'Ti' in self.model.species:
         #     self.ti_data()
 
-        for run in self.model.model_runs:
-            # self.residual_profiles(run)
-            # self.sinking_fluxes(run)
-            # self.volumetric_fluxes(run)
-            self.budgets(run)
-            # if run.gamma == 0.08:
-            #     self.param_comparison(run)
+        # for run in self.model.model_runs:
+        #     self.residual_profiles(run)
+        #     self.sinking_fluxes(run)
+        #     self.volumetric_fluxes(run)
+        #     self.budgets(run)
+        #     if run.gamma == 0.08:
+        #         self.param_comparison(run)
 
         # self.integrated_residuals()
         # self.param_sensitivity()
@@ -2216,8 +2217,8 @@ class PlotterModelRuns(PlotterTwinX):
             for zone in self.model.zones:
                 z = zone.label
                 ub, lb = zone.depths
-                d_av = (ub + lb)/2
-                d_err = (lb - ub)/2
+                d_av = zone.mid
+                d_err = zone.thick/2
                 if p == 'B2':
                     data_point = B2[z][int_index]
                 else:
@@ -2282,8 +2283,8 @@ class PlotterModelRuns(PlotterTwinX):
             for zone in self.model.zones:
                 z = zone.label
                 ub, lb = zone.depths
-                d_av = (ub + lb)/2
-                d_err = (lb - ub)/2
+                d_av = zone.mid
+                d_err = zone.thick/2
                 if p == 'B2':
                     data_point = B2[z][0]
                     data_err = B2[z][1]
@@ -2525,7 +2526,7 @@ if __name__ == '__main__':
     # twinX_no_dvm = PyriteTwinX(0, [0.08])
     # PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
 
-    # model_w_dvm = PyriteModel(0, [0.08], has_dvm=True)
+    model_w_dvm = PyriteModel(0, [0.08], has_dvm=True)
     PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
     # twinX_w_dvm = PyriteTwinX(0, [0.08], has_dvm=True)
     # PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
