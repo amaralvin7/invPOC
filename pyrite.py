@@ -169,8 +169,8 @@ class PyriteModel:
             self.B3 = Param(0.06, 0.03, 'B3', '$\\beta_3$',
                             'd$^{-1}$', depth_vary=False)
             self.a = Param(0.3, 0.15, 'a', '$\\alpha$', depth_vary=False)
-            self.D = Param(500, 250, 'D', '$D_M$', 'm', depth_vary=False)
-            self.params.extend([self.B3, self.a, self.D])
+            self.DM = Param(500, 250, 'DM', '$D_M$', 'm', depth_vary=False)
+            self.params.extend([self.B3, self.a, self.DM])
 
         if 'Ti' in self.species:
             self.Phi = Param(ti_dust, ti_dust, 'Phi', '$\\Phi_D$',
@@ -419,7 +419,7 @@ class PyriteModel:
             if self.has_dvm:
                 B3 = sym.symbols('B3')
                 a = sym.symbols('a')
-                D = sym.symbols('D')
+                D = sym.symbols('DM')
             if zone.label != 'A':
                 wsm1 = sym.symbols(f'ws_{pz}')
                 wlm1 = sym.symbols(f'wl_{pz}')
@@ -437,7 +437,7 @@ class PyriteModel:
             if self.has_dvm:
                 B3 = params_known['B3']['est']
                 a = params_known['a']['est']
-                D = params_known['D']['est']
+                D = params_known['DM']['est']
             if zone.label != 'A':
                 wsm1 = params_known['ws'][pz]['est']
                 wlm1 = params_known['wl'][pz]['est']
@@ -835,7 +835,7 @@ class PyriteModel:
                 elif f == 'dvm':
                     B3 = sym.symbols('B3')
                     a = sym.symbols('a')
-                    D = sym.symbols('D')
+                    D = sym.symbols('DM')
                     if z in ('A', 'B', 'C'):
                         ti = sym.symbols(f'POCS_{z}')
                         if z == 'A':
@@ -1396,13 +1396,13 @@ class PlotterTwinX():
 
         self.define_colors()
 
-        # for run in self.model.model_runs:
-        #     self.cost_and_convergence(run)
-        #     self.params(run)
-        #     self.poc_profiles(run)
-        #     self.residual_pdfs(run)
-        #     if 'Ti' in self.model.species:
-        #         self.ti_profiles(run)
+        for run in self.model.model_runs:
+            self.cost_and_convergence(run)
+            self.params(run)
+            self.poc_profiles(run)
+            self.residual_pdfs(run)
+            if 'Ti' in self.model.species:
+                self.ti_profiles(run)
 
     def define_colors(self):
 
@@ -1678,22 +1678,22 @@ class PlotterModelRuns(PlotterTwinX):
     def __init__(self, pickled_model):
         super().__init__(pickled_model)
 
-        # self.cp_Pt_regression()
-        # self.poc_data()
-        # if 'Ti' in self.model.species:
-        #     self.ti_data()
+        self.cp_Pt_regression()
+        self.poc_data()
+        if 'Ti' in self.model.species:
+            self.ti_data()
 
-        # for run in self.model.model_runs:
-        #     self.residual_profiles(run)
-        #     self.sinking_fluxes(run)
-        #     self.volumetric_fluxes(run)
-        #     self.budgets(run)
-        #     if run.gamma == 0.08:
-        #         self.param_comparison(run)
+        for run in self.model.model_runs:
+            self.residual_profiles(run)
+            self.sinking_fluxes(run)
+            self.volumetric_fluxes(run)
+            self.budgets(run)
+            if run.gamma == 0.08:
+                self.param_comparison(run)
 
-        # self.integrated_residuals()
+        self.integrated_residuals()
         self.param_sensitivity()
-        # self.param_relative_errors()
+        self.param_relative_errors()
 
         self.write_output()
 
@@ -2068,7 +2068,7 @@ class PlotterModelRuns(PlotterTwinX):
             
             B3 = run.param_results['B3']['est']
             a = run.param_results['a']['est']
-            D = run.param_results['D']['est']
+            D = run.param_results['DM']['est']
             Ps_A = run.tracer_results['POCS']['est'][0]
             Ps_B = np.mean(run.tracer_results['POCS']['est'][0:2])
             Ps_C = np.mean(run.tracer_results['POCS']['est'][1:3])
@@ -2438,45 +2438,83 @@ class PlotterModelRuns(PlotterTwinX):
 
     def param_relative_errors(self):
 
-        mod = self.model
-        fig, ax = plt.subplots(1, 1)
-        plt.subplots_adjust(top=0.8)
-        tset_list = [param.label for param in mod.params]
-        for i, param in enumerate(mod.params):
+        depthV = [p for p in self.model.params if p.dv]
+        depthC = [p for p in self.model.params if not p.dv]
+        runs = self.model.model_runs
+
+        art = {'A': {'c':self.ORANGE, 'm': 'o'},
+               'B': {'c':self.BLUE, 'm': '^'},
+               'C': {'c':self.GREEN, 'm': 's'},
+               'D': {'c':self.BLACK, 'm': 'd'},
+               'E': {'c':self.RADISH, 'm': 'v'},
+               'F': {'c':self.VERMILLION, 'm': '*'},
+               'G': {'c':self.SKY, 'm': 'X'},
+               'P30': {'c':self.ORANGE, 'm': 'o'},
+               'Lp': {'c':self.BLUE, 'm': '^'},
+               'DM': {'c':self.GREEN, 'm': 's'},
+               'B3': {'c':self.BLACK, 'm': 'd'},
+               'a': {'c':self.RADISH, 'm': 'v'},}
+
+        fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3)
+        fig.subplots_adjust(wspace=0.5, hspace=0.1, top=0.85, left=0.15)
+        fig.text(0.05, 0.5, 'Relative error', fontsize=14, ha='center',
+                  va='center', rotation='vertical')
+        fig.text(0.5, 0.02, '$\\gamma$', fontsize=14, ha='center', va='center')
+        
+        axs = fig.get_axes()
+        for i, param in enumerate(depthV):
             p = param.name
-            if param.dv:
-                for zone in self.model.zones:
-                    z = zone.label
-                    if z == 'LEZ':
-                        m = '^'
-                        ls = '--'
-                    else:
-                        m = 'o'
-                        ls = ':'
-                    relativeerror = [
-                        r.param_results[p][z]['err']
-                        / r.param_results[p][z]['est'] for r in mod.model_runs]
-                    ax.plot(
-                        mod.gammas, relativeerror, m, c=self.colors[i],
-                        label=f'{param.label}', fillstyle='none', ls=ls)
+            ax = axs[i]
+            ax.annotate(param.label, xy=(0.56, 0.05), xycoords='axes fraction',
+                        fontsize=14)
+            for zone in self.model.zones:
+                z = zone.label
+                rel_err = [r.param_results[p][z]['err']
+                            / r.param_results[p][z]['est'] for r in runs]
+                ax.plot(self.model.gammas, rel_err, art[z]['m'], label=z, 
+                        c=art[z]['c'], fillstyle='none', ls='--')
+            if p == 'Bm2':
+                ax.set_yscale('log')
+            ax.set_xscale('log')
+            ax.set_xticks(self.model.gammas)
+            ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
+            if i > 2:
+                ax.set_xticklabels(['0.08', '1', '5', '10'])
             else:
-                relativeerror = [
-                    r.param_results[p]['err']
-                    / r.param_results[p]['est'] for r in mod.model_runs]
-                ax.plot(mod.gammas, relativeerror, 'x', c=self.colors[i],
-                        label=f'{param.label}', ls='-.')
-        ax.set_xscale('log')
-        ax.set_xticks(mod.gammas)
+                ax.set_xticklabels([])
+
         leg_elements = [
-            Line2D([0], [0], marker='o', ls='none', color=self.colors[i],
-                   label=tset_list[i]) for i, _ in enumerate(tset_list)]
-        ax.legend(
-            handles=leg_elements, loc='lower center',
-            bbox_to_anchor=(0.49, 1), ncol=4, fontsize=12, frameon=False)
-        ax.set_xlabel('$\gamma$', fontsize=14)
-        ax.set_ylabel('Relative Error', fontsize=14)
+            Line2D([0], [0], marker=art[z]['m'], ls='none', color=art[z]['c'],
+                    label=z, fillstyle='none') for z in self.model.zone_names]
+        ax2.legend(handles=leg_elements, loc='center', ncol=7, 
+                    bbox_to_anchor=(0.4, 1.2), fontsize=12, frameon=False,
+                    handletextpad=0.01, columnspacing=1)
+
+        fig.savefig('out/paramrelerror_depthV.png')
+        plt.close()
+        
+        fig, ax = plt.subplots(1, 1, tight_layout=True)
+        ax.set_ylabel('Relative error', fontsize=14)
+        ax.set_xlabel('$\\gamma$', fontsize=14)
+        
+        for i, param in enumerate(depthC):
+            p = param.name
+            rel_err = [r.param_results[p]['err']
+                        / r.param_results[p]['est'] for r in runs]
+            ax.plot(self.model.gammas, rel_err, art[p]['m'], label=param.label, 
+                    c=art[p]['c'], fillstyle='none', ls='--')
+        ax.set_xscale('log')
+        ax.set_xticks(self.model.gammas)
         ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
-        fig.savefig('out/paramrelerror.png')
+        ax.set_xticklabels(['0.08', '1', '5', '10'])
+
+        leg_elements = [
+            Line2D([0], [0], marker=art[p.name]['m'], ls='none', label=p.label, 
+                    color=art[p.name]['c'], fillstyle='none') for p in depthC]
+        ax.legend(handles=leg_elements, loc='center', ncol=5, 
+                    bbox_to_anchor=(0.5, 1.05), fontsize=12, frameon=False,
+                    handletextpad=0.01)
+        fig.savefig('out/paramrelerror_depthC.png')
         plt.close()
     
     def budgets(self, run):
@@ -2534,14 +2572,14 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
 
-    # model_no_dvm = PyriteModel(0, [0.08])
-    # PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
-    # twinX_no_dvm = PyriteTwinX(0, [0.08])
-    # PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
+    model_no_dvm = PyriteModel(0, [0.08, 1, 5, 10])
+    PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
+    twinX_no_dvm = PyriteTwinX(0, [0.08, 1, 5, 10])
+    PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
 
-    # model_w_dvm = PyriteModel(0, [0.08, 1, 5, 10], has_dvm=True)
+    model_w_dvm = PyriteModel(0, [0.08, 1, 5, 10], has_dvm=True)
     PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
-    # twinX_w_dvm = PyriteTwinX(0, [0.08], has_dvm=True)
-    # PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
+    twinX_w_dvm = PyriteTwinX(0, [0.08, 1, 5, 10], has_dvm=True)
+    PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
