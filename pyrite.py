@@ -2194,96 +2194,29 @@ class PlotterModelRuns(PlotterTwinX):
                              'Bm2': (870/dpy, 5000/dpy)}}
                 }
 
-        """
-        # OPTION 1
-        """
-
-        fig, ([ax1, ax2, ax3], [ax4, ax5, ax6]) = plt.subplots(2, 3)
-        fig.subplots_adjust(bottom=0.2)
-        capsize = 4
-        for i, ax in enumerate((ax1, ax2, ax3, ax4, ax5, ax6)):
-            if i in (0, 3):
-                p = 'Bm1s'
-            elif i in (1, 4):
-                p = 'Bm2'
-                ax.tick_params(labelleft=False)
-            else:
-                p = 'B2'
-                ax.tick_params(labelleft=False)
-            if i < 3:
-                str_index = 'est'
-                int_index = 0
-            else:
-                str_index = 'err'
-                int_index = 1
-            ax.invert_yaxis()
-            ax.set_xscale('log')
-            for zone in self.model.zones:
-                z = zone.label
-                ub, lb = zone.depths
-                d_av = zone.mid
-                d_err = zone.thick/2
-                if p == 'B2':
-                    data_point = B2[z][int_index]
-                else:
-                    data_point = run.param_results[p][z][str_index]
-                ax.errorbar(data_point, d_av, fmt='o', yerr=d_err,
-                            c=self.GREEN, mec=self.BLACK, capsize=capsize)
-            for z in data['MNWA'].keys():
-                d_av = data['MNWA'][z]['depth']
-                d_err = data['MNWA'][z]['thick']/2
-                ax.errorbar(data['MNWA'][z][p][int_index], d_av, fmt='^',
-                            yerr=d_err, c=self.RADISH, mec=self.BLACK,
-                            capsize=4)
-            ax.scatter(data['MOSP'][p][int_index], 650, marker='s',
-                        c=self.BLUE, edgecolors=self.BLACK)
-            ax.errorbar(data['MNABE'][p][int_index], 225, fmt='d', yerr=75,
-                        c=self.ORANGE, mec=self.BLACK, capsize=capsize)
-
-        ax1.set_title('$\\beta_{-1,S}$', fontsize=14)
-        ax2.set_title('$\\beta_{-2}$', fontsize=14)
-        ax3.set_title('$\\beta_2$', fontsize=14)
-
-        ax3.yaxis.set_label_position('right')
-        ax6.yaxis.set_label_position('right')
-
-
-        leg_elements = [
-            Line2D([0], [0], marker='o', mec=self.BLACK, c=self.WHITE,
-                    label='This study \nStation P',
-                    markerfacecolor=self.GREEN, ms=9),
-            Line2D([0], [0], marker='s', mec=self.BLACK, c=self.WHITE,
-                    label='Murnane (1994)\nStation P',
-                    markerfacecolor=self.BLUE, ms=9),
-            Line2D([0], [0], marker='^', mec=self.BLACK, c=self.WHITE,
-                    label='Murnane et al. (1994)\nNWAO',
-                    markerfacecolor=self.RADISH, ms=9),
-            Line2D([0], [0], marker='d', mec=self.BLACK, c=self.WHITE,
-                    label='Murnane et al. (1996)\nNABE',
-                    markerfacecolor=self.ORANGE, ms=9)]
-        ax5.legend(handles=leg_elements, fontsize=8, loc='upper center',
-                    bbox_to_anchor=(0.5, -0.2), ncol=4, frameon=False)
         
-        """
-        # OPTION 2
-        """
-        
-        
-        fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
-        fig.subplots_adjust(bottom=0.2)
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(7, 4))
         capsize = 4
         for i, ax in enumerate((ax1, ax2, ax3)):
             if i == 0:
                 p = 'Bm1s'
+                label = f'{self.model.Bm1s.label} ({self.model.Bm1s.units})'
+                ax.set_ylabel('Depth (m)', fontsize=14)
             elif i == 1:
                 p = 'Bm2'
+                label = f'{self.model.Bm2.label} ({self.model.Bm2.units})'
                 ax.tick_params(labelleft=False)
             else:
                 p = 'B2'
+                label = '$\\beta_2$ (d$^{-1}$)'
                 ax.tick_params(labelleft=False)
 
             ax.invert_yaxis()
+            ax.set_xlabel(label, fontsize=14)
             ax.set_xscale('log')
+            ax.set_ylim([700, -50])
+            
+            
             for zone in self.model.zones:
                 z = zone.label
                 ub, lb = zone.depths
@@ -2313,15 +2246,18 @@ class PlotterModelRuns(PlotterTwinX):
                         c=self.ORANGE, capsize=capsize, zorder=4)
             ax.scatter(data['MNABE'][p][1], 225, marker='d', facecolors='none',
                        edgecolors=self.BLACK, zorder=10)
-            
-        ax1.set_title('$\\beta_{-1,S}$', fontsize=14)
-        ax2.set_title('$\\beta_{-2}$', fontsize=14)
-        ax3.set_title('$\\beta_2$', fontsize=14)
         
         ax1.set_xlim([0.001, 100000])
+        ax1.set_xticks([0.001, 0.1, 10, 1000, 10**5])
         ax2.set_xlim([0.01, 100])
+        ax2.set_xticks([0.01, 0.1, 1, 10, 100])
         ax3.set_xlim([0.0001, 1])
-
+        ax3.set_xticks([0.0001, 0.001, 0.01, 0.1, 1])
+        
+        ax1.set_aspect(1/ax1.get_data_ratio()*1.2)
+        ax2.set_aspect(1/ax2.get_data_ratio()*1.2)
+        ax3.set_aspect(1/ax2.get_data_ratio()*1.2)
+        
         ax3.yaxis.set_label_position('right')
 
 
@@ -2338,8 +2274,9 @@ class PlotterModelRuns(PlotterTwinX):
             Line2D([0], [0], marker='d', mec=self.BLACK, c=self.WHITE,
                     label='Murnane et al. (1996)\nNABE',
                     markerfacecolor=self.ORANGE, ms=9)]
-        ax2.legend(handles=leg_elements, fontsize=8, loc='upper center',
-                    bbox_to_anchor=(0.5, -0.1), ncol=4, frameon=False)
+        ax2.legend(handles=leg_elements, fontsize=10, loc='lower center',
+                    bbox_to_anchor=(0.48, 1.05), ncol=4, frameon=False,
+                    handletextpad=0.01)
 
         fig.savefig('out/compare_params.png')
         plt.close()
@@ -2572,14 +2509,14 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
 
-    # model_no_dvm = PyriteModel(0, [0.08, 1, 5, 10])
-    # PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
-    # twinX_no_dvm = PyriteTwinX(0, [0.08, 1, 5, 10])
-    # PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
+    model_no_dvm = PyriteModel(0, [0.08, 1, 5, 10])
+    PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
+    twinX_no_dvm = PyriteTwinX(0, [0.08, 1, 5, 10])
+    PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
 
-    # model_w_dvm = PyriteModel(0, [0.08, 1, 5, 10], has_dvm=True)
+    model_w_dvm = PyriteModel(0, [0.08, 1, 5, 10], has_dvm=True)
     PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
-    # twinX_w_dvm = PyriteTwinX(0, [0.08, 1, 5, 10], has_dvm=True)
-    # PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
+    twinX_w_dvm = PyriteTwinX(0, [0.08, 1, 5, 10], has_dvm=True)
+    PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
