@@ -1488,7 +1488,7 @@ class PlotterTwinX():
                             self.model.target_values[p][z]['est'], depth,
                             marker='x', s=90, c=self.GREEN)
                     if p == 'Bm2':
-                        ax.set_xlim([-30, 30])
+                        ax.set_xlim([-2, 4])
             else:
                 ax.set_xlabel(eval(f'self.model.{p}.label'), fontsize=14)
                 ax.errorbar(
@@ -2572,14 +2572,14 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
 
-    model_no_dvm = PyriteModel(0, [0.08, 1, 5, 10])
-    PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
-    twinX_no_dvm = PyriteTwinX(0, [0.08, 1, 5, 10])
-    PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
+    # model_no_dvm = PyriteModel(0, [0.08, 1, 5, 10])
+    # PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
+    # twinX_no_dvm = PyriteTwinX(0, [0.08, 1, 5, 10])
+    # PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
 
-    model_w_dvm = PyriteModel(0, [0.08, 1, 5, 10], has_dvm=True)
+    # model_w_dvm = PyriteModel(0, [0.08, 1, 5, 10], has_dvm=True)
     PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
-    twinX_w_dvm = PyriteTwinX(0, [0.08, 1, 5, 10], has_dvm=True)
-    PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
+    # twinX_w_dvm = PyriteTwinX(0, [0.08, 1, 5, 10], has_dvm=True)
+    # PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
