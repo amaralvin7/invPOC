@@ -467,9 +467,10 @@ class PyriteModel:
                 if self.has_dvm and (z in ('D', 'E', 'F', 'G')):
                     zg = self.zg
                     Ps_A, Ps_B, Ps_C = sym.symbols('POCS_A POCS_B POCS_C')
-                    B3Ps_av = (B3/zg)*(Ps_A*30
-                                       + (Ps_A + Ps_B)/2*20
-                                       + (Ps_B + Ps_C)/2*50)
+                    zoneA, zoneB, zoneC = self.zones[:3]
+                    B3Ps_av = (B3/zg)*(Ps_A*zoneA.thick
+                                       + (Ps_A + Ps_B)/2*zoneB.thick
+                                       + (Ps_B + Ps_C)/2*zoneC.thick)
                     co = np.pi/(2*(D - zg))*a*zg
                     eq += B3Ps_av*co*((D - zg)/np.pi*(
                             sym.cos(np.pi*(zim1 - zg)/(D - zg))
@@ -847,9 +848,10 @@ class PyriteModel:
                     else:
                         zg = self.zg
                         Ps_A, Ps_B, Ps_C = sym.symbols('POCS_A POCS_B POCS_C')
-                        B3Ps_av = (B3/zg)*(Ps_A*30
-                                           + (Ps_A + Ps_B)/2*20
-                                           + (Ps_B + Ps_C)/2*50)
+                        zoneA, zoneB, zoneC = self.zones[:3]
+                        B3Ps_av = (B3/zg)*(Ps_A*zoneA.thick
+                                           + (Ps_A + Ps_B)/2*zoneB.thick
+                                           + (Ps_B + Ps_C)/2*zoneC.thick)
                         co = np.pi/(2*(D - zg))*a*zg
                         y = B3Ps_av*co*((D - zg)/np.pi*(
                                 sym.cos(np.pi*(zim1 - zg)/(D - zg))
