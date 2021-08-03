@@ -844,7 +844,6 @@ class PyriteModel:
                             tim1 = sym.symbols(f'POCS_{self.previous_zone(z)}')
                             t_av = (ti + tim1)/2
                             y = B3*t_av*h
-                        y_discrete = y/h
                     else:
                         zg = self.zg
                         Ps_A, Ps_B, Ps_C = sym.symbols('POCS_A POCS_B POCS_C')
@@ -855,8 +854,7 @@ class PyriteModel:
                         y = B3Ps_av*co*((D - zg)/np.pi*(
                                 sym.cos(np.pi*(zim1 - zg)/(D - zg))
                                 - sym.cos(np.pi*(zi - zg)/(D - zg))))
-                        y_discrete = B3Ps_av*co*(
-                            sym.sin(np.pi*(zi - zg)/(D - zg)))
+                    y_discrete = y/h
                 elif 'sink_' in f:
                     if f[-1] == 'T':
                         wsi = f'ws_{z}'
@@ -2033,50 +2031,30 @@ class PlotterModelRuns(PlotterTwinX):
         if self.model.has_dvm:
             fig, (ax1, ax2) = plt.subplots(1, 2)
             fig.subplots_adjust(left=0.15, bottom=0.15, wspace=0.1)
-            fig.text(0.3, 0.05, 'Consumption Flux (mmol m$^{-3}$ d$^{-1}$)',
+            fig.text(0.33, 0.05, 'Consumption Flux (mmol m$^{-3}$ d$^{-1}$)',
                      fontsize=10, ha='center', va='center')
-            fig.text(0.7, 0.05, 'Excretion Flux (mmol m$^{-3}$ d$^{-1}$)',
+            fig.text(0.72, 0.05, 'Excretion Flux (mmol m$^{-3}$ d$^{-1}$)',
                      fontsize=10, ha='center', va='center')
             fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center',
                      va='center', rotation='vertical')
             
-            for j, z in enumerate(self.model.zones[:3]):
+            for j, z in enumerate(self.model.zones):
+                if j < 3:
+                    ax = ax1
+                else:
+                    ax = ax2
                 depths = z.depths
-                ax1.scatter(
+                ax.scatter(
                     run.flux_profiles['dvm']['est'][j], np.mean(depths), marker='o',
                     c=self.BLUE, s=7, label=eval(f'self.model.{"dvm"}.label'),
                     zorder=3, lw=0.7)
-                ax1.fill_betweenx(
+                ax.fill_betweenx(
                     depths,
                     (run.flux_profiles['dvm']['est'][j]
                      - run.flux_profiles['dvm']['err'][j]),
                     (run.flux_profiles['dvm']['est'][j]
                      + run.flux_profiles['dvm']['err'][j]),
                     color=self.BLUE, alpha=0.25)
-
-            ax2.scatter(
-                run.flux_profiles['dvm']['est'][3:], self.model.GRID[4:], marker='o',
-                c=self.BLUE, s=7, label=eval(f'self.model.{"dvm"}.label'),
-                zorder=3, lw=0.7)
-            eb1 = ax2.errorbar(
-                run.flux_profiles['dvm']['est'][3:], self.model.GRID[4:], fmt='o',
-                xerr=run.flux_profiles['dvm']['err'][3:], ecolor=self.BLUE,
-                elinewidth=0.5, c=self.BLUE, ms=1.5, capsize=2,
-                label=eval(f'self.model.{"dvm"}.label'), fillstyle='none',
-                markeredgewidth=0.5)
-            eb1[-1][0].set_linestyle('--')
-            
-            B3 = run.param_results['B3']['est']
-            a = run.param_results['a']['est']
-            D = run.param_results['DM']['est']
-            Ps_A = run.tracer_results['POCS']['est'][0]
-            Ps_B = np.mean(run.tracer_results['POCS']['est'][0:2])
-            Ps_C = np.mean(run.tracer_results['POCS']['est'][1:3])
-            B3Ps_av = (B3/self.model.zg)*(Ps_A*30 + Ps_B*20 + Ps_C*50)
-            co = np.pi/(2*(D - self.model.zg))*a*self.model.zg
-            curve = B3Ps_av*co*(
-                np.sin(np.pi*(np.arange(100, 500, 20) - self.model.zg)/(D - self.model.zg)))
-            ax2.scatter(curve, np.arange(100, 500, 20), s=0.5, c=self.BLUE)
 
             for ax in (ax1, ax2):
                 ax.set_yticks([0, 100, 200, 300, 400, 500])           
