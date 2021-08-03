@@ -344,7 +344,7 @@ class PyriteModel:
         """Return the matrix of model errors (Cf) given a value of gamma."""
 
         Cf_PsPl = np.diag(np.ones((len(self.GRID) - 1)*2)
-                          * ((self.P30.prior*self.MLD)**2)*g)
+                          * ((self.P30.prior*self.MLD*g)**2))
 
         Cf_Pt = np.diag(np.ones(len(self.GRID) - 1)
                         * (self.cp_Pt_regression_nonlinear.mse_resid))
@@ -1488,7 +1488,10 @@ class PlotterTwinX():
                             self.model.target_values[p][z]['est'], depth,
                             marker='x', s=90, c=self.GREEN)
                     if p == 'Bm2':
-                        ax.set_xlim([-2, 4])
+                        if self.is_twinX:
+                            ax.set_xlim([-2, 22])
+                        else:
+                            ax.set_xlim([-2, 4])
             else:
                 ax.set_xlabel(eval(f'self.model.{p}.label'), fontsize=14)
                 ax.errorbar(
@@ -1683,12 +1686,12 @@ class PlotterModelRuns(PlotterTwinX):
         if 'Ti' in self.model.species:
             self.ti_data()
 
-        for run in self.model.model_runs:
+        for i, run in enumerate(self.model.model_runs):
             self.residual_profiles(run)
             self.sinking_fluxes(run)
             self.volumetric_fluxes(run)
             self.budgets(run)
-            if run.gamma == 0.08:
+            if i == 0:
                 self.param_comparison(run)
 
         self.integrated_residuals()
@@ -2176,6 +2179,7 @@ class PlotterModelRuns(PlotterTwinX):
 
         
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(7, 4))
+        fig.subplots_adjust(left=0.16)
         capsize = 4
         for i, ax in enumerate((ax1, ax2, ax3)):
             if i == 0:
@@ -2195,7 +2199,6 @@ class PlotterModelRuns(PlotterTwinX):
             ax.set_xlabel(label, fontsize=14)
             ax.set_xscale('log')
             ax.set_ylim([700, -50])
-            
             
             for zone in self.model.zones:
                 z = zone.label
@@ -2255,7 +2258,7 @@ class PlotterModelRuns(PlotterTwinX):
                     label='Murnane et al. (1996)\nNABE',
                     markerfacecolor=self.ORANGE, ms=9)]
         ax2.legend(handles=leg_elements, fontsize=10, loc='lower center',
-                    bbox_to_anchor=(0.48, 1.05), ncol=4, frameon=False,
+                    bbox_to_anchor=(0.34, 1.05), ncol=4, frameon=False,
                     handletextpad=0.01)
 
         fig.savefig('out/compare_params.png')
@@ -2265,7 +2268,7 @@ class PlotterModelRuns(PlotterTwinX):
         
         art = {'POCS': {'s': 200, 'ec': 'none', 'fc': self.GREEN, 'zo': 1},
                'POCL': {'s': 400, 'ec': self.BLACK, 'fc': 'none', 'zo': 2},
-               0.08: 'o', 1: '^', 5: 'd', 10: 's'}
+               0.3: 'o', 1: '^', 5: 'd', 10: 's'}
 
         fig, ax = plt.subplots(tight_layout=True)
         ax.set_xlabel('Integrated residuals (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
@@ -2302,7 +2305,7 @@ class PlotterModelRuns(PlotterTwinX):
 
     def param_sensitivity(self):
         
-        art = {0.08: {'c': self.BLUE, 'm': 'o'},
+        art = {0.3: {'c': self.BLUE, 'm': 'o'},
                1: {'c': self.GREEN, 'm': '^'},
                5: {'c': self.ORANGE, 'm': 's'},
                10: {'c': self.RADISH, 'm': 'd'}}
@@ -2396,7 +2399,7 @@ class PlotterModelRuns(PlotterTwinX):
             ax.set_xticks(self.model.gammas)
             ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
             if i > 2:
-                ax.set_xticklabels(['0.08', '1', '5', '10'])
+                ax.set_xticklabels(['0.3', '1', '5', '10'])
             else:
                 ax.set_xticklabels([])
 
@@ -2423,7 +2426,7 @@ class PlotterModelRuns(PlotterTwinX):
         ax.set_xscale('log')
         ax.set_xticks(self.model.gammas)
         ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
-        ax.set_xticklabels(['0.08', '1', '5', '10'])
+        ax.set_xticklabels(['0.3', '1', '5', '10'])
 
         leg_elements = [
             Line2D([0], [0], marker=art[p.name]['m'], ls='none', label=p.label, 
@@ -2488,15 +2491,17 @@ if __name__ == '__main__':
 
     sys.setrecursionlimit(100000)
     start_time = time.time()
+    
+    gammas = [0.3, 1, 5, 10]
 
-    model_no_dvm = PyriteModel(0, [0.08, 1, 5, 10])
+    model_no_dvm = PyriteModel(0, gammas)
     PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
-    twinX_no_dvm = PyriteTwinX(0, [0.08, 1, 5, 10])
+    twinX_no_dvm = PyriteTwinX(0, gammas)
     PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
 
-    model_w_dvm = PyriteModel(0, [0.08, 1, 5, 10], has_dvm=True)
+    model_w_dvm = PyriteModel(0, gammas, has_dvm=True)
     PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
-    twinX_w_dvm = PyriteTwinX(0, [0.08, 1, 5, 10], has_dvm=True)
+    twinX_w_dvm = PyriteTwinX(0, gammas, has_dvm=True)
     PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
