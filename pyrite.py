@@ -35,7 +35,7 @@ class PyriteModel:
     (2021).
     """
 
-    def __init__(self, model_id, gammas, has_dvm=False,
+    def __init__(self, model_id, gammas, has_dvm=False, priors_from='NABE',
                  pickle_into='out/POC_modelruns_'):
         """Define basic model attributes and run the model.
 
@@ -46,10 +46,11 @@ class PyriteModel:
         model_ids = {0: ('POC',),
                      1: ('POC', 'Ti')}
         self.species = model_ids[model_id]
+        self.priors_from = priors_from
         self.gammas = gammas
         self.has_dvm = has_dvm
-        self.pickled = pickle_into + f'dvm{has_dvm}.pkl'
-        self.MLD= 30  # mixed layer depth
+        self.pickled = pickle_into + f'dvm{has_dvm}_' + f'{priors_from}.pkl'
+        self.MLD = 30  # mixed layer depth
         self.GRID = [0, 30, 50, 100, 150, 200, 330, 500]
         self.MAX_D = self.GRID[-1]
 
@@ -62,17 +63,16 @@ class PyriteModel:
         self.define_fluxes()
         self.process_cp_data()
         self.define_zones()
-
-        xo, xo_log, Co, Co_log = self.define_prior_vector_and_cov_matrix()
-        self.define_equation_elements()
+        self.define_state_and_equation_elements()
+        xo = self.define_prior_vector()
 
         self.model_runs = []
         for g in gammas:
             run = PyriteModelRun(g)
-            Cf = self.define_model_error_matrix(g)
-            xhat = self.ATI(xo_log, Co_log, Cf, run)
+            Co = self.define_covariance_matrix(xo, run)
+            xhat = self.ATI(xo, Co, run)
             self.calculate_total_POC(run)
-            self.calculate_residuals(xo, Co, xhat, Cf, run)
+            self.calculate_residuals(xo, Co, xhat, run)
             if str(self) != 'PyriteTwinX object':
                 inventories = self.calculate_inventories(run)
                 fluxes_sym = self.calculate_fluxes(run)
@@ -140,22 +140,36 @@ class PyriteModel:
             self.TiL = Tracer('TiL', '$Ti_L$', self.data['Ti_means'])
 
             self.tracers.extend([self.TiS, self.TiL])
+        
+        self.tracer_names = [t.name for t in self.tracers]
+        self.nte = len(self.tracers)*(len(self.GRID)-1)
 
     def define_params(self):
         """Set prior estimates and errors of model parameters."""
         P30_prior, P30_prior_e, Lp_prior, Lp_prior_e = self.process_npp_data()
         ti_dust = 2*0.0042*1000/47.867 #umol m-2 d-1
-
-        self.ws = Param(2, 2, 'ws', '$w_S$', 'm d$^{-1}$')
-        self.wl = Param(20, 15, 'wl', '$w_L$', 'm d$^{-1}$')
-        self.B2p = Param(0.5*self.MOLAR_MASS_C/self.DAYS_PER_YEAR,
-                         0.5*self.MOLAR_MASS_C/self.DAYS_PER_YEAR,
+        rel_err = 0.5
+        
+        if self.priors_from == 'OSP':
+            B2p_prior = (0.8/1.6) # m^3 mg^-1 y^-1
+            B2p_prior_e = B2p_prior*rel_err
+            Bm2_prior = 400  # y^-1
+            Bm2_prior_e = 10000
+        else:
+            B2p_prior = (2/21) # m^3 mg^-1 y^-1
+            B2p_prior_e = B2p_prior*rel_err
+            Bm2_prior = 156  # y^-1
+            Bm2_prior_e = 17
+        self.ws = Param(2, 2*rel_err, 'ws', '$w_S$', 'm d$^{-1}$')
+        self.wl = Param(20, 20*rel_err, 'wl', '$w_L$', 'm d$^{-1}$')
+        self.B2p = Param(B2p_prior*self.MOLAR_MASS_C/self.DAYS_PER_YEAR,
+                         B2p_prior_e*self.MOLAR_MASS_C/self.DAYS_PER_YEAR,
                          'B2p', '$\\beta^,_2$', 'm$^{3}$ mmol$^{-1}$ d$^{-1}$')
-        self.Bm2 = Param(400/self.DAYS_PER_YEAR,
-                         10000/self.DAYS_PER_YEAR,
+        self.Bm2 = Param(Bm2_prior/self.DAYS_PER_YEAR,
+                         Bm2_prior_e/self.DAYS_PER_YEAR,
                          'Bm2', '$\\beta_{-2}$', 'd$^{-1}$')
-        self.Bm1s = Param(0.1, 0.1, 'Bm1s', '$\\beta_{-1,S}$', 'd$^{-1}$')
-        self.Bm1l = Param(0.15, 0.15, 'Bm1l', '$\\beta_{-1,L}$', 'd$^{-1}$')
+        self.Bm1s = Param(0.1, 0.1*rel_err, 'Bm1s', '$\\beta_{-1,S}$', 'd$^{-1}$')
+        self.Bm1l = Param(0.15, 0.15*rel_err, 'Bm1l', '$\\beta_{-1,L}$', 'd$^{-1}$')
         self.P30 = Param(P30_prior, P30_prior_e, 'P30', '$\.P_{S,30}$',
                          'mmol m$^{-3}$ d$^{-1}$', depth_vary=False)
         self.Lp = Param(Lp_prior, Lp_prior_e, 'Lp', '$L_P$',
@@ -166,16 +180,18 @@ class PyriteModel:
 
         if self.has_dvm:
             self.zg = 100
-            self.B3 = Param(0.06, 0.03, 'B3', '$\\beta_3$',
+            self.B3 = Param(0.06, 0.06*rel_err, 'B3', '$\\beta_3$',
                             'd$^{-1}$', depth_vary=False)
-            self.a = Param(0.3, 0.15, 'a', '$\\alpha$', depth_vary=False)
-            self.DM = Param(500, 250, 'DM', '$D_M$', 'm', depth_vary=False)
+            self.a = Param(0.3, 0.3*rel_err, 'a', '$\\alpha$', depth_vary=False)
+            self.DM = Param(500, 500*rel_err, 'DM', '$D_M$', 'm', depth_vary=False)
             self.params.extend([self.B3, self.a, self.DM])
 
         if 'Ti' in self.species:
             self.Phi = Param(ti_dust, ti_dust, 'Phi', '$\\Phi_D$',
                               depth_vary=False)
             self.params.append(self.Phi)
+        
+        self.param_names = [p.name for p in self.params]
 
     def define_fluxes(self):
         """Define fluxes to be calculated."""
@@ -203,6 +219,7 @@ class PyriteModel:
         self.fluxes = [self.sink_S, self.sink_L, self.sink_T, self.sinkdiv_S,
                        self.sinkdiv_L, self.remin_S, self.remin_L,
                        self.aggregation, self.disaggregation, self.production]
+
         if self.has_dvm:
             self.dvm = Flux(
             'dvm', '$\\beta_3P_S$', 'POCS', 'B3', wrt=('POCS', 'POCL'))
@@ -277,89 +294,72 @@ class PyriteModel:
         if str(self) != 'PyriteTwinX object':
             self.Pt_constraint = self.Pt_mean_nonlinear
 
-    def define_prior_vector_and_cov_matrix(self):
-        """Build the prior vector (xo) and matrix of covariances (Co).
-
-        self.state_elements -- a list of strings corresponding to labels of
-        all elements in the state vector
-        """
-
+    def define_state_and_equation_elements(self):
+        
         self.state_elements = []
-
-        tracer_priors = []
-        tracer_priors_var = []
-
-        for t in self.tracers:
-            tracer_priors.append(t.prior['conc'])
-            tracer_priors_var.append(t.prior['conc_e']**2)
+        self.equation_elements = []
+        self.equation_residuals = self.tracer_names + ['POCT']
+        
+        for s in self.equation_residuals:
             for z in self.zones:
-                self.state_elements.append(f'{t.name}_{z.label}')
-
-        tracer_priors = list(itertools.chain.from_iterable(tracer_priors))
-        tracer_priors_var = list(
-            itertools.chain.from_iterable(tracer_priors_var))
-        self.nte = len(tracer_priors)  # number of tracer elements
-
-        param_priors = []
-        param_priors_var = []
+                if s != 'POCT':
+                    self.state_elements.append(f'{s}_{z.label}')
+                self.state_elements.append(f'R{s}_{z.label}')
+                self.equation_elements.append(f'{s}_{z.label}')
 
         for p in self.params:
             if p.dv:
                 for z in self.zone_names:
-                    param_priors.append(p.prior)
-                    param_priors_var.append(p.prior_e**2)
                     self.state_elements.append(f'{p.name}_{z}')
             else:
-                param_priors.append(p.prior)
-                param_priors_var.append(p.prior_e**2)
                 self.state_elements.append(f'{p.name}')
-
-        xo = np.concatenate((tracer_priors, param_priors))
-        xo_log = np.log(xo)
-        self.nse = len(xo)  # number of state elements
-
-        Co_diag = tracer_priors_var + param_priors_var
-        Co = np.diag(Co_diag)
-        Co_log_diag = [
-            np.log(1 + Co_diag[i]/(xo[i]**2)) for i in range(self.nse)]
-        Co_log = np.diag(Co_log_diag)
-
-        return xo, xo_log, Co, Co_log
-
-    def define_equation_elements(self):
-        """Define which elements that have an associated model equation.
-
-        Total POC is an element that is not a tracer, but has model equations
-        that are used as a constraint. Tracers also have associated model
-        equations
-        """
-        self.equation_elements = self.state_elements[:self.nte]
-
-        for z in self.zones:
-            self.equation_elements.append(f'POCT_{z.label}')
-
+        
+        self.nse = len(self.state_elements)
         self.nee = len(self.equation_elements)
 
-    def define_model_error_matrix(self, g):
-        """Return the matrix of model errors (Cf) given a value of gamma."""
+    def define_prior_vector(self):
+        """Build the prior vector (xo)"""
+        
+        xo = []
 
-        Cf_PsPl = np.diag(np.ones((len(self.GRID) - 1)*2)
-                          * ((self.P30.prior*self.MLD*g)**2))
+        for element in self.state_elements:
+            e = element.split('_')
+            if e[0] in self.tracer_names:
+                t = eval(f'self.{e[0]}')
+                i = self.zone_names.index(e[1])
+                xo.append(t.prior.at[i, 'conc'])
+            elif e[0] in self.param_names:
+                p = eval(f'self.{e[0]}')
+                xo.append(p.prior)
+            else:
+                xo.append(0)
 
-        Cf_Pt = np.diag(np.ones(len(self.GRID) - 1)
-                        * (self.cp_Pt_regression_nonlinear.mse_resid))
+        return np.array(xo)
+    
+    def define_covariance_matrix(self, xo, run):
+        """Build the covariance matrix (Co)."""
 
-        blocks = [Cf_PsPl, Cf_Pt]
+        Co = []
 
-        if 'Ti' in self.species:
-            n_Ti = len([i for i, el in enumerate(self.state_elements)
-                    if 'Ti' in el])
-            Cf_Ti = np.diag((np.ones(n_Ti)*(self.Phi.prior**2))*2.5)
-            blocks.append(Cf_Ti)
+        for i, element in enumerate(self.state_elements):
+            e = element.split('_')
+            if e[0] in self.tracer_names:
+                t = eval(f'self.{e[0]}')
+                j = self.zone_names.index(e[1])
+                Co_i = t.prior.at[j, 'conc_e']**2
+            elif e[0] in self.param_names:
+                p = eval(f'self.{e[0]}')
+                Co_i = p.prior_e**2
+            else:
+                if e[0] in ('RPOCS', 'RPOCL'):
+                    Co_i = (run.gamma*self.P30.prior*self.MLD)**2
+                else:
+                    Co_i = self.cp_Pt_regression_nonlinear.mse_resid
+            Co.append(Co_i)
+        
+        Co = np.diag(Co)
 
-        Cf = splinalg.block_diag(*blocks)
-
-        return Cf
+        return Co
 
     def slice_by_tracer(self, to_slice, tracer):
         """Return a slice of a list that corresponds to a given tracer.
@@ -367,10 +367,8 @@ class PyriteModel:
         to_slice -- list from which to take a slice
         tracer -- return list slice correpsonding to this tracer
         """
-        start_index = [i for i, el in enumerate(self.state_elements)
-                        if tracer in el][0]
-        sliced = to_slice[
-            start_index:(start_index + len(self.GRID) - 1)]
+        sliced = [to_slice[i] for i, e in enumerate(
+            self.state_elements) if e.split('_')[0] == tracer]
 
         return sliced
 
@@ -445,25 +443,27 @@ class PyriteModel:
                 phi = params_known['Phi']['est']
 
         if species == 'POCS':
+            RPsi = sym.symbols(f'RPOCS_{z}')
             if z == 'A':
-                eq = (-ws*Psi + Bm2*Pli*h - (B2p*Psi + Bm1s)*Psi*h)
+                eq = (-ws*Psi + Bm2*Pli*h - (B2p*Psi + Bm1s)*Psi*h) + RPsi
                 if self.has_dvm:
                     eq += -B3*Psi*h
                 if not params_known:
                     eq += P30*self.MLD
             else:
                 eq = (-ws*Psi + wsm1*Psim1 + Bm2*Pla*h
-                      - (B2p*Psa + Bm1s)*Psa*h)
+                      - (B2p*Psa + Bm1s)*Psa*h) + RPsi
                 if self.has_dvm and (z in ('B', 'C')):
                     eq += -B3*Psa*h
                 if not params_known:
                     eq += Lp*P30*(sym.exp(-(zim1 - self.MLD)/Lp)
                                   - sym.exp(-(zi - self.MLD)/Lp))
         elif species == 'POCL':
+            RPli = sym.symbols(f'RPOCL_{z}')
             if z == 'A':
-                eq = -wl*Pli + B2p*Psi**2*h - (Bm2 + Bm1l)*Pli*h
+                eq = -wl*Pli + B2p*Psi**2*h - (Bm2 + Bm1l)*Pli*h + RPli
             else:
-                eq = -wl*Pli + wlm1*Plim1 + B2p*Psa**2*h - (Bm2 + Bm1l)*Pla*h
+                eq = -wl*Pli + wlm1*Plim1 + B2p*Psa**2*h - (Bm2 + Bm1l)*Pla*h + RPli
                 if self.has_dvm and (z in ('D', 'E', 'F', 'G')):
                     zg = self.zg
                     Ps_A, Ps_B, Ps_C = sym.symbols('POCS_A POCS_B POCS_C')
@@ -476,24 +476,28 @@ class PyriteModel:
                             sym.cos(np.pi*(zim1 - zg)/(D - zg))
                             - sym.cos(np.pi*(zi - zg)/(D - zg))))
         elif species == 'POCT':
+            RPti = sym.symbols(f'RPOCT_{z}')
             Pti = self.Pt_constraint[
                 (self.equation_elements.index(f'POCT_{z}') - self.nte)]
-            eq = Pti - (Psi + Pli)
+            eq = Pti - (Psi + Pli) + RPti
         elif species == 'TiS':
+            RTsi = sym.symbols(f'RTiS_{z}')
             if z == 'A':
-                eq = -ws*Tsi + (Bm2*Tli - B2p*Psi*Tsi)*h
+                eq = -ws*Tsi + (Bm2*Tli - B2p*Psi*Tsi)*h + RTsi
                 if not params_known:
                     eq += phi
             else:
-                eq = -ws*Tsi + wsm1*Tsim1 + (Bm2*Tla - B2p*Psa*Tsa)*h
+                eq = -ws*Tsi + wsm1*Tsim1 + (Bm2*Tla - B2p*Psa*Tsa)*h + RTsi
         elif species == 'TiL':
+            RTli = sym.symbols(f'RTiL_{z}')
             if z == 'A':
-                eq = -wl*Tli + (B2p*Psi*Tsi - Bm2*Tli)*h
+                eq = -wl*Tli + (B2p*Psi*Tsi - Bm2*Tli)*h + RTli
             else:
-                eq = -wl*Tli + wlm1*Tlim1 + (B2p*Psa*Tsa - Bm2*Tla)*h
+                eq = -wl*Tli + wlm1*Tlim1 + (B2p*Psa*Tsa - Bm2*Tla)*h + RTli
+
         return eq
 
-    def extract_equation_variables(self, y, v, lognormal=False):
+    def extract_equation_variables(self, y, v):
         """Return symbolic and numerical values of variables in an equation.
 
         y -- a symbolic equation
@@ -508,15 +512,11 @@ class PyriteModel:
         for x in x_symbolic:
             element_index = self.state_elements.index(x.name)
             x_indices.append(element_index)
-            if lognormal:
-                x_numerical.append(np.exp(v[element_index]))
-            else:
-                x_numerical.append(v[element_index])
+            x_numerical.append(v[element_index])
 
         return x_symbolic, x_numerical, x_indices
 
-    def evaluate_model_equations(
-            self, v, return_F=False, lognormal=False, params_known=None):
+    def evaluate_model_equations(self, v, return_F=False, params_known=None):
         """Evaluates model equations, and Jacobian matrix (if specified).
 
         v -- list of values from which to draw numerical values
@@ -543,17 +543,12 @@ class PyriteModel:
                     break
             y = self.equation_builder(
                 species, zone, params_known=params_known)
-            x_sym, x_num, x_ind = self.extract_equation_variables(
-                y, v, lognormal=lognormal)
+            x_sym, x_num, x_ind = self.extract_equation_variables(y, v)
             f[i] = sym.lambdify(x_sym, y)(*x_num)
             if return_F:
                 for j, x in enumerate(x_sym):
-                    if lognormal:
-                        dy = y.diff(x)*x  # dy/d(ln(x)) = x*dy/dx
-                    else:
-                        dy = y.diff(x)
-                    dx_sym, dx_num, _ = self.extract_equation_variables(
-                        dy, v, lognormal=lognormal)
+                    dy = y.diff(x)
+                    dx_sym, dx_num, _ = self.extract_equation_variables(dy, v)
                     F[i, x_ind[j]] = sym.lambdify(dx_sym, dy)(*dx_num)
 
         if return_F:
@@ -572,15 +567,17 @@ class PyriteModel:
         x_symbolic = y.free_symbols
         x_numerical = []
         x_indices = []
-
         for x in x_symbolic:
             x_indices.append(self.state_elements.index(x.name))
             if '_' in x.name:  # if it varies with depth
                 element, zone = x.name.split('_')
-                if element in run.tracer_results:  # if it's a tracer
+                if element in self.tracer_names:  # if it's a tracer
                     di = self.zone_names.index(zone)
                     x_numerical.append(
                         run.tracer_results[element]['est'][di])
+                elif element[1:] in self.equation_residuals:  # residuals
+                    x_numerical.append(
+                        run.integrated_resids[element[1:]][zone][0])
                 else:  # if it's a depth-varying parameter
                     x_numerical.append(
                         run.param_results[element][zone]['est'])
@@ -610,12 +607,11 @@ class PyriteModel:
 
         return result, error
 
-    def ATI(self, xo_log, Co_log, Cf, run):
+    def ATI(self, xo, Co, run):
         """Algorithm of total inversion, returns a vector of state estimates.
 
         xo_log -- log-transformed prior vector
         Co_log -- log-transformed covariance matrix
-        Cf -- model error matrix
         run -- model run whose results are being calculated
         xhat -- Vector that holds estimates of the state elements
         (i.e., the solution vector)
@@ -634,12 +630,12 @@ class PyriteModel:
             f -- vector of model equations
             F -- Jacobian matrix
             """
-            CoFT = Co_log @ F.T
+            CoFT = Co @ F.T
             FCoFT = F @ CoFT
-            FCoFTpCfi = np.linalg.inv(FCoFT + Cf)
-            xkp1 = (xo_log + CoFT @ FCoFTpCfi @ (F @ (xk - xo_log) - f))
+            FCoFTi = np.linalg.inv(FCoFT)
+            xkp1 = xo + CoFT @ FCoFTi @ (F @ (xk - xo) - f)
 
-            return xkp1, CoFT, FCoFTpCfi
+            return xkp1, CoFT, FCoFTi
 
         def check_convergence(xk, xkp1):
             """Return whether or not the ATI has converged after an iteration.
@@ -649,7 +645,7 @@ class PyriteModel:
             """
             converged = False
             max_change_limit = 0.01
-            change = np.abs((np.exp(xkp1) - np.exp(xk))/np.exp(xk))
+            change = np.abs((xkp1 - xk)/xk)
             run.convergence_evolution.append(np.max(change))
             if np.max(change) < max_change_limit:
                 converged = True
@@ -658,56 +654,43 @@ class PyriteModel:
 
         def calculate_cost(xk, f):
             """Calculate the cost at a given iteration"""
-            cost = ((xk - xo_log).T @ np.linalg.inv(Co_log) @ (xk - xo_log)
-                    + f.T @ np.linalg.inv(Cf) @ f)
+            cost = (xk - xo).T @ np.linalg.inv(Co) @ (xk - xo)
 
             run.cost_evolution.append(cost)
 
         def find_solution():
             """Iteratively finds a solution of the state vector."""
-            max_iterations = 200
+            max_iterations = 100
 
-            xk = xo_log  # estimate of state vector at iteration k
+            xk = xo
             xkp1 = np.ones(len(xk))  # at iteration k+1
-            for _ in range(max_iterations):
-                f, F = self.evaluate_model_equations(
-                    xk, return_F=True, lognormal=True)
-                xkp1, CoFT, FCoFTpCfi = calculate_xkp1(xk, f, F)
-                calculate_cost(xk, f)
-                run.converged = check_convergence(xk, xkp1)
-                if run.converged:
-
-                    break
+            for count in range(max_iterations):
+                f, F = self.evaluate_model_equations(xk, return_F=True)
+                xkp1, CoFT, FCoFTi = calculate_xkp1(xk, f, F)
+                if count > 0:
+                    calculate_cost(xk, f)
+                    run.converged = check_convergence(xk, xkp1)
+                    if run.converged:
+                        break
                 xk = xkp1
-            print(f'{run.gamma}: {run.converged}')
 
-            return F, xkp1, CoFT, FCoFTpCfi
+            print(f'{run.gamma}: {run.converged}')
+            
+            for i, x in enumerate(xkp1):
+                if x < 0:
+                    print(self.state_elements[i])
+
+            return F, xkp1, CoFT, FCoFTi
 
         def unlog_state_estimates():
             """Convert state estimates from lognormal to normal space."""
-            F, xkp1, CoFT, FCoFTpCfi = find_solution()
-            Id = np.identity(Co_log.shape[0])
+            F, xkp1, CoFT, FCoFTi = find_solution()
 
-            Ckp1 = ((Id - CoFT @ FCoFTpCfi @ F) @ Co_log
-                    @ (Id - F.T @ FCoFTpCfi @ F @ Co_log))
-
-            expected_vals_log = xkp1
-            variances_log = np.diag(Ckp1)
-
-            xhat = np.exp(expected_vals_log + variances_log/2)
-            xhat_e = np.sqrt(
-                np.exp(2*expected_vals_log + variances_log)
-                * (np.exp(variances_log) - 1))
-
-            run.cvm = np.zeros(  # covaraince matrix of posterior estimates
-                (len(xhat), len(xhat)))
-
-            for i, row in enumerate(run.cvm):
-                for j, _ in enumerate(row):
-                    ei, ej = expected_vals_log[i], expected_vals_log[j]
-                    vi, vj = variances_log[i], variances_log[j]
-                    run.cvm[i, j] = (np.exp(ei + ej)*np.exp((vi + vj)/2)
-                                     * (np.exp(Ckp1[i, j]) - 1))
+            Ckp1 = Co - CoFT @ FCoFTi @ F @ Co
+                    
+            run.cvm = Ckp1
+            xhat = xkp1
+            xhat_e = np.sqrt(np.diag(Ckp1))
 
             return xhat, xhat_e
 
@@ -715,22 +698,28 @@ class PyriteModel:
             """Unpack estimates and errors of state elements for later use."""
             xhat, xhat_e = unlog_state_estimates()
 
-            for t in self.tracers:
-                run.tracer_results[t.name] = {
-                    'est': self.slice_by_tracer(xhat, t.name),
-                    'err': self.slice_by_tracer(xhat_e, t.name)}
+            for t in self.tracer_names:
+                run.tracer_results[t] = {
+                    'est': self.slice_by_tracer(xhat, t),
+                    'err': self.slice_by_tracer(xhat_e, t)}
 
+            for t in self.equation_residuals:
+                run.integrated_resids[t] = {}
+                for z in self.zone_names:
+                    run.integrated_resids[t][z] = (
+                        xhat[self.state_elements.index(f'R{t}_{z}')],
+                        xhat_e[self.state_elements.index(f'R{t}_{z}')])
+                
             for param in self.params:
                 p = param.name
                 if param.dv:
                     run.param_results[p] = {
-                        zone.label: {} for zone in self.zones}
-                    for zone in self.zones:
-                        z = zone.label
+                        z: {} for z in self.zone_names}
+                    for z in self.zone_names:
                         zone_param = '_'.join([p, z])
                         i = self.state_elements.index(zone_param)
                         run.param_results[p][z] = {'est': xhat[i],
-                                                   'err': xhat_e[i]}
+                                                    'err': xhat_e[i]}
                 else:
                     i = self.state_elements.index(p)
                     run.param_results[p] = {'est': xhat[i],
@@ -748,23 +737,11 @@ class PyriteModel:
             run.Pt_results['est'].append(Pt_est)
             run.Pt_results['err'].append(Pt_err)
 
-    def calculate_residuals(self, xo, Co, xhat, Cf, run):
+    def calculate_residuals(self, xo, Co, xhat, run):
         """Calculate solution and equation residuals."""
         x_residuals = xhat - xo
         norm_x_residuals = x_residuals/np.sqrt(np.diag(Co))
         run.x_resids = norm_x_residuals
-
-        f_residuals = self.evaluate_model_equations(xhat)
-        norm_f_residuals = f_residuals/np.sqrt(np.diag(Cf))
-        run.f_resids = norm_f_residuals
-
-        for t in run.tracer_results:
-            run.tracer_results[t]['resids'] = self.slice_by_tracer(
-                f_residuals, t)
-
-        run.tracer_results['POCT'] = {}
-        run.tracer_results['POCT']['resids'] = f_residuals[
-            -(len(self.GRID) - 1):]
 
     def calculate_inventories(self, run):
         """Calculate inventories of the model tracers in each grid zone."""
@@ -774,8 +751,7 @@ class PyriteModel:
 
         for t in ('POCS', 'POCL'):
             run.inventories[t] = {}
-            inventory_sym[t] = {}
-            run.integrated_resids_check[t]   = {}              
+            inventory_sym[t] = {}             
             for sz in zone_dict.keys():
                 sz_inventory = 0 
                 run.inventories[t][sz] = {}
@@ -795,9 +771,6 @@ class PyriteModel:
                     run.inventories[t][z] = self.eval_symbolic_func(run, z_inventory)
                     inventory_sym[t][z] = z_inventory
                     sz_inventory += z_inventory
-                    run.integrated_resids_check[t][z] = (
-                        run.tracer_results[t]['resids'][
-                            self.zone_names.index(z)])
                 run.inventories[t][sz] = self.eval_symbolic_func(run, sz_inventory)
                 inventory_sym[t][sz] = sz_inventory
         return inventory_sym
@@ -925,27 +898,17 @@ class PyriteModel:
     def integrate_residuals(self, fluxes, flux_int_sym, run):
         """Integrate model equation residuals within each model grid zone."""
 
-        for t in ('POCS', 'POCL'):
-            run.integrated_resids[t] = {}          
-            for z in flux_int_sym['sinkdiv_S'].keys():
-                if t == 'POCS':
-                    resid = (flux_int_sym['production'][z]
-                             + flux_int_sym['disaggregation'][z]
-                             - flux_int_sym['sinkdiv_S'][z]
-                             - flux_int_sym['remin_S'][z]
-                             - flux_int_sym['aggregation'][z])
-                    if self.has_dvm and z in ('LEZ', 'A', 'B', 'C'):
-                        resid += -flux_int_sym['dvm'][z]
-                if t == 'POCL':
-                    resid = (flux_int_sym['aggregation'][z]
-                             - flux_int_sym['sinkdiv_L'][z]
-                             - flux_int_sym['remin_L'][z]
-                             - flux_int_sym['disaggregation'][z])
-                    if self.has_dvm and z in ('UMZ', 'D', 'E', 'F', 'G'):
-                        resid += flux_int_sym['dvm'][z]
-                run.integrated_resids[t][z] = self.eval_symbolic_func(
-                    run, resid)
+        zone_dict = {'LEZ': self.zone_names[:3], 'UMZ': self.zone_names[3:]}
 
+        for t in run.integrated_resids.keys():              
+            for sz in zone_dict.keys():
+                run.integrated_resids[t][sz] = {}
+                to_integrate = 0
+                for z in zone_dict[sz]:
+                    to_integrate += sym.symbols(f'R{t}_{z}')
+                run.integrated_resids[t][sz] = self.eval_symbolic_func(
+                    run, to_integrate)
+        
     def calculate_timescales(self, inventory_sym, fluxes, flux_int_sym, run):
         """Calculate turnover timescales associated with each model flux."""
 
@@ -1425,27 +1388,27 @@ class PlotterTwinX():
         k = len(run.cost_evolution)
 
         fig, ax = plt.subplots(1, tight_layout=True)
-        ax.plot(np.arange(1, k+1), run.convergence_evolution,
+        ax.plot(np.arange(2, k+2), run.convergence_evolution,
                 marker='o', ms=3, c=self.BLUE)
         ax.set_yscale('log')
         ax.set_xlabel('Iteration, $k$', fontsize=16)
         ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',
                       fontsize=16)
 
-        filename = f'out/conv_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}'
+        filename = f'out/conv_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}_{self.model.priors_from}'
         if self.is_twinX:
             filename += '_TE'
         fig.savefig(f'{filename}.png')
         plt.close()
 
         fig, ax = plt.subplots(1, tight_layout=True)
-        ax.plot(np.arange(1, k+1), run.cost_evolution, marker='o', ms=3,
+        ax.plot(np.arange(2, k+2), run.cost_evolution, marker='o', ms=3,
                 c=self.BLUE)
         ax.set_xlabel('Iteration, $k$', fontsize=16)
         ax.set_ylabel('Cost, $J$', fontsize=16)
-        ax.set_yscale('log')
+        # ax.set_yscale('log')
 
-        filename = f'out/cost_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}'
+        filename = f'out/cost_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}_{self.model.priors_from}'
         if self.is_twinX:
             filename += '_TE'
         fig.savefig(f'{filename}.png')
@@ -1487,11 +1450,11 @@ class PlotterTwinX():
                         ax.scatter(
                             self.model.target_values[p][z]['est'], depth,
                             marker='x', s=90, c=self.GREEN)
-                    if p == 'Bm2':
-                        if self.is_twinX:
-                            ax.set_xlim([-2, 22])
-                        else:
-                            ax.set_xlim([-2, 4])
+                    # if p == 'Bm2':
+                    #     if self.is_twinX:
+                    #         ax.set_xlim([-2, 22])
+                    #     else:
+                    #         ax.set_xlim([-2, 4])
             else:
                 ax.set_xlabel(eval(f'self.model.{p}.label'), fontsize=14)
                 ax.errorbar(
@@ -1512,7 +1475,7 @@ class PlotterTwinX():
                 ax.tick_params(bottom=False, labelbottom=False)
                 ax.set_xticks(np.arange(maxtick[self.is_twinX]))
 
-            filename = f'out/{p}_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}'
+            filename = f'out/{p}_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}_{self.model.priors_from}'
             if self.is_twinX:
                 filename += '_TE'
             fig.savefig(f'{filename}.png')
@@ -1591,7 +1554,7 @@ class PlotterTwinX():
             if ax in (ax2, ax3):
                 ax.tick_params(labelleft=False)
 
-        filename = f'out/POCprofs_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}'
+        filename = f'out/POCprofs_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}_{self.model.priors_from}'
         if self.is_twinX:
             filename += '_TE'
         fig.savefig(f'{filename}.png')
@@ -1644,26 +1607,33 @@ class PlotterTwinX():
                       loc='lower right')
             ax.tick_params(axis='both', which='major', labelsize=12)
 
-        filename = f'out/Tiprofs_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}'
+        filename = f'out/Tiprofs_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}_{self.model.priors_from}'
         if self.is_twinX:
             filename += '_TE'
         fig.savefig(f'{filename}.png')
         plt.close()
 
     def residual_pdfs(self, run):
-
-        fig, [ax1, ax2] = plt.subplots(1, 2, tight_layout=True)
-        fig.subplots_adjust(wspace=0.5)
+        
+        state_vars = list(run.x_resids)
+        eq_resids = []
+        
+        j = 0
+        for i, x in enumerate(self.model.state_elements):
+            if 'R' in x:
+                eq_resids.append(state_vars.pop(j))
+            else:
+                j += 1
+                   
+        fig, (ax1, ax2) = plt.subplots(1, 2, tight_layout=True)
         ax1.set_ylabel('Probability Density', fontsize=16)
-        ax1.set_xlabel(r'$\frac{\^x_{i}-x_{o,i}}{\sigma_{o,i}}$', fontsize=24)
-        ax1.hist(run.x_resids, density=True, bins=20, color=self.BLUE)
-        ax2.hist(run.f_resids, density=True, bins=20, color=self.BLUE)
-        ax2.set_xlabel(r'$\frac{f(\^x)_{i}}{\sigma_{f(\^x)_{i}}}$',
-                       fontsize=24)
-        for ax in (ax1, ax2):
-            ax1.set_xlim([-1, 1])
+        ax1.set_xlabel(r'$\frac{\^x_{i}-x_{o,i}}{\sigma_{o,i}}$', fontsize=14)
+        ax2.set_xlabel(r'$\frac{\^\varepsilon}{\sigma_\varepsilon}$', fontsize=14)
+        
+        ax1.hist(state_vars, density=True, color=self.BLUE)
+        ax2.hist(eq_resids, density=True, color=self.BLUE)
 
-        filename = f'out/pdfs_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}'
+        filename = f'out/pdfs_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}_{self.model.priors_from}'
         if self.is_twinX:
             filename += '_TE'
         fig.savefig(f'{filename}.png')
@@ -1694,9 +1664,9 @@ class PlotterModelRuns(PlotterTwinX):
             if i == 0:
                 self.param_comparison(run)
 
-        self.integrated_residuals()
-        self.param_sensitivity()
-        self.param_relative_errors()
+        # self.integrated_residuals()
+        # self.param_sensitivity()
+        # self.param_relative_errors()
 
         self.write_output()
 
@@ -1850,20 +1820,38 @@ class PlotterModelRuns(PlotterTwinX):
 
         fig, [ax1, ax2, ax3] = plt.subplots(1, 3, tight_layout=True)
         fig.subplots_adjust(wspace=0.5)
+        
+        axs = (ax1, ax2, ax3)
+        for ax in axs:
+            ax.invert_yaxis()
 
         ax1.set_xlabel('$P_{S}$ (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
         ax2.set_xlabel('$P_{L}$ (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
         ax3.set_xlabel('$P_{T}$ (mmol m$^{-3}$)', fontsize=14)
         ax1.set_ylabel('Depth (m)', fontsize=14)
 
-        ax1.scatter(run.tracer_results['POCS']['resids'], self.model.GRID[1:])
-        ax2.scatter(run.tracer_results['POCL']['resids'], self.model.GRID[1:])
-        ax3.scatter(run.tracer_results['POCT']['resids'], self.model.GRID[1:])
+        for i, r in enumerate(self.model.equation_residuals):
+            ax = axs[i]
+            if i < 2:
+                prior_err = run.gamma*self.model.P30.prior*self.model.MLD
+            else:
+                prior_err = np.sqrt(self.model.cp_Pt_regression_nonlinear.mse_resid)
+            for j, zone in enumerate(self.model.zones):
+                depths = zone.depths
+                z = zone.label
+                ax.scatter(run.integrated_resids[r][z][0], np.mean(depths),
+                           marker='o', c=self.BLUE, s=7, zorder=3, lw=0.7)
+                ax.fill_betweenx(
+                    depths,
+                    (run.integrated_resids[r][z][0]
+                     - run.integrated_resids[r][z][1]),
+                    (run.integrated_resids[r][z][0]
+                     + run.integrated_resids[r][z][1]),
+                    color=self.BLUE, alpha=0.25)
+            ax.axvline(prior_err, ls=':', c=self.BLACK)
+            ax.axvline(-prior_err, ls=':', c=self.BLACK)
 
-        for ax in (ax1, ax2, ax3):
-            ax.invert_yaxis()
-
-        fig.savefig(f'out/POC_resids_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}.png')
+        fig.savefig(f'out/POC_resids_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}_{self.model.priors_from}.png')
         plt.close()
 
         if 'Ti' in self.model.species:
@@ -1884,7 +1872,7 @@ class PlotterModelRuns(PlotterTwinX):
                 ax.invert_yaxis()
 
             fig.savefig(
-                f'out/Ti_resids_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}.png')
+                f'out/Ti_resids_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}_{self.model.priors_from}.png')
             plt.close()
 
     def sinking_fluxes(self, run):
@@ -1950,7 +1938,7 @@ class PlotterModelRuns(PlotterTwinX):
         ax2.annotate(
             'B', xy=(0.91, 0.94), xycoords='axes fraction', fontsize=16)
 
-        fig.savefig(f'out/sinkfluxes_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}.png')
+        fig.savefig(f'out/sinkfluxes_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}_{self.model.priors_from}.png')
         plt.close()
 
     def volumetric_fluxes(self, run):
@@ -2030,7 +2018,7 @@ class PlotterModelRuns(PlotterTwinX):
             ax.set_ylim(
                 top=0, bottom=505)
         fig.savefig(
-            f'out/fluxes_volumetric_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}.png')
+            f'out/fluxes_volumetric_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}_{self.model.priors_from}.png')
         plt.close()
         
         if self.model.has_dvm:
@@ -2069,12 +2057,12 @@ class PlotterModelRuns(PlotterTwinX):
             ax2.tick_params(labelleft=False)
                     
             fig.savefig(
-                f'out/dvmflux_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}.png')
+                f'out/dvmflux_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}_{self.model.priors_from}')
             plt.close()
 
     def write_output(self):
 
-        file = f'out/pyrite_out_dvm{self.model.has_dvm}.txt'
+        file = f'out/pyrite_out_dvm{self.model.has_dvm}_{self.model.priors_from}.txt'
         with open(file, 'w') as f:
             for run in self.model.model_runs:
                 print('#################################', file=f)
@@ -2125,7 +2113,7 @@ class PlotterModelRuns(PlotterTwinX):
                 print('+++++++++++++++++++++++++++', file=f)
                 for z in zones_to_print:
                     print(f'--------{z}--------', file=f)
-                    for t in run.integrated_resids.keys():
+                    for t in self.model.tracer_names:
                         print(f'***{t}***', file=f)
                         for flx in run.timescales[t][z]:
                             est, err = run.timescales[t][z][flx]
@@ -2261,14 +2249,14 @@ class PlotterModelRuns(PlotterTwinX):
                     bbox_to_anchor=(0.34, 1.05), ncol=4, frameon=False,
                     handletextpad=0.01)
 
-        fig.savefig('out/compare_params.png')
+        fig.savefig(f'out/compare_params_dvm{self.model.has_dvm}_{self.model.priors_from}')
         plt.close()
 
     def integrated_residuals(self):
         
         art = {'POCS': {'s': 200, 'ec': 'none', 'fc': self.GREEN, 'zo': 1},
                'POCL': {'s': 400, 'ec': self.BLACK, 'fc': 'none', 'zo': 2},
-               0.3: 'o', 1: '^', 5: 'd', 10: 's'}
+               1: 'o', 5: '^', 10: 'd', 100: 's'}
 
         fig, ax = plt.subplots(tight_layout=True)
         ax.set_xlabel('Integrated residuals (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
@@ -2305,10 +2293,10 @@ class PlotterModelRuns(PlotterTwinX):
 
     def param_sensitivity(self):
         
-        art = {0.3: {'c': self.BLUE, 'm': 'o'},
-               1: {'c': self.GREEN, 'm': '^'},
-               5: {'c': self.ORANGE, 'm': 's'},
-               10: {'c': self.RADISH, 'm': 'd'}}
+        art = {1: {'c': self.BLUE, 'm': 'o'},
+               5: {'c': self.GREEN, 'm': '^'},
+               10: {'c': self.ORANGE, 'm': 's'},
+               100: {'c': self.RADISH, 'm': 'd'}}
         
         for param in self.model.params:
             p = param.name
@@ -2393,13 +2381,13 @@ class PlotterModelRuns(PlotterTwinX):
                             / r.param_results[p][z]['est'] for r in runs]
                 ax.plot(self.model.gammas, rel_err, art[z]['m'], label=z, 
                         c=art[z]['c'], fillstyle='none', ls='--')
-            if p == 'Bm2':
-                ax.set_yscale('log')
+            # if p == 'Bm2':
+            #     ax.set_yscale('log')
             ax.set_xscale('log')
             ax.set_xticks(self.model.gammas)
             ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
             if i > 2:
-                ax.set_xticklabels(['0.3', '1', '5', '10'])
+                ax.set_xticklabels(['1', '5', '10', '100'])
             else:
                 ax.set_xticklabels([])
 
@@ -2426,7 +2414,7 @@ class PlotterModelRuns(PlotterTwinX):
         ax.set_xscale('log')
         ax.set_xticks(self.model.gammas)
         ax.get_xaxis().set_major_formatter(ticker.ScalarFormatter())
-        ax.set_xticklabels(['0.3', '1', '5', '10'])
+        ax.set_xticklabels(['1', '5', '10', '100'])
 
         leg_elements = [
             Line2D([0], [0], marker=art[p.name]['m'], ls='none', label=p.label, 
@@ -2483,7 +2471,7 @@ class PlotterModelRuns(PlotterTwinX):
                     tick.set_rotation(45)
 
             fig.savefig(
-                f'out/budget_{z}_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}.png')
+                f'out/budget_{z}_gam{str(run.gamma).replace(".","p")}_dvm{self.model.has_dvm}_{self.model.priors_from}.png')
             plt.close()
 
 
@@ -2492,16 +2480,11 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
     
-    gammas = [0.3, 1, 5, 10]
+    gammas = [0.5]
 
-    model_no_dvm = PyriteModel(0, gammas)
-    PlotterModelRuns('out/POC_modelruns_dvmFalse.pkl')
-    twinX_no_dvm = PyriteTwinX(0, gammas)
-    PlotterTwinX('out/POC_twinX_dvmFalse.pkl')
-
-    model_w_dvm = PyriteModel(0, gammas, has_dvm=True)
-    PlotterModelRuns('out/POC_modelruns_dvmTrue.pkl')
-    twinX_w_dvm = PyriteTwinX(0, gammas, has_dvm=True)
-    PlotterTwinX('out/POC_twinX_dvmTrue.pkl')
+    model_nabe = PyriteModel(0, gammas, has_dvm=True, priors_from='NABE')
+    PlotterModelRuns('out/POC_modelruns_dvmTrue_NABE.pkl')
+    model_osp = PyriteModel(0, gammas, has_dvm=True, priors_from='OSP')
+    PlotterModelRuns('out/POC_modelruns_dvmTrue_OSP.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
