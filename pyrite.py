@@ -151,13 +151,13 @@ class PyriteModel:
         rel_err = 0.5
         
         if self.priors_from == 'OSP':
-            B2p_prior = (0.8/1.6) # m^3 mg^-1 y^-1
-            B2p_prior_e = B2p_prior*rel_err
+            B2p_prior = (0.8/1.57) # m^3 mg^-1 y^-1
+            B2p_prior_e = np.sqrt((0.9/1.57)**2 + (-0.48*(0.8/1.57**2))**2)
             Bm2_prior = 400  # y^-1
             Bm2_prior_e = 10000
         else:
             B2p_prior = (2/21) # m^3 mg^-1 y^-1
-            B2p_prior_e = B2p_prior*rel_err
+            B2p_prior_e = np.sqrt((0.2/21)**2 + (-1*(2/21**2))**2)
             Bm2_prior = 156  # y^-1
             Bm2_prior_e = 17
         self.ws = Param(2, 2*rel_err, 'ws', '$w_S$', 'm d$^{-1}$')
@@ -182,8 +182,8 @@ class PyriteModel:
             self.zg = 100
             self.B3 = Param(0.06, 0.06*rel_err, 'B3', '$\\beta_3$',
                             'd$^{-1}$', depth_vary=False)
-            self.a = Param(0.3, 0.3*rel_err, 'a', '$\\alpha$', depth_vary=False)
-            self.DM = Param(500, 500*rel_err, 'DM', '$D_M$', 'm', depth_vary=False)
+            self.a = Param(0.3, 0.15, 'a', '$\\alpha$', depth_vary=False)
+            self.DM = Param(500, 250, 'DM', '$D_M$', 'm', depth_vary=False)
             self.params.extend([self.B3, self.a, self.DM])
 
         if 'Ti' in self.species:
