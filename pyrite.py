@@ -1288,7 +1288,7 @@ class PyriteTwinX(PyriteModel):
             for ax in (ax1, ax2, ax3):
                 ax.invert_yaxis()
 
-            fig.savefig(f'out/POC_fwd_{self.model.priors_from}_dvm{self.model.has_dvm}')
+            fig.savefig(f'out/fwd_POC_{self.model.priors_from}_dvm{self.model.has_dvm}')
             plt.close()
 
             if 'Ti' in self.model.species:
@@ -1642,7 +1642,7 @@ class PlotterTwinX():
         ax1.hist(state_vars, density=True, color=self.BLUE)
         ax2.hist(eq_resids, density=True, color=self.BLUE)
 
-        filename = f'out/POC_pdfs{suffix}'
+        filename = f'out/pdfs{suffix}'
         if self.is_twinX:
             filename += '_TE'
         fig.savefig(f'{filename}.png')
@@ -1864,7 +1864,7 @@ class PlotterModelRuns(PlotterTwinX):
             if ax in (ax1, ax3):
                 ax.set_xlim([-0.2, 3.4])
 
-        fig.savefig('out/poc_data.png')
+        fig.savefig('out/data_POC.png')
         plt.close()
 
     def ti_data(self):
@@ -1951,7 +1951,7 @@ class PlotterModelRuns(PlotterTwinX):
         st_depths = st_fluxes['depth']
         st_flux = st_fluxes['flux']
         st_flux_u = st_fluxes['flux_u']
-
+        
         fig, (ax1, ax2) = plt.subplots(1, 2)
         ax1.set_ylabel('Depth (m)', fontsize=14)
         fig.text(
@@ -1961,43 +1961,40 @@ class PlotterModelRuns(PlotterTwinX):
             ax.invert_yaxis()
             ax.set_ylim(
                 top=0, bottom=520)
-
-        eb1 = ax1.errorbar(
-            run.flux_profiles['sink_S']['est'], self.model.GRID[1:], fmt='o',
-            xerr=run.flux_profiles['sink_S']['err'], ecolor=self.BLUE,
-            elinewidth=0.5, c=self.BLUE, ms=3, capsize=2,
-            label=self.model.sink_S.label, fillstyle='none',
-            markeredgewidth=0.5)
-        eb1[-1][0].set_linestyle('--')
-        eb2 = ax1.errorbar(
-            run.flux_profiles['sink_L']['est'], self.model.GRID[1:], fmt='o',
-            xerr=run.flux_profiles['sink_L']['err'], ecolor=self.ORANGE,
-            elinewidth=0.5, c=self.ORANGE, ms=3, capsize=2,
-            label=self.model.sink_L.label, fillstyle='none',
-            markeredgewidth=0.5)
-        eb2[-1][0].set_linestyle(':')
+        
+        ax1.errorbar(
+            run.flux_profiles['sink_S']['est'],
+            np.array(self.model.GRID[1:]) + 5,
+            fmt='o', xerr=run.flux_profiles['sink_S']['err'], ecolor=self.BLUE,
+            c=self.BLUE, capsize=4, label=self.model.sink_S.label,
+            fillstyle='none', elinewidth=1.5, capthick=1.5)
+        
+        ax1.errorbar(
+            run.flux_profiles['sink_L']['est'],
+            np.array(self.model.GRID[1:]) - 5,
+            fmt='o', xerr=run.flux_profiles['sink_L']['err'],
+            ecolor=self.ORANGE, c=self.ORANGE, capsize=4,
+            label=self.model.sink_L.label, fillstyle='none', elinewidth=1.5,
+            capthick=1.5)
+        
         ax1.legend(loc='lower right', fontsize=10)
         ax1.annotate(
             'A', xy=(0.91, 0.94), xycoords='axes fraction', fontsize=16)
-
+        
         ax2.tick_params(labelleft=False)
-        eb3 = ax2.errorbar(
+        ax2.errorbar(
             run.flux_profiles['sink_T']['est'], self.model.GRID[1:], fmt='o',
-            xerr=run.flux_profiles['sink_T']['err'], ecolor=self.SKY,
-            elinewidth=0.5, c=self.SKY, ms=3, capsize=2, zorder=3,
-            label=self.model.sink_T.label, fillstyle='none',
-            markeredgewidth=0.5)
-        eb3[-1][0].set_linestyle('--')
-        eb4 = ax2.errorbar(
-            th_flux, th_depths, fmt='^', xerr=th_flux_u,
-            ecolor=self.GREEN, elinewidth=1.5, c=self.GREEN, ms=4, capsize=2,
-            label='$^{234}$Th-based', markeredgewidth=1.5)
-        eb4[-1][0].set_linestyle(':')
-        eb5 = ax2.errorbar(
-            st_flux, st_depths, fmt='^', xerr=st_flux_u,
-            ecolor=self.VERMILLION, elinewidth=1.5, c=self.VERMILLION, ms=4,
-            capsize=2, label='Sediment Traps', markeredgewidth=1.5)
-        eb5[-1][0].set_linestyle(':')
+            xerr=run.flux_profiles['sink_T']['err'], ecolor=self.BLACK,
+            c=self.BLACK, capsize=4, zorder=3, label=self.model.sink_T.label,
+            fillstyle='none', elinewidth=1.5, capthick=1.5)
+        ax2.errorbar(
+            th_flux, th_depths+10, fmt='^', xerr=th_flux_u, ecolor=self.GREEN,
+            c=self.GREEN, capsize=4, label='$^{234}$Th-based', elinewidth=1.5,
+            capthick=1.5)
+        ax2.errorbar(
+            st_flux, st_depths-10, fmt='d', xerr=st_flux_u, ecolor=self.SKY,
+            c=self.SKY, capsize=4, label='Sed. Traps', elinewidth=1.5,
+            capthick=1.5)
         ax2.legend(loc='lower right', fontsize=10)
         ax2.annotate(
             'B', xy=(0.91, 0.94), xycoords='axes fraction', fontsize=16)
