@@ -1755,7 +1755,6 @@ class PlotterModelRuns(PlotterTwinX):
                 self.param_comparison(run, suffix)
 
         for x in ('gamma', 'rel_err'):
-            # self.integrated_residuals()
             self.param_sensitivity(x, priors_str, dvm_str)
             self.param_relative_errors(x, priors_str, dvm_str)
 
@@ -2313,45 +2312,6 @@ class PlotterModelRuns(PlotterTwinX):
                     handletextpad=0.01)
 
         fig.savefig(f'out/compareparams{suffix}')
-        plt.close()
-
-    def integrated_residuals(self):
-        
-        art = {'POCS': {'s': 200, 'ec': 'none', 'fc': self.GREEN, 'zo': 1},
-               'POCL': {'s': 400, 'ec': self.BLACK, 'fc': 'none', 'zo': 2},
-               1: 'o', 5: '^', 10: 'd', 100: 's'}
-
-        fig, ax = plt.subplots(tight_layout=True)
-        ax.set_xlabel('Integrated residuals (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
-        ax.set_ylabel('Layer', fontsize=14)
-        ax.invert_yaxis()
-        ax.set_ylim(top=-0.5, bottom=6.5)
-        ax.set_yticks(range(7))
-        ax.set_yticklabels(self.model.zone_names)
-        ax.tick_params(axis='both', which='major', labelsize=12)
-        for run in self.model.model_runs:
-            g = run.gamma
-            for t in run.integrated_resids.keys():
-                for i, zone in enumerate(self.model.zones):
-                    z = zone.label
-                    # ax.errorbar(
-                    #     run.integrated_resids[t][z][0], d,
-                    #     fmt=art[g], xerr=run.integrated_resids[t][z][1],
-                    #     elinewidth=1, fillstyle=art[t]['fs'], c=art[t]['c'],
-                    #     capsize=6, zorder=3, ms=art[t]['s'],
-                    #     markeredgewidth=1)
-                    ax.scatter(
-                        np.abs(run.integrated_resids[t][z][0]), i,
-                        marker=art[g], facecolors=art[t]['fc'],
-                        edgecolors=art[t]['ec'], zorder=art[t]['zo'],
-                        s=art[t]['s'], label=f'${t[0]}_{t[-1]}, \\gamma = {g}$')
-                    ax.set_xscale('log')
-        handles, labels = ax.get_legend_handles_labels()
-        by_label = dict(zip(labels, handles))
-        ax.legend(by_label.values(), by_label.keys(), fontsize=12,
-                  loc='lower center', bbox_to_anchor=(0.5, 1.05), ncol=4,
-                  frameon=False, labelspacing=1)
-        fig.savefig('out/intresids.png')
         plt.close()
 
     def param_sensitivity(self, sens_variable, priors_str, dvm_str):
