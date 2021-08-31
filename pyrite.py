@@ -660,9 +660,9 @@ class PyriteModel:
 
             return converged
 
-        def calculate_cost(xk, f):
+        def calculate_cost(x):
             """Calculate the cost at a given iteration"""
-            cost = (xk - xo).T @ np.linalg.inv(Co) @ (xk - xo)
+            cost = (x - xo).T @ np.linalg.inv(Co) @ (x - xo)
 
             run.cost_evolution.append(cost)
 
@@ -675,8 +675,8 @@ class PyriteModel:
             for count in range(max_iterations):
                 f, F = self.evaluate_model_equations(xk, return_F=True)
                 xkp1, CoFT, FCoFTi = calculate_xkp1(xk, f, F)
+                calculate_cost(xkp1)
                 if count > 0:
-                    calculate_cost(xk, f)
                     run.converged = check_convergence(xk, xkp1)
                     if run.converged:
                         break
@@ -1397,7 +1397,7 @@ class PlotterTwinX():
         k = len(run.cost_evolution)
 
         fig, ax = plt.subplots(1, tight_layout=True)
-        ax.plot(np.arange(2, k+2), run.convergence_evolution,
+        ax.plot(np.arange(2, k+1), run.convergence_evolution,
                 marker='o', ms=3, c=self.BLUE)
         ax.set_yscale('log')
         ax.set_xlabel('Iteration, $k$', fontsize=16)
@@ -1411,7 +1411,7 @@ class PlotterTwinX():
         plt.close()
 
         fig, ax = plt.subplots(1, tight_layout=True)
-        ax.plot(np.arange(2, k+2), run.cost_evolution, marker='o', ms=3,
+        ax.plot(np.arange(1, k+1), run.cost_evolution, marker='o', ms=3,
                 c=self.BLUE)
         ax.set_xlabel('Iteration, $k$', fontsize=16)
         ax.set_ylabel('Cost, $J$', fontsize=16)
@@ -1428,67 +1428,88 @@ class PlotterTwinX():
         tar = {True: {'LEZ': 2, 'UMZ': 4}, False: 3}
         pri = {True: 2, False: 1}
         est = {True: {True: {'LEZ': 3, 'UMZ': 5}, False: 4},
-                False: {True: {'LEZ': 2, 'UMZ': 3}, False: 3}}
+               False: {True: {'LEZ': 2, 'UMZ': 3}, False: 3}}
         maxtick = {True: 7, False: 5}
+        
+        dv, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(
+            2, 3, tight_layout=True)
+        dv_axs = ax1, ax2, ax3, ax4, ax5, ax6
+        
+        dc, ((ax7, ax8, ax9), (ax10, ax11, ax12)) = plt.subplots(
+            2, 3, tight_layout=True)
+        dc_axs = ax7, ax8, ax9, ax10, ax11
+        ax12.axis('off')
 
-        for i, param in enumerate(run.params):
+        dv_params = [p for p in run.params if p.dv]
+        dc_params = [p for p in run.params if not p.dv]
+        
+        for i, param in enumerate(dv_params):
             p = param.name
-            fig, ax = plt.subplots(tight_layout=True)
-            if param.dv:
-                ax.set_xlabel(eval(f'run.{p}.label'), fontsize=14)
+            ax = dv_axs[i]
+            ax.set_xlabel(f'{param.label} ({param.units})', fontsize=12)
+            if i in (0,3):
                 ax.set_ylabel('Depth (m)', fontsize=14)
-                ax.invert_yaxis()
-                ax.set_ylim(top=0, bottom=self.model.MAX_D+30)
-                ax.tick_params(axis='both', which='major', labelsize=12)
-                ax.axvline(param.prior - param.prior_e, c=self.BLUE, lw=2)
-                ax.axvline(param.prior + param.prior_e, c=self.BLUE, lw=2)
-                for i, z in enumerate(self.model.zone_names):
-                    zone = self.model.zones[i]
-                    ax.axhline(zone.depths[1], ls=':', c=self.BLACK)
-                    if 'w' in p:
-                        depth = zone.depths[1]
-                    else:
-                        depth = zone.mid
-                    ax.errorbar(
-                        run.param_results[p][z]['est'], depth,
-                        fmt='o', xerr=run.param_results[p][z]['err'],
-                        ecolor=self.ORANGE, elinewidth=1, c=self.ORANGE, ms=8,
-                        capsize=6, fillstyle='none', zorder=3,
-                        markeredgewidth=1)
-                    if self.is_twinX:
-                        ax.scatter(
-                            self.model.target_values[p][z]['est'], depth,
-                            marker='x', s=90, c=self.GREEN)
-                    # if p == 'Bm2':
-                    #     if self.is_twinX:
-                    #         ax.set_xlim([-2, 22])
-                    #     else:
-                    #         ax.set_xlim([-2, 4])
-            else:
-                ax.set_xlabel(eval(f'run.{p}.label'), fontsize=14)
+            ax.invert_yaxis()
+            ax.set_ylim(top=0, bottom=self.model.MAX_D+30)
+            ax.tick_params(axis='both', which='major', labelsize=12)
+            ax.axvline(param.prior, c=self.BLUE, lw=1.5)
+            ax.axvline(param.prior - param.prior_e, c=self.BLUE, lw=1.5, ls='--')
+            ax.axvline(param.prior + param.prior_e, c=self.BLUE, lw=1.5, ls='--')
+            for i, z in enumerate(self.model.zone_names):
+                zone = self.model.zones[i]
+                ax.axhline(zone.depths[1], ls=':', c=self.BLACK)
+                if 'w' in p:
+                    depth = zone.depths[1]
+                else:
+                    depth = zone.mid
                 ax.errorbar(
-                    pri[self.is_twinX], eval(f'run.{p}.prior'),
-                    yerr=eval(f'run.{p}.prior_e'), fmt='o', ms=9,
-                    c=self.BLUE, elinewidth=1.5, ecolor=self.BLUE,
-                    capsize=6, label='Prior', markeredgewidth=1.5)
-                ax.errorbar(
-                    est[self.is_twinX][param.dv],
-                    run.param_results[p]['est'],
-                    yerr=run.param_results[p]['err'], fmt='o',
-                    c=self.ORANGE, ms=9, elinewidth=1.5,
-                    ecolor=self.ORANGE, capsize=6, markeredgewidth=1.5)
+                    run.param_results[p][z]['est'], depth,
+                    fmt='o', xerr=run.param_results[p][z]['err'],
+                    ecolor=self.ORANGE, elinewidth=1, c=self.ORANGE, ms=8,
+                    capsize=6, fillstyle='none', zorder=3,
+                    markeredgewidth=1)
                 if self.is_twinX:
                     ax.scatter(
-                        tar[param.dv], self.model.target_values[p]['est'],
+                        self.model.target_values[p][z]['est'], depth,
                         marker='x', s=90, c=self.GREEN)
-                ax.tick_params(bottom=False, labelbottom=False)
-                ax.set_xticks(np.arange(maxtick[self.is_twinX]))
+                # if p == 'Bm2':
+                #     if self.is_twinX:
+                #         ax.set_xlim([-2, 22])
+                #     else:
+                #         ax.set_xlim([-2, 4])
 
-            filename = f'out/{p}{suffix}'
+        for i, param in enumerate(dc_params):
+            p = param.name
+            ax = dc_axs[i]
+            ax.set_xlabel(f'{param.label} ({param.units})', fontsize=12)
+            ax.errorbar(
+                pri[self.is_twinX], param.prior,
+                yerr=eval(f'run.{p}.prior_e'), fmt='o', ms=9,
+                c=self.BLUE, elinewidth=1.5, ecolor=self.BLUE,
+                capsize=6, label='Prior', markeredgewidth=1.5)
+            ax.errorbar(
+                est[self.is_twinX][param.dv],
+                run.param_results[p]['est'],
+                yerr=run.param_results[p]['err'], fmt='o',
+                c=self.ORANGE, ms=9, elinewidth=1.5,
+                ecolor=self.ORANGE, capsize=6, markeredgewidth=1.5)
             if self.is_twinX:
-                filename += '_TE'
-            fig.savefig(f'{filename}.png')
-            plt.close()
+                ax.scatter(
+                    tar[param.dv], self.model.target_values[p]['est'],
+                    marker='x', s=90, c=self.GREEN)
+            ax.tick_params(bottom=False, labelbottom=False)
+            ax.set_xticks(np.arange(maxtick[self.is_twinX]))
+
+            dv_file = f'out/paramsDV{suffix}'
+            dc_file = f'out/paramsDC{suffix}'
+            
+            if self.is_twinX:
+                dv_file += '_TE'
+                dc_file += '_TE'
+            dv.savefig(f'{dv_file}.png')
+            dc.savefig(f'{dc_file}.png')
+            plt.close(dc)
+            plt.close(dv)
 
     def poc_profiles(self, run, suffix):
 
@@ -2523,7 +2544,7 @@ if __name__ == '__main__':
     gammas = [0.5, 1, 5, 10]
     rel_errs = [0.1, 0.2, 0.5, 1]
     # gammas = [0.5]
-    # rel_errs = [0.1]
+    # rel_errs = [0.5]
     args = (gammas, rel_errs)
 
     model_nabe = PyriteModel(0, args, has_dvm=True, priors_from='NABE')
