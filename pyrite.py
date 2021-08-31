@@ -1985,16 +1985,16 @@ class PlotterModelRuns(PlotterTwinX):
         
         ax1.errorbar(
             run.flux_profiles['sink_S']['est'],
-            np.array(self.model.GRID[1:]) + 5,
-            fmt='o', xerr=run.flux_profiles['sink_S']['err'], ecolor=self.BLUE,
-            c=self.BLUE, capsize=4, label=self.model.sink_S.label,
+            np.array(self.model.GRID[1:]) + 2,
+            fmt='o', xerr=run.flux_profiles['sink_S']['err'], ecolor=self.SKY,
+            c=self.SKY, capsize=4, label=self.model.sink_S.label,
             fillstyle='none', elinewidth=1.5, capthick=1.5)
         
         ax1.errorbar(
             run.flux_profiles['sink_L']['est'],
-            np.array(self.model.GRID[1:]) - 5,
+            np.array(self.model.GRID[1:]) - 2,
             fmt='o', xerr=run.flux_profiles['sink_L']['err'],
-            ecolor=self.ORANGE, c=self.ORANGE, capsize=4,
+            ecolor=self.VERMILLION, c=self.VERMILLION, capsize=4,
             label=self.model.sink_L.label, fillstyle='none', elinewidth=1.5,
             capthick=1.5)
         
@@ -2005,16 +2005,16 @@ class PlotterModelRuns(PlotterTwinX):
         ax2.tick_params(labelleft=False)
         ax2.errorbar(
             run.flux_profiles['sink_T']['est'], self.model.GRID[1:], fmt='o',
-            xerr=run.flux_profiles['sink_T']['err'], ecolor=self.BLACK,
-            c=self.BLACK, capsize=4, zorder=3, label=self.model.sink_T.label,
+            xerr=run.flux_profiles['sink_T']['err'], ecolor=self.ORANGE,
+            c=self.ORANGE, capsize=4, zorder=3, label=self.model.sink_T.label,
             fillstyle='none', elinewidth=1.5, capthick=1.5)
         ax2.errorbar(
-            th_flux, th_depths+10, fmt='^', xerr=th_flux_u, ecolor=self.GREEN,
+            th_flux, th_depths + 4, fmt='^', xerr=th_flux_u, ecolor=self.GREEN,
             c=self.GREEN, capsize=4, label='$^{234}$Th-based', elinewidth=1.5,
             capthick=1.5)
         ax2.errorbar(
-            st_flux, st_depths-10, fmt='d', xerr=st_flux_u, ecolor=self.SKY,
-            c=self.SKY, capsize=4, label='Sed. Traps', elinewidth=1.5,
+            st_flux, st_depths - 4, fmt='d', xerr=st_flux_u, ecolor=self.BLACK,
+            c=self.BLACK, capsize=4, label='Sed. Traps', elinewidth=1.5,
             capthick=1.5)
         ax2.legend(loc='lower right', fontsize=10)
         ax2.annotate(
