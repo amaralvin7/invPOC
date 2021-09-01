@@ -1452,6 +1452,8 @@ class PlotterTwinX():
             ax.set_xlabel(f'{param.label} ({param.units})', fontsize=12)
             if i in (0,3):
                 ax.set_ylabel('Depth (m)', fontsize=14)
+            else:
+                ax.tick_params(labelleft=False)
             ax.invert_yaxis()
             ax.set_ylim(top=0, bottom=self.model.MAX_D+30)
             ax.tick_params(axis='both', which='major', labelsize=12)
