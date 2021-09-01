@@ -1452,36 +1452,47 @@ class PlotterTwinX():
             ax.invert_yaxis()
             ax.set_ylim(top=0, bottom=self.model.MAX_D+30)
             ax.tick_params(axis='both', which='major', labelsize=12)
-            ax.axvline(param.prior, c=self.BLUE, lw=1.5)
+            ax.axvline(param.prior, c=self.BLUE, lw=1.5, ls=':')
             ax.axvline(param.prior - param.prior_e, c=self.BLUE, lw=1.5, ls='--')
             ax.axvline(param.prior + param.prior_e, c=self.BLUE, lw=1.5, ls='--')
             for i, z in enumerate(self.model.zone_names):
                 zone = self.model.zones[i]
-                ax.axhline(zone.depths[1], ls=':', c=self.BLACK)
                 if 'w' in p:
                     depth = zone.depths[1]
+                    ax.errorbar(
+                        run.param_results[p][z]['est'], depth,
+                        fmt='o', xerr=run.param_results[p][z]['err'],
+                        ecolor=self.ORANGE, elinewidth=1, c=self.ORANGE, ms=8,
+                        capsize=6, fillstyle='none', zorder=3,
+                        markeredgewidth=1)
                 else:
                     depth = zone.mid
-                ax.errorbar(
-                    run.param_results[p][z]['est'], depth,
-                    fmt='o', xerr=run.param_results[p][z]['err'],
-                    ecolor=self.ORANGE, elinewidth=1, c=self.ORANGE, ms=8,
-                    capsize=6, fillstyle='none', zorder=3,
-                    markeredgewidth=1)
+                    depths = zone.depths
+                    ax.scatter(
+                        run.param_results[p][z]['est'], depth, marker='o',
+                        c=self.ORANGE, s=14, zorder=3)
+                    ax.fill_betweenx(
+                        depths,
+                        (run.param_results[p][z]['est']
+                          - run.param_results[p][z]['err']),
+                        (run.param_results[p][z]['est']
+                          + run.param_results[p][z]['err']),
+                        color=self.ORANGE, alpha=0.25)
+
                 if self.is_twinX:
                     ax.scatter(
                         self.model.target_values[p][z]['est'], depth,
                         marker='x', s=90, c=self.GREEN)
-                # if p == 'Bm2':
-                #     if self.is_twinX:
-                #         ax.set_xlim([-2, 22])
-                #     else:
-                #         ax.set_xlim([-2, 4])
+                if p == 'Bm2' and self.model.priors_from == 'OSP':
+                        ax.set_xlim([-1, 3])
 
         for i, param in enumerate(dc_params):
             p = param.name
             ax = dc_axs[i]
-            ax.set_xlabel(f'{param.label} ({param.units})', fontsize=12)
+            xlabel = param.label
+            if param.units:
+                xlabel += f' ({param.units})'
+            ax.set_xlabel(xlabel, fontsize=12)
             ax.errorbar(
                 pri[self.is_twinX], param.prior,
                 yerr=eval(f'run.{p}.prior_e'), fmt='o', ms=9,
@@ -1693,20 +1704,20 @@ class PlotterTwinX():
                 depths = zone.depths
                 z = zone.label
                 ax.scatter(run.integrated_resids[r][z][0], np.mean(depths),
-                           marker='o', c=self.BLUE, s=7, zorder=3, lw=0.7)
+                           marker='o', c=self.ORANGE, s=100, zorder=3, lw=0.7)
                 ax.fill_betweenx(
                     depths,
                     (run.integrated_resids[r][z][0]
                      - run.integrated_resids[r][z][1]),
                     (run.integrated_resids[r][z][0]
                      + run.integrated_resids[r][z][1]),
-                    color=self.BLUE, alpha=0.25)
+                    color=self.ORANGE, alpha=0.25)
                 if self.is_twinX:
                         ax.scatter(
                             self.model.target_values[r][z][0], np.mean(depths),
-                            marker='x', c=self.GREEN)                
-            ax.axvline(prior_err, ls='--', c=self.BLACK)
-            ax.axvline(-prior_err, ls='--', c=self.BLACK)
+                            marker='x', c=self.GREEN, s=250)                
+            ax.axvline(prior_err, ls='--', c=self.BLUE)
+            ax.axvline(-prior_err, ls='--', c=self.BLUE)
             ax.axvline(0, ls=':', c=self.BLACK)
 
         filename = f'out/POCresids{suffix}'
@@ -1850,7 +1861,7 @@ class PlotterModelRuns(PlotterTwinX):
 
         ax3.scatter(
             self.model.Pt_mean_nonlinear, self.model.GRID[1:], marker='o',
-            c=self.BLUE, edgecolors=self.WHITE, s=7, label='from $c_p$',
+            c=self.BLUE, edgecolors=self.WHITE, s=14, label='from $c_p$',
             zorder=3, lw=0.7)
         ax3.fill_betweenx(
             self.model.GRID[1:],
@@ -2044,7 +2055,7 @@ class PlotterModelRuns(PlotterTwinX):
                     depths = z.depths     
                     ax.scatter(
                         run.flux_profiles[pr[0]]['est'][j], np.mean(depths), marker='o',
-                        c=self.BLUE, s=7, label=eval(f'self.model.{pr[0]}.label'),
+                        c=self.BLUE, s=14, label=eval(f'self.model.{pr[0]}.label'),
                         zorder=3, lw=0.7)
                     ax.fill_betweenx(
                         depths,
@@ -2055,7 +2066,7 @@ class PlotterModelRuns(PlotterTwinX):
                         color=self.BLUE, alpha=0.25)
                     ax.scatter(
                         run.flux_profiles[pr[1]]['est'][j], np.mean(depths), marker='o',
-                        c=self.ORANGE, s=7, label=eval(f'self.model.{pr[1]}.label'),
+                        c=self.ORANGE, s=14, label=eval(f'self.model.{pr[1]}.label'),
                         zorder=3, lw=0.7)
                     ax.fill_betweenx(
                         depths,
@@ -2075,7 +2086,7 @@ class PlotterModelRuns(PlotterTwinX):
                            alpha=0.5, label='NPP', s=10)
                 ax.scatter(
                     run.flux_profiles[pr[0]]['est'], depths, marker='o',
-                    c=self.BLUE, s=7, label=eval(f'self.model.{pr[0]}.label'),
+                    c=self.BLUE, s=14, label=eval(f'self.model.{pr[0]}.label'),
                     zorder=3, lw=0.7)
                 eb1 = ax.errorbar(
                     run.flux_profiles[pr[0]]['est'], depths, fmt='o',
@@ -2120,7 +2131,7 @@ class PlotterModelRuns(PlotterTwinX):
                 depths = z.depths
                 ax.scatter(
                     run.flux_profiles['dvm']['est'][j], np.mean(depths), marker='o',
-                    c=self.BLUE, s=7, label=eval(f'self.model.{"dvm"}.label'),
+                    c=self.BLUE, s=14, label=eval(f'self.model.{"dvm"}.label'),
                     zorder=3, lw=0.7)
                 ax.fill_betweenx(
                     depths,
@@ -2541,10 +2552,10 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
     
-    gammas = [0.5, 1, 5, 10]
-    rel_errs = [0.1, 0.2, 0.5, 1]
-    # gammas = [0.5]
-    # rel_errs = [0.5]
+    # gammas = [0.5, 1, 5, 10]
+    # rel_errs = [0.1, 0.2, 0.5, 1]
+    gammas = [0.5]
+    rel_errs = [0.5]
     args = (gammas, rel_errs)
 
     model_nabe = PyriteModel(0, args, has_dvm=True, priors_from='NABE')
@@ -2555,9 +2566,10 @@ if __name__ == '__main__':
     
     twinX_nabe = PyriteTwinX(0, ([0.5], [0.5]),
                               'out/POC_modelruns_dvmTrue_NABE.pkl')
-    PlotterTwinX('out/POC_twinX_dvmTrue_NABE.pkl')
     twinX_osp = PyriteTwinX(0, ([0.5], [0.5]),
                             'out/POC_modelruns_dvmTrue_OSP.pkl')
+    
+    PlotterTwinX('out/POC_twinX_dvmTrue_NABE.pkl')
     PlotterTwinX('out/POC_twinX_dvmTrue_OSP.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
