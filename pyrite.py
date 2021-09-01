@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
 import statsmodels.tsa.stattools as smt
+import statsmodels.sandbox.stats.runs as smr
 import matplotlib.pyplot as plt
 import matplotlib.colorbar as colorbar
 import matplotlib.colors as mplc
@@ -62,7 +63,6 @@ class PyriteModel:
         self.define_fluxes()
         self.define_zones()
         self.process_cp_data()
-
 
         self.model_runs = []
         for g in self.gammas:
@@ -280,6 +280,9 @@ class PyriteModel:
 
         self.cp_Pt_regression_nonlinear = smf.ols(
             formula='POCT ~ np.log(cp)', data=self.poc_cp_df).fit()
+        self.cp_Pt_regression_nonlinear2 = smf.ols(
+            formula='POCT ~ np.log(cp)',
+            data=self.poc_cp_df[self.poc_cp_df['cp'] < 0.04]).fit()
         self.cp_Pt_regression_linear = smf.ols(
             formula='POCT ~ cp', data=self.poc_cp_df).fit()
         cp_bycast_to_mean = cp_bycast.loc[np.array(self.GRID[1:]) -1,
@@ -1797,45 +1800,85 @@ class PlotterModelRuns(PlotterTwinX):
         depths = self.model.poc_cp_df['depth']
         linear_regression = self.model.cp_Pt_regression_linear
         nonlinear_regression = self.model.cp_Pt_regression_nonlinear
-        logarithmic = {linear_regression: False, nonlinear_regression: True}
-
+        nonlinear_regression2 = self.model.cp_Pt_regression_nonlinear2
+        
+        x_fit = np.linspace(0.01, 0.14, 100000)
+        coefs_lin = linear_regression.params
+        y_fit_linear = [coefs_lin[0] + coefs_lin[1]*x for x in x_fit]
+        bishop_fit = 27*x_fit
+        coefs_log = nonlinear_regression.params
+        y_fit_log = [coefs_log[0] + coefs_log[1]*np.log(x) for x in x_fit]
+        coefs_log2 = nonlinear_regression2.params
+        y_fit_log2 = [coefs_log2[0] + coefs_log2[1]*np.log(x) for x in x_fit]
+       
         colormap = plt.cm.viridis_r
         norm = mplc.Normalize(depths.min(), depths.max())
+        
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7, 3.5))
+        fig.text(0.47, 0.05, '$c_p$ (m$^{-1}$)', fontsize=14, ha='center',
+                 va='center')
+        ax1.set_ylabel('$P_T$ (mmol m$^{-3}$)', fontsize=14)
+        ax2.tick_params(labelleft=False)
+        fig.subplots_adjust(right=0.97, bottom=0.2, wspace=0.05)
+        cbar_ax = colorbar.make_axes((ax1,ax2), pad=0.02)[0]
+        cbar = colorbar.ColorbarBase(cbar_ax, norm=norm, cmap=colormap)
+        cbar.set_label('Depth (m)\n', rotation=270, labelpad=20,
+                        fontsize=14)
 
-        for fit in (nonlinear_regression, linear_regression):
-            fig, ax = plt.subplots(1, 1)
-            fig.subplots_adjust(bottom=0.2, left=0.2)
-            cbar_ax = colorbar.make_axes(ax)[0]
-            cbar = colorbar.ColorbarBase(cbar_ax, norm=norm, cmap=colormap)
-            cbar.set_label('Depth (m)\n', rotation=270, labelpad=20,
-                           fontsize=14)
-            ax.scatter(cp, Pt, norm=norm, edgecolors=self.BLACK, c=depths,
-                       s=40, marker='o', cmap=colormap, label='_none')
-            ax.set_ylabel('$P_T$ (mmol m$^{-3}$)', fontsize=14)
-            ax.set_xlabel('$c_p$ (m$^{-1}$)', fontsize=14)
-            x_fit = np.linspace(0.01, 0.14, 100000)
-            if logarithmic[fit]:
-                coefs_log = fit.params
-                y_fit_log = [
-                    coefs_log[0] + coefs_log[1]*np.log(x) for x in x_fit]
-                ax.plot(x_fit, y_fit_log, '--', c=self.BLACK, lw=1,
-                        label='non-linear')
-                ax.set_yscale('log')
-                ax.set_xscale('log')
-                ax.set_xlim(0.0085, 0.15)
-                ax.annotate(
-                    f'$R^2$ = {fit.rsquared:.2f}\n$N$ = {fit.nobs:.0f}',
-                    xy=(0.05, 0.85), xycoords='axes fraction', fontsize=12)
-            else:
-                coefs_lin = fit.params
-                y_fit_linear = [coefs_lin[0] + coefs_lin[1]*x for x in x_fit]
-                ax.plot(x_fit, y_fit_linear, '--', c=self.BLACK, lw=1,
-                        label='linear')
-                ax.plot(x_fit, y_fit_log, ':', c=self.BLACK, lw=1,
-                        label='non-linear')
-                ax.legend(fontsize=10, loc='lower right')
-            fig.savefig(f'out/cpptfit_log{logarithmic[fit]}.png')
-            plt.close()
+        for ax in (ax1, ax2):
+            ax.set_ylim([0, 3.3])
+            axins = ax.inset_axes([0, 0.55, 0.45, 0.45])
+            x1, x2, y1, y2 = 0.007, 0.04, 0, 1.1
+            axins.set_xlim(x1, x2)
+            axins.set_ylim(y1, y2)
+            axins.xaxis.set_visible(False)
+            axins.yaxis.set_visible(False)
+            for axp in (ax, axins):
+                axp.scatter(cp, Pt, norm=norm, edgecolors=self.BLACK, c=depths,
+                           s=40, marker='o', cmap=colormap)
+                axp.plot(x_fit, y_fit_log, c=self.BLACK, lw=1.5)
+                if ax == ax1:
+                    axp.plot(x_fit, y_fit_linear, ':', c=self.BLACK, lw=1.5)
+                    axp.plot(x_fit, bishop_fit, '--', c=self.BLACK, lw=1.5)
+                else:
+                    axp.plot(x_fit, y_fit_log2, c=self.BLACK, lw=1.5,
+                             alpha=0.4)
+                    axp.set_xscale('log')
+                    axp.set_xscale('log')
+            ax.indicate_inset_zoom(axins, alpha=0)
+
+        leg_elements = [
+            Line2D([0], [0], ls='-', c=self.BLACK, label='semilog'),
+            Line2D([0], [0], ls=':', c=self.BLACK, label='linear'),
+            Line2D([0], [0], ls='--', c=self.BLACK,
+                   label='Bishop and Wood (2008)')]
+        ax1.legend(handles=leg_elements, fontsize=10, loc='lower center',
+                    bbox_to_anchor=(1.05, 1), ncol=3, frameon=False)
+
+        fig.savefig('out/cpptfit')
+        plt.close()
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, tight_layout=True)
+        fig.text(0.56, 0.03, '$c_p$ (m$^{-1}$)', fontsize=14, ha='center',
+                  va='center')
+
+        ax1.set_ylabel('$P_T$ residuals (mmol m$^{-3}$)', fontsize=14)              
+        ax1.scatter(cp, linear_regression.resid, s=8)
+        runs_z, runs_p = smr.runstest_1samp(linear_regression.resid)
+        ax1.set_title(f'linear, Z = {runs_z:.2f}, p = {runs_p:.3f}')
+        ax1.axhline(np.mean(linear_regression.resid), c=self.BLACK)
+        ax1.set_ylim([-1,1])  
+
+        ax2.scatter(cp, nonlinear_regression.resid, s=8)
+        ax2.set_xlabel('semilog')
+        ax2.tick_params(labelleft=False)
+        runs_z, runs_p = smr.runstest_1samp(nonlinear_regression.resid)
+        ax2.set_title(f'semilog, Z = {runs_z:.2f}, p = {runs_p:.3f}')
+        ax2.axhline(np.mean(nonlinear_regression.resid), c=self.BLACK)
+        ax2.set_ylim([-1,1])            
+        
+        fig.savefig('out/cpptfit_runstest')
+        plt.close()
 
     def poc_data(self):
 
@@ -2552,10 +2595,10 @@ if __name__ == '__main__':
     sys.setrecursionlimit(100000)
     start_time = time.time()
     
-    # gammas = [0.5, 1, 5, 10]
-    # rel_errs = [0.1, 0.2, 0.5, 1]
-    gammas = [0.5]
-    rel_errs = [0.5]
+    gammas = [0.5, 1, 5, 10]
+    rel_errs = [0.1, 0.2, 0.5, 1]
+    # gammas = [0.5]
+    # rel_errs = [0.5]
     args = (gammas, rel_errs)
 
     model_nabe = PyriteModel(0, args, has_dvm=True, priors_from='NABE')
