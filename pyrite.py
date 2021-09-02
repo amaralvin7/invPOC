@@ -281,9 +281,6 @@ class PyriteModel:
 
         self.cp_Pt_regression_nonlinear = smf.ols(
             formula='POCT ~ np.log(cp)', data=self.poc_cp_df).fit()
-        self.cp_Pt_regression_nonlinear2 = smf.ols(
-            formula='POCT ~ np.log(cp)',
-            data=self.poc_cp_df[self.poc_cp_df['cp'] < 0.04]).fit()
         self.cp_Pt_regression_linear = smf.ols(
             formula='POCT ~ cp', data=self.poc_cp_df).fit()
         cp_bycast_to_mean = cp_bycast.loc[np.array(self.GRID[1:]) -1,
@@ -1811,16 +1808,13 @@ class PlotterModelRuns(PlotterTwinX):
         depths = self.model.poc_cp_df['depth']
         linear_regression = self.model.cp_Pt_regression_linear
         nonlinear_regression = self.model.cp_Pt_regression_nonlinear
-        nonlinear_regression2 = self.model.cp_Pt_regression_nonlinear2
         
-        x_fit = np.linspace(0.01, 0.14, 100000)
+        x_fit = np.linspace(0.009, 0.14, 100000)
         coefs_lin = linear_regression.params
         y_fit_linear = [coefs_lin[0] + coefs_lin[1]*x for x in x_fit]
         bishop_fit = 27*x_fit
         coefs_log = nonlinear_regression.params
         y_fit_log = [coefs_log[0] + coefs_log[1]*np.log(x) for x in x_fit]
-        coefs_log2 = nonlinear_regression2.params
-        y_fit_log2 = [coefs_log2[0] + coefs_log2[1]*np.log(x) for x in x_fit]
        
         colormap = plt.cm.viridis_r
         norm = mplc.Normalize(depths.min(), depths.max())
@@ -1838,26 +1832,19 @@ class PlotterModelRuns(PlotterTwinX):
 
         for ax in (ax1, ax2):
             ax.set_ylim([0, 3.3])
-            axins = ax.inset_axes([0, 0.55, 0.45, 0.45])
-            x1, x2, y1, y2 = 0.007, 0.04, 0, 1.1
-            axins.set_xlim(x1, x2)
-            axins.set_ylim(y1, y2)
-            axins.xaxis.set_visible(False)
-            axins.yaxis.set_visible(False)
-            for axp in (ax, axins):
-                axp.scatter(cp, Pt, norm=norm, edgecolors=self.BLACK, c=depths,
-                           s=40, marker='o', cmap=colormap)
-                axp.plot(x_fit, y_fit_log, c=self.BLACK, lw=1.5)
-                if ax == ax1:
-                    axp.plot(x_fit, y_fit_linear, ':', c=self.BLACK, lw=1.5)
-                    axp.plot(x_fit, bishop_fit, '--', c=self.BLACK, lw=1.5)
-                else:
-                    axp.plot(x_fit, y_fit_log2, c=self.BLACK, lw=1.5,
-                             alpha=0.4)
-                    axp.set_xscale('log')
-                    axp.set_xscale('log')
-            ax.indicate_inset_zoom(axins, alpha=0)
-
+            ax.scatter(cp, Pt, norm=norm, edgecolors=self.BLACK, c=depths,
+                       s=40, marker='o', cmap=colormap)
+            ax.plot(x_fit, y_fit_log, c=self.BLACK, lw=1.5)
+            if ax == ax1:
+                ax.plot(x_fit, y_fit_linear, ':', c=self.BLACK, lw=1.5)
+                ax.plot(x_fit, bishop_fit, '--', c=self.BLACK, lw=1.5)
+            else:
+                ax.set_xscale('log')
+                ax.fill_between(
+                    x_fit,
+                    y_fit_log - np.sqrt(nonlinear_regression.mse_resid),
+                    y_fit_log + np.sqrt(nonlinear_regression.mse_resid),
+                    color=self.BLACK, alpha=0.15, zorder=1)
         leg_elements = [
             Line2D([0], [0], ls='-', c=self.BLACK, label='semilog'),
             Line2D([0], [0], ls=':', c=self.BLACK, label='linear'),
@@ -1865,7 +1852,7 @@ class PlotterModelRuns(PlotterTwinX):
                    label='Bishop and Wood (2008)')]
         ax1.legend(handles=leg_elements, fontsize=10, loc='lower center',
                     bbox_to_anchor=(1.05, 1), ncol=3, frameon=False)
-
+        sys.exit()
         fig.savefig('out/cpptfit')
         plt.close()
 
