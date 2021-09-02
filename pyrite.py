@@ -74,7 +74,8 @@ class PyriteModel:
                 Co = self.define_covariance_matrix(xo, run)
                 xhat = self.ATI(xo, Co, run)
                 self.calculate_total_POC(run)
-                self.calculate_residuals(xo, Co, xhat, run)
+                self.calculate_data_residuals(xo, Co, xhat, run)
+                self.check_equation_residuals(xhat, run)
                 self.integrate_residuals(run)
                 if str(self) != 'PyriteTwinX object':
                     inventories = self.calculate_inventories(run)
@@ -369,14 +370,14 @@ class PyriteModel:
 
         return Co
 
-    def slice_by_tracer(self, to_slice, tracer):
+    def slice_by_species(self, to_slice, slice_by, species):
         """Return a slice of a list that corresponds to a given tracer.
 
         to_slice -- list from which to take a slice
-        tracer -- return list slice correpsonding to this tracer
+        species -- return list slice correpsonding to this species
         """
         sliced = [to_slice[i] for i, e in enumerate(
-            self.state_elements) if e.split('_')[0] == tracer]
+            slice_by) if e.split('_')[0] == species]
 
         return sliced
 
@@ -711,8 +712,9 @@ class PyriteModel:
 
             for t in self.tracer_names:
                 run.tracer_results[t] = {
-                    'est': self.slice_by_tracer(xhat, t),
-                    'err': self.slice_by_tracer(xhat_e, t)}
+                    'est': self.slice_by_species(xhat, self.state_elements, t),
+                    'err': self.slice_by_species(
+                        xhat_e, self.state_elements, t)}
 
             for t in self.equation_residuals:
                 run.integrated_resids[t] = {}
@@ -748,11 +750,18 @@ class PyriteModel:
             run.Pt_results['est'].append(Pt_est)
             run.Pt_results['err'].append(Pt_err)
 
-    def calculate_residuals(self, xo, Co, xhat, run):
+    def calculate_data_residuals(self, xo, Co, xhat, run):
         """Calculate solution and equation residuals."""
         x_residuals = xhat - xo
         norm_x_residuals = x_residuals/np.sqrt(np.diag(Co))
         run.x_resids = norm_x_residuals
+    
+    def check_equation_residuals(self, xhat, run):
+        
+        eq_resids = self.evaluate_model_equations(xhat)
+        for el in self.tracer_names + ['POCT']:
+            run.f_check[el] = self.slice_by_species(
+                eq_resids, self.equation_elements, el)
 
     def calculate_inventories(self, run):
         """Calculate inventories of the model tracers in each grid zone."""
@@ -1031,10 +1040,9 @@ class PyriteModelRun():
         self.param_results = {}
         self.Pt_results = {'est': [], 'err': []}
         self.x_resids = None
-        self.f_resids = None
+        self.f_check = {}
         self.inventories = {}
         self.integrated_resids = {}
-        self.integrated_resids_check = {}
         self.flux_profiles = {}
         self.flux_integrals = {}
         self.timescales = {}
@@ -1083,7 +1091,8 @@ class PyriteTwinX(PyriteModel):
             tracer_data = self.data[f'{s}_means'].copy()
             for t in (f'{s}S', f'{s}L'):
                 re = tracer_data[f'{t}_se']/tracer_data[t]
-                tracer_data[t] = self.model.slice_by_tracer(x, t)
+                tracer_data[t] = self.model.slice_by_species(
+                    x, self.model.state_elements, t)
                 tracer_data[f'{t}_se'] = tracer_data[t]*re
                 if t == 'POCS':
                     Ps_pseudo = tracer_data[t]
@@ -1872,7 +1881,6 @@ class PlotterModelRuns(PlotterTwinX):
         ax1.set_ylim([-1,1])  
 
         ax2.scatter(cp, nonlinear_regression.resid, s=8)
-        ax2.set_xlabel('semilog')
         ax2.tick_params(labelleft=False)
         runs_z, runs_p = smr.runstest_1samp(nonlinear_regression.resid)
         ax2.set_title(f'semilog, Z = {runs_z:.2f}, p = {runs_p:.3f}')
@@ -2599,8 +2607,8 @@ if __name__ == '__main__':
     
     gammas = [0.5, 1, 5, 10]
     rel_errs = [0.1, 0.2, 0.5, 1]
-    # gammas = [0.5]
-    # rel_errs = [0.5]
+    gammas = [0.5]
+    rel_errs = [0.5]
     args = (gammas, rel_errs)
 
     model_nabe = PyriteModel(0, args, has_dvm=True, priors_from='NABE')
