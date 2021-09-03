@@ -1138,6 +1138,9 @@ class PyriteTwinX(PyriteModel):
                         A[i, iTsi] = -0.5*B2*h
                         A[i, iTsim1] = -0.5*B2*h
             x = np.linalg.solve(A, b)
+            # for i, el in enumerate(x):
+            #     if el < 0:
+            #         print(self.model.equation_elements[i], el)
             x = np.clip(x, 10**-10, None)
 
             return x
