@@ -698,7 +698,7 @@ class PyriteModel:
         """Calculate inventories of the model tracers in each grid zone."""
 
         inventory_sym = {}
-        zone_dict = {'LEZ': self.zones[:3], 'UMZ': self.zones[3:]}
+        zone_dict = {'EZ': self.zones[:3], 'UMZ': self.zones[3:]}
 
         for t in ('POCS', 'POCL'):
             run.inventories[t] = {}
@@ -823,7 +823,7 @@ class PyriteModel:
         fluxes = fluxes_sym.keys()
         flux_integrals_sym = {}
 
-        zone_dict = {'LEZ': self.zone_names[:3], 'UMZ': self.zone_names[3:]}
+        zone_dict = {'EZ': self.zone_names[:3], 'UMZ': self.zone_names[3:]}
 
         for f in fluxes:
             flux_integrals_sym[f] = {}
@@ -849,7 +849,7 @@ class PyriteModel:
     def integrate_residuals(self, run):
         """Integrate model equation residuals within each model grid zone."""
 
-        zone_dict = {'LEZ': self.zone_names[:3], 'UMZ': self.zone_names[3:]}
+        zone_dict = {'EZ': self.zone_names[:3], 'UMZ': self.zone_names[3:]}
 
         for t in run.integrated_resids.keys():              
             for sz in zone_dict.keys():
@@ -1332,10 +1332,10 @@ class PlotterTwinX():
 
     def params(self, run, suffix):
 
-        tar = {True: {'LEZ': 2, 'UMZ': 4}, False: 3}
+        tar = {True: {'EZ': 2, 'UMZ': 4}, False: 3}
         pri = {True: 2, False: 1}
-        est = {True: {True: {'LEZ': 3, 'UMZ': 5}, False: 4},
-               False: {True: {'LEZ': 2, 'UMZ': 3}, False: 3}}
+        est = {True: {True: {'EZ': 3, 'UMZ': 5}, False: 4},
+               False: {True: {'EZ': 2, 'UMZ': 3}, False: 3}}
         maxtick = {True: 7, False: 5}
         
         dv, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(
@@ -1986,7 +1986,7 @@ class PlotterModelRuns(PlotterTwinX):
                         est = run.param_results[p]['est']
                         err = run.param_results[p]['err']
                         print(f'{p}: {est:.3f} ± {err:.3f}', file=f)
-                zones_to_print = ['LEZ', 'UMZ'] + self.model.zone_names
+                zones_to_print = ['EZ', 'UMZ'] + self.model.zone_names
                 print('+++++++++++++++++++++++++++', file=f)
                 print('Tracer Inventories', file=f)
                 print('+++++++++++++++++++++++++++', file=f)
@@ -2312,7 +2312,7 @@ class PlotterModelRuns(PlotterTwinX):
     
     def budgets(self, run, suffix):
         
-        zones = ['LEZ', 'UMZ'] + self.model.zone_names
+        zones = ['EZ', 'UMZ'] + self.model.zone_names
         rfi = run.flux_integrals
 
         for z in zones:           
@@ -2341,7 +2341,7 @@ class PlotterModelRuns(PlotterTwinX):
                     fluxes.insert(-1, rfi['production'][z][0])
                     flux_errs.insert(-1, rfi['production'][z][1])
                 if self.model.has_dvm:
-                    if sf == 'S' and z in ('LEZ', 'A', 'B', 'C'):
+                    if sf == 'S' and z in ('EZ', 'A', 'B', 'C'):
                         labels.insert(-1, 'DVM')
                         fluxes.insert(-1, -rfi['dvm'][z][0])
                         flux_errs.insert(-1, rfi['dvm'][z][1])
