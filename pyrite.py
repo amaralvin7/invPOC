@@ -602,6 +602,7 @@ class PyriteModel:
             max_change_limit = 0.01
             change = np.abs((xkp1 - xk)/xk)
             run.convergence_evolution.append(np.max(change))
+            # print(self.state_elements[np.argmax(change)], np.max(change))
             if np.max(change) < max_change_limit:
                 converged = True
 
@@ -1138,9 +1139,6 @@ class PyriteTwinX(PyriteModel):
                         A[i, iTsi] = -0.5*B2*h
                         A[i, iTsim1] = -0.5*B2*h
             x = np.linalg.solve(A, b)
-            # for i, el in enumerate(x):
-            #     if el < 0:
-            #         print(self.model.equation_elements[i], el)
             x = np.clip(x, 10**-10, None)
 
             return x
@@ -1179,7 +1177,9 @@ class PyriteTwinX(PyriteModel):
                 if np.max(change) < max_change_limit:
                     break
                 xk = xkp1
-                
+            # for i, el in enumerate(xkp1):
+            #     if el < 0:
+            #         print(self.model.equation_elements[i], el)
             xkp1 = np.clip(xkp1, 10**-10, None)
 
             Ps = xkp1[:7]
@@ -1677,8 +1677,6 @@ class PlotterModelRuns(PlotterTwinX):
             self.sinking_fluxes(run, suffix)
             self.volumetric_fluxes(run, suffix)
             self.budgets(run, suffix)
-            # if (run.gamma == 0.5) and (run.rel_err == 0.5):
-            #     self.param_comparison(run, suffix)
 
         # for x in ('gamma', 'rel_err'):
         #     self.param_sensitivity(x, priors_str, dvm_str)
@@ -2026,138 +2024,6 @@ class PlotterModelRuns(PlotterTwinX):
                             print(f'{flx}: {est:.3f} ± {err:.3f}',
                                   file=f)
 
-    def param_comparison(self, run, suffix):
-
-        dpy = self.model.DAYS_PER_YEAR
-
-        B2 = {}
-        for z in self.model.zone_names:
-            B2p, Psi = sym.symbols(f'B2p_{z} POCS_{z}')
-            if z == 'A':
-                Psa = Psi
-            else:
-                Psim1 = sym.symbols(f'POCS_{self.model.previous_zone(z)}')
-                Psa = (Psi + Psim1)/2
-            y = B2p*Psa
-            B2[z] = self.model.eval_symbolic_func(run, y)
-            
-
-        data = {
-                'MOSP': {'B2': (0.8/dpy, 0.9/dpy),
-                          'Bm2': (400/dpy, 10000/dpy),
-                          'Bm1s': (1.7/dpy, 0.9/dpy)},
-                'MNABE': {'B2': (2/dpy, 0.2/dpy),
-                          'Bm2': (156/dpy, 17/dpy),
-                          'Bm1s': (13/dpy, 1/dpy)},
-                'MNWA': {0: {'depth': 25.5, 'thick':50.9,
-                             'Bm1s': (70/dpy, 137/dpy),
-                             'B2': (9/dpy, 24/dpy),
-                             'Bm2': (2690/dpy, 10000/dpy)},
-                         1: {'depth': 85.1, 'thick':68.4,
-                             'Bm1s': (798/dpy, 7940/dpy),
-                             'B2': (11/dpy, 30/dpy),
-                             'Bm2': (2280/dpy, 10000/dpy)},
-                         2: {'depth': 169.5, 'thick':100.4,
-                             'Bm1s': (378/dpy, 3520/dpy),
-                             'B2': (13/dpy, 50/dpy),
-                             'Bm2': (1880/dpy, 10000/dpy)},
-                         3: {'depth': 295.3, 'thick':151.1,
-                             'Bm1s': (1766/dpy, 10000000/dpy),
-                             'B2': (18/dpy, 89/dpy),
-                             'Bm2': (950/dpy, 5700/dpy)},
-                         4: {'depth': 482.8, 'thick':224,
-                             'Bm1s': (113/dpy, 10000/dpy),
-                             'B2': (17/dpy, 77/dpy),
-                             'Bm2': (870/dpy, 5000/dpy)}}
-                }
-
-        
-        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(7, 4))
-        fig.subplots_adjust(left=0.16)
-        capsize = 4
-        for i, ax in enumerate((ax1, ax2, ax3)):
-            if i == 0:
-                p = 'Bm1s'
-                label = f'{run.Bm1s.label} ({run.Bm1s.units})'
-                ax.set_ylabel('Depth (m)', fontsize=14)
-            elif i == 1:
-                p = 'Bm2'
-                label = f'{run.Bm2.label} ({run.Bm2.units})'
-                ax.tick_params(labelleft=False)
-            else:
-                p = 'B2'
-                label = '$\\beta_2$ (d$^{-1}$)'
-                ax.tick_params(labelleft=False)
-
-            ax.invert_yaxis()
-            ax.set_xlabel(label, fontsize=14)
-            ax.set_xscale('log')
-            ax.set_ylim([700, -50])
-            
-            for zone in self.model.zones:
-                z = zone.label
-                ub, lb = zone.depths
-                d_av = zone.mid
-                d_err = zone.thick/2
-                if p == 'B2':
-                    data_point = B2[z][0]
-                    data_err = B2[z][1]
-                else:
-                    data_point = run.param_results[p][z]['est']
-                    data_err = run.param_results[p][z]['err']
-                ax.errorbar(data_point, d_av, fmt='o', yerr=d_err,
-                            c=self.GREEN, capsize=capsize)
-                ax.scatter(data_err, d_av, marker='o',
-                           facecolors='none', edgecolors=self.BLACK, zorder=10)
-            for z in data['MNWA'].keys():
-                d_av = data['MNWA'][z]['depth']
-                d_err = data['MNWA'][z]['thick']/2
-                ax.errorbar(data['MNWA'][z][p][0], d_av, fmt='^',
-                            yerr=d_err, c=self.RADISH, capsize=4)
-                ax.scatter(data['MNWA'][z][p][1], d_av, marker='^',
-                           facecolors='none', edgecolors=self.BLACK, zorder=10)
-            ax.scatter(data['MOSP'][p][0], 650, marker='s', c=self.BLUE)
-            ax.scatter(data['MOSP'][p][1], 650, marker='s', facecolors='none',
-                       edgecolors=self.BLACK, zorder=10)
-            ax.errorbar(data['MNABE'][p][0], 225, fmt='d', yerr=75,
-                        c=self.ORANGE, capsize=capsize, zorder=4)
-            ax.scatter(data['MNABE'][p][1], 225, marker='d', facecolors='none',
-                       edgecolors=self.BLACK, zorder=10)
-        
-        ax1.set_xlim([0.001, 100000])
-        ax1.set_xticks([0.001, 0.1, 10, 1000, 10**5])
-        ax2.set_xlim([0.01, 100])
-        ax2.set_xticks([0.01, 0.1, 1, 10, 100])
-        ax3.set_xlim([0.0001, 1])
-        ax3.set_xticks([0.0001, 0.001, 0.01, 0.1, 1])
-        
-        ax1.set_aspect(1/ax1.get_data_ratio()*1.2)
-        ax2.set_aspect(1/ax2.get_data_ratio()*1.2)
-        ax3.set_aspect(1/ax2.get_data_ratio()*1.2)
-        
-        ax3.yaxis.set_label_position('right')
-
-
-        leg_elements = [
-            Line2D([0], [0], marker='o', mec=self.BLACK, c=self.WHITE,
-                    label='This study \nStation P',
-                    markerfacecolor=self.GREEN, ms=9),
-            Line2D([0], [0], marker='s', mec=self.BLACK, c=self.WHITE,
-                    label='Murnane (1994)\nStation P',
-                    markerfacecolor=self.BLUE, ms=9),
-            Line2D([0], [0], marker='^', mec=self.BLACK, c=self.WHITE,
-                    label='Murnane et al. (1994)\nNWAO',
-                    markerfacecolor=self.RADISH, ms=9),
-            Line2D([0], [0], marker='d', mec=self.BLACK, c=self.WHITE,
-                    label='Murnane et al. (1996)\nNABE',
-                    markerfacecolor=self.ORANGE, ms=9)]
-        ax2.legend(handles=leg_elements, fontsize=10, loc='lower center',
-                    bbox_to_anchor=(0.34, 1.05), ncol=4, frameon=False,
-                    handletextpad=0.01)
-
-        fig.savefig(f'out/compareparams{suffix}')
-        plt.close()
-
     def param_sensitivity(self, sens_variable, priors_str, dvm_str):
         
         colors = [self.BLUE, self.GREEN, self.ORANGE, self.RADISH]
@@ -2361,6 +2227,176 @@ class PlotterModelRuns(PlotterTwinX):
             fig.savefig(f'out/budget{z}{suffix}')
             plt.close()
 
+class PlotterTwoModel():
+    """Makes plots with results from two models."""
+
+    def __init__(self, nabe_model, osp_model, gamma, rel_err):
+
+        with open(nabe_model, 'rb') as file:
+            self.nabe_model = pickle.load(file)
+
+        with open(osp_model, 'rb') as file:
+            self.osp_model = pickle.load(file)
+        
+        self.gamma = gamma
+        self.rel_err = rel_err
+
+        self.define_colors()
+        self.compare_params()
+
+    def define_colors(self):
+
+        self.BLACK = '#000000'
+        self.ORANGE = '#E69F00'
+        self.SKY = '#56B4E9'
+        self.GREEN = '#009E73'
+        self.YELLOW = '#F0E442'
+        self.BLUE = '#0072B2'
+        self.VERMILLION = '#D55E00'
+        self.RADISH = '#CC79A7'
+        self.WHITE = '#FFFFFF'
+
+    def compare_params(self):
+
+        dpy = self.nabe_model.DAYS_PER_YEAR            
+
+        data = {
+                'MOSP': {'B2': (0.8/dpy, 0.9/dpy),
+                          'Bm2': (400/dpy, 10000/dpy),
+                          'Bm1s': (1.7/dpy, 0.9/dpy)},
+                'MNABE': {'B2': (2/dpy, 0.2/dpy),
+                          'Bm2': (156/dpy, 17/dpy),
+                          'Bm1s': (13/dpy, 1/dpy)},
+                'MNWA': {0: {'depth': 25.5, 'thick':50.9,
+                             'Bm1s': (70/dpy, 137/dpy),
+                             'B2': (9/dpy, 24/dpy),
+                             'Bm2': (2690/dpy, 10000/dpy)},
+                         1: {'depth': 85.1, 'thick':68.4,
+                             'Bm1s': (798/dpy, 7940/dpy),
+                             'B2': (11/dpy, 30/dpy),
+                             'Bm2': (2280/dpy, 10000/dpy)},
+                         2: {'depth': 169.5, 'thick':100.4,
+                             'Bm1s': (378/dpy, 3520/dpy),
+                             'B2': (13/dpy, 50/dpy),
+                             'Bm2': (1880/dpy, 10000/dpy)},
+                         3: {'depth': 295.3, 'thick':151.1,
+                             'Bm1s': (1766/dpy, 10000000/dpy),
+                             'B2': (18/dpy, 89/dpy),
+                             'Bm2': (950/dpy, 5700/dpy)},
+                         4: {'depth': 482.8, 'thick':224,
+                             'Bm1s': (113/dpy, 10000/dpy),
+                             'B2': (17/dpy, 77/dpy),
+                             'Bm2': (870/dpy, 5000/dpy)}}
+                }
+
+        
+        fig, (nabe_axs, osp_axs) = plt.subplots(2, 3, figsize=(7, 5))
+        fig.subplots_adjust(bottom=0.15, hspace=0.1)
+        capsize = 4
+   
+        for model in (self.nabe_model, self.osp_model):
+            for r in model.model_runs:
+                if r.gamma == self.gamma and r.rel_err == self.rel_err:
+                    run = r
+                    break
+            if model == self.nabe_model:
+                axs = nabe_axs
+                ylabel = 'NABE priors'
+            else:
+                axs = osp_axs
+                ylabel = 'OSP priors'
+            B2 = {}
+            for z in model.zone_names:
+                B2p, Psi = sym.symbols(f'B2p_{z} POCS_{z}')
+                if z == 'A':
+                    Psa = Psi
+                else:
+                    Psim1 = sym.symbols(f'POCS_{self.nabe_model.previous_zone(z)}')
+                    Psa = (Psi + Psim1)/2
+                y = B2p*Psa
+                B2[z] = model.eval_symbolic_func(run, y)
+        
+            for i, ax in enumerate(axs):
+                if i == 0:
+                    p = 'Bm1s'
+                    label = f'{run.Bm1s.label} ({run.Bm1s.units})'
+                    ax.set_ylabel('Depth (m)', fontsize=14)
+                elif i == 1:
+                    p = 'Bm2'
+                    label = f'{run.Bm2.label} ({run.Bm2.units})'
+                    ax.tick_params(labelleft=False)
+                else:
+                    p = 'B2'
+                    label = '$\\beta_2$ (d$^{-1}$)'
+                    ax.tick_params(labelleft=False)
+                    ax.set_ylabel(ylabel, fontsize=14, rotation=270, labelpad=20)
+                    ax.yaxis.set_label_position('right')
+                if ax in nabe_axs:
+                    ax.tick_params(labelbottom=False)
+                else:
+                    ax.set_xlabel(label, fontsize=14)
+                ax.invert_yaxis()
+                ax.set_xscale('log')
+                ax.set_ylim([700, -50])
+                
+                for zone in model.zones:
+                    z = zone.label
+                    ub, lb = zone.depths
+                    d_av = zone.mid
+                    d_err = zone.thick/2
+                    if p == 'B2':
+                        data_point = B2[z][0]
+                        data_err = B2[z][1]
+                    else:
+                        data_point = run.param_results[p][z]['est']
+                        data_err = run.param_results[p][z]['err']
+                    ax.errorbar(data_point, d_av, fmt='o', yerr=d_err,
+                                c=self.ORANGE, capsize=capsize)
+                    ax.scatter(data_err, d_av, marker='o',
+                               facecolors='none', edgecolors=self.BLACK, zorder=10)
+                for z in data['MNWA'].keys():
+                    d_av = data['MNWA'][z]['depth']
+                    d_err = data['MNWA'][z]['thick']/2
+                    ax.errorbar(data['MNWA'][z][p][0], d_av, fmt='^',
+                                yerr=d_err, c=self.RADISH, capsize=4)
+                    ax.scatter(data['MNWA'][z][p][1], d_av, marker='^',
+                               facecolors='none', edgecolors=self.BLACK, zorder=10)
+                ax.scatter(data['MOSP'][p][0], 650, marker='s', c=self.SKY)
+                ax.scatter(data['MOSP'][p][1], 650, marker='s', facecolors='none',
+                           edgecolors=self.BLACK, zorder=10)
+                ax.errorbar(data['MNABE'][p][0], 225, fmt='d', yerr=75,
+                            c=self.GREEN, capsize=capsize, zorder=4)
+                ax.scatter(data['MNABE'][p][1], 225, marker='d', facecolors='none',
+                           edgecolors=self.BLACK, zorder=10)
+            
+            axs[0].set_xlim([0.001, 100000])
+            axs[0].set_xticks([0.001, 0.1, 10, 1000, 10**5])
+            axs[1].set_xlim([0.01, 100])
+            axs[1].set_xticks([0.01, 0.1, 1, 10, 100])
+            axs[2].set_xlim([0.00001, 1])
+            axs[2].set_xticks([0.00001, 0.0001, 0.001, 0.01, 0.1, 1])            
+            axs[2].yaxis.set_label_position('right')
+
+        leg_elements = [
+            Line2D([0], [0], marker='o', mec=self.BLACK, c=self.WHITE,
+                    label='This study \nStation P',
+                    markerfacecolor=self.ORANGE, ms=9),
+            Line2D([0], [0], marker='s', mec=self.BLACK, c=self.WHITE,
+                    label='Murnane (1994)\nStation P',
+                    markerfacecolor=self.SKY, ms=9),
+            Line2D([0], [0], marker='^', mec=self.BLACK, c=self.WHITE,
+                    label='Murnane et al. (1994)\nNWAO',
+                    markerfacecolor=self.RADISH, ms=9),
+            Line2D([0], [0], marker='d', mec=self.BLACK, c=self.WHITE,
+                    label='Murnane et al. (1996)\nNABE',
+                    markerfacecolor=self.GREEN, ms=9)]
+        nabe_axs[1].legend(handles=leg_elements, fontsize=10, loc='lower center',
+                    bbox_to_anchor=(0.44, 1.05), ncol=4, frameon=False,
+                    handletextpad=0.01)
+
+        fig.savefig('out/compareparams')
+        plt.close()
+
 
 if __name__ == '__main__':
 
@@ -2373,18 +2409,22 @@ if __name__ == '__main__':
     rel_errs = [0.5]
     args = (gammas, rel_errs)
 
-    model_nabe = PyriteModel(0, args, has_dvm=True, priors_from='NABE')
-    model_osp = PyriteModel(0, args, has_dvm=True, priors_from='OSP')
+    # model_nabe = PyriteModel(0, args, has_dvm=True, priors_from='NABE')
+    # model_osp = PyriteModel(0, args, has_dvm=True, priors_from='OSP')
 
-    PlotterModelRuns('out/POC_modelruns_dvmTrue_NABE.pkl')
-    PlotterModelRuns('out/POC_modelruns_dvmTrue_OSP.pkl')
+    # PlotterModelRuns('out/POC_modelruns_dvmTrue_NABE.pkl')
+    # PlotterModelRuns('out/POC_modelruns_dvmTrue_OSP.pkl')
     
-    twinX_nabe = PyriteTwinX(0, ([0.5], [0.5]),
-                              'out/POC_modelruns_dvmTrue_NABE.pkl')
-    twinX_osp = PyriteTwinX(0, ([0.5], [0.5]),
-                            'out/POC_modelruns_dvmTrue_OSP.pkl')
+    # twinX_nabe = PyriteTwinX(0, ([0.5], [0.5]),
+    #                           'out/POC_modelruns_dvmTrue_NABE.pkl')
+    # twinX_osp = PyriteTwinX(0, ([0.5], [0.5]),
+    #                         'out/POC_modelruns_dvmTrue_OSP.pkl')
     
-    PlotterTwinX('out/POC_twinX_dvmTrue_NABE.pkl')
-    PlotterTwinX('out/POC_twinX_dvmTrue_OSP.pkl')
+    # PlotterTwinX('out/POC_twinX_dvmTrue_NABE.pkl')
+    # PlotterTwinX('out/POC_twinX_dvmTrue_OSP.pkl')
+    
+    PlotterTwoModel('out/POC_modelruns_dvmTrue_NABE.pkl',
+                    'out/POC_modelruns_dvmTrue_OSP.pkl',
+                    0.5, 0.5)
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
