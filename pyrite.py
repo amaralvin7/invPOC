@@ -599,7 +599,7 @@ class PyriteModel:
             than 1% relative to its estimate at the previous iteration, xk.
             """
             converged = False
-            max_change_limit = 0.01
+            max_change_limit = 10**-6
             change = np.abs((xkp1 - xk)/xk)
             run.convergence_evolution.append(np.max(change))
             # print(self.state_elements[np.argmax(change)], np.max(change))
@@ -1152,7 +1152,7 @@ class PyriteTwinX(PyriteModel):
             model equations that are considered in the real data inversions.
             """
             max_iterations = 20
-            max_change_limit = 0.01
+            max_change_limit = 10**-6
             xk = generate_linear_solution()
 
             P30 = self.target_values['P30']['est']
@@ -2415,13 +2415,13 @@ if __name__ == '__main__':
     # PlotterModelRuns('out/POC_modelruns_dvmTrue_NABE.pkl')
     # PlotterModelRuns('out/POC_modelruns_dvmTrue_OSP.pkl')
     
-    # twinX_nabe = PyriteTwinX(0, ([0.5], [0.5]),
-    #                           'out/POC_modelruns_dvmTrue_NABE.pkl')
-    # twinX_osp = PyriteTwinX(0, ([0.5], [0.5]),
-    #                         'out/POC_modelruns_dvmTrue_OSP.pkl')
+    twinX_nabe = PyriteTwinX(0, ([0.5], [0.5]),
+                              'out/POC_modelruns_dvmTrue_NABE.pkl')
+    twinX_osp = PyriteTwinX(0, ([0.5], [0.5]),
+                            'out/POC_modelruns_dvmTrue_OSP.pkl')
     
-    # PlotterTwinX('out/POC_twinX_dvmTrue_NABE.pkl')
-    # PlotterTwinX('out/POC_twinX_dvmTrue_OSP.pkl')
+    PlotterTwinX('out/POC_twinX_dvmTrue_NABE.pkl')
+    PlotterTwinX('out/POC_twinX_dvmTrue_OSP.pkl')
     
     PlotterTwoModel('out/POC_modelruns_dvmTrue_NABE.pkl',
                     'out/POC_modelruns_dvmTrue_OSP.pkl',
