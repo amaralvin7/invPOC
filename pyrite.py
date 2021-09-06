@@ -2237,12 +2237,10 @@ class PlotterTwoModel():
 
         with open(osp_model, 'rb') as file:
             self.osp_model = pickle.load(file)
-        
-        self.gamma = gamma
-        self.rel_err = rel_err
 
         self.define_colors()
-        self.compare_params()
+        self.compare_params(0.5, 0.5)
+        self.budgets_4panel(0.5, 0.5)
 
     def define_colors(self):
 
@@ -2256,7 +2254,7 @@ class PlotterTwoModel():
         self.RADISH = '#CC79A7'
         self.WHITE = '#FFFFFF'
 
-    def compare_params(self):
+    def compare_params(self, gamma, rel_err):
 
         dpy = self.nabe_model.DAYS_PER_YEAR            
 
@@ -2296,7 +2294,7 @@ class PlotterTwoModel():
    
         for model in (self.nabe_model, self.osp_model):
             for r in model.model_runs:
-                if r.gamma == self.gamma and r.rel_err == self.rel_err:
+                if r.gamma == gamma and r.rel_err == rel_err:
                     run = r
                     break
             if model == self.nabe_model:
@@ -2396,7 +2394,72 @@ class PlotterTwoModel():
 
         fig.savefig('out/compareparams')
         plt.close()
+        
+    def budgets_4panel(self, gamma, rel_err):
+            
+        for z in ('EZ', 'UMZ'):
 
+            fig, (nabe_axs, osp_axs) = plt.subplots(2, 2)
+            fig.subplots_adjust(hspace=0.05, bottom=0.2, top=0.9)
+            osp_axs[0].set_ylabel('Integrated flux (mmol m$^{-2}$ d$^{-1}$)',
+                                  fontsize=14)
+            osp_axs[0].yaxis.set_label_coords(-0.2, 1)
+
+            for model in (self.nabe_model, self.osp_model):
+                for r in model.model_runs:
+                    if r.gamma == gamma and r.rel_err == rel_err:
+                        run = r
+                        break
+                if model == self.nabe_model:
+                    axs = nabe_axs
+                    ylabel = 'NABE priors'
+                    [ax.axes.xaxis.set_visible(False) for ax in axs]
+                else:
+                    axs = osp_axs
+                    ylabel = 'OSP priors'
+                
+                rfi = run.flux_integrals
+               
+                ax1, ax2 = axs
+                ax2.set_ylabel(ylabel, fontsize=14, rotation=270, labelpad=20)
+                ax2.yaxis.set_label_position('right')
+    
+                for group in ((ax1, 'S', -1, 1), (ax2, 'L', 1, -1)):
+                    ax, sf, agg_sign, dagg_sign = group
+                    ax.axhline(0, c='k', lw=1)
+                    ax.set_xlabel(f'$P_{sf}$ fluxes', fontsize=14)
+                    labels = ['SFD', 'Remin.', 'Agg.', 'Disagg.', 'Resid.']
+                    fluxes = [-rfi[f'sinkdiv_{sf}'][z][0],
+                              -rfi[f'remin_{sf}'][z][0],
+                              agg_sign*rfi['aggregation'][z][0],
+                              dagg_sign*rfi['disaggregation'][z][0],
+                              run.integrated_resids[f'POC{sf}'][z][0]]
+                    flux_errs = [rfi[f'sinkdiv_{sf}'][z][1],
+                                 rfi[f'remin_{sf}'][z][1],
+                                 rfi['aggregation'][z][1],
+                                 rfi['disaggregation'][z][1],
+                                 run.integrated_resids[f'POC{sf}'][z][1]]
+                    if sf == 'S':
+                        labels.insert(-1, 'Prod.')
+                        fluxes.insert(-1, rfi['production'][z][0])
+                        flux_errs.insert(-1, rfi['production'][z][1])
+                    if model.has_dvm:
+                        if sf == 'S' and z in ('EZ', 'A', 'B', 'C'):
+                            labels.insert(-1, 'DVM')
+                            fluxes.insert(-1, -rfi['dvm'][z][0])
+                            flux_errs.insert(-1, rfi['dvm'][z][1])
+                        elif sf == 'L' and z in ('UMZ', 'D', 'E', 'F', 'G'):
+                            labels.insert(-1, 'DVM')
+                            fluxes.insert(-1, rfi['dvm'][z][0])
+                            flux_errs.insert(-1, rfi['dvm'][z][1])
+                    
+                    ax.bar(list(range(len(fluxes))), fluxes, yerr=flux_errs,
+                           tick_label=labels, color=self.BLUE)
+                    for tick in ax.get_xticklabels():
+                        tick.set_rotation(45)
+                        
+            fig.savefig(f'out/budgets_4panel_{z}.png')
+            plt.close()
 
 if __name__ == '__main__':
 
@@ -2415,13 +2478,13 @@ if __name__ == '__main__':
     # PlotterModelRuns('out/POC_modelruns_dvmTrue_NABE.pkl')
     # PlotterModelRuns('out/POC_modelruns_dvmTrue_OSP.pkl')
     
-    twinX_nabe = PyriteTwinX(0, ([0.5], [0.5]),
-                              'out/POC_modelruns_dvmTrue_NABE.pkl')
-    twinX_osp = PyriteTwinX(0, ([0.5], [0.5]),
-                            'out/POC_modelruns_dvmTrue_OSP.pkl')
+    # twinX_nabe = PyriteTwinX(0, ([0.5], [0.5]),
+    #                           'out/POC_modelruns_dvmTrue_NABE.pkl')
+    # twinX_osp = PyriteTwinX(0, ([0.5], [0.5]),
+    #                         'out/POC_modelruns_dvmTrue_OSP.pkl')
     
-    PlotterTwinX('out/POC_twinX_dvmTrue_NABE.pkl')
-    PlotterTwinX('out/POC_twinX_dvmTrue_OSP.pkl')
+    # PlotterTwinX('out/POC_twinX_dvmTrue_NABE.pkl')
+    # PlotterTwinX('out/POC_twinX_dvmTrue_OSP.pkl')
     
     PlotterTwoModel('out/POC_modelruns_dvmTrue_NABE.pkl',
                     'out/POC_modelruns_dvmTrue_OSP.pkl',
