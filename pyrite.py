@@ -1415,26 +1415,33 @@ class PlotterTwinX():
             ax.errorbar(
                 est[self.is_twinX][param.dv],
                 run.param_results[p]['est'],
-                yerr=run.param_results[p]['err'], fmt='o',
-                c=self.ORANGE, ms=9, elinewidth=1.5,
+                yerr=run.param_results[p]['err'], fmt='s',
+                c=self.ORANGE, ms=9, elinewidth=1.5, label='Estimate',
                 ecolor=self.ORANGE, capsize=6, markeredgewidth=1.5)
             if self.is_twinX:
                 ax.scatter(
                     tar[param.dv], self.model.target_values[p]['est'],
-                    marker='x', s=90, c=self.GREEN)
+                    marker='x', s=90, c=self.GREEN, label='Target')
             ax.tick_params(bottom=False, labelbottom=False)
             ax.set_xticks(np.arange(maxtick[self.is_twinX]))
 
-            dv_file = f'out/paramsDV{suffix}'
-            dc_file = f'out/paramsDC{suffix}'
-            
-            if self.is_twinX:
-                dv_file += '_TE'
-                dc_file += '_TE'
-            dv.savefig(f'{dv_file}.png')
-            dc.savefig(f'{dc_file}.png')
-            plt.close(dc)
-            plt.close(dv)
+        handles, labels = ax11.get_legend_handles_labels()
+        unique = [
+            (h, l) for i, (h, l) in enumerate(
+                zip(handles, labels)) if l not in labels[:i]]
+        ax12.legend(*zip(*unique), fontsize=12, loc='center', frameon=False,
+                    ncol=1, labelspacing=2, bbox_to_anchor=(0.35, 0.5))
+
+        dv_file = f'out/paramsDV{suffix}'
+        dc_file = f'out/paramsDC{suffix}'
+        
+        if self.is_twinX:
+            dv_file += '_TE'
+            dc_file += '_TE'
+        dv.savefig(f'{dv_file}.png')
+        dc.savefig(f'{dc_file}.png')
+        plt.close(dc)
+        plt.close(dv)
 
     def poc_profiles(self, run, suffix):
 
@@ -1680,9 +1687,9 @@ class PlotterModelRuns(PlotterTwinX):
             self.volumetric_fluxes(run, suffix)
             self.budgets(run, suffix)
 
-        # for x in ('gamma', 'rel_err'):
-        #     self.param_sensitivity(x, priors_str, dvm_str)
-        #     self.param_relative_errors(x, priors_str, dvm_str)
+        for x in ('gamma', 'rel_err'):
+            self.param_sensitivity(x, priors_str, dvm_str)
+            self.param_relative_errors(x, priors_str, dvm_str)
 
     def poc_data(self):
 
@@ -1798,6 +1805,7 @@ class PlotterModelRuns(PlotterTwinX):
         st_depths = st_fluxes['depth']
         st_flux = st_fluxes['flux']
         st_flux_u = st_fluxes['flux_u']
+        letter_coords = (0.02, 0.93)
         
         fig, (ax1, ax2) = plt.subplots(1, 2)
         ax1.set_ylabel('Depth (m)', fontsize=14)
@@ -1806,8 +1814,8 @@ class PlotterModelRuns(PlotterTwinX):
             fontsize=14, ha='center', va='center')
         for ax in (ax1, ax2):
             ax.invert_yaxis()
-            ax.set_ylim(
-                top=0, bottom=520)
+            ax.set_ylim(top=0, bottom=520)
+            ax.axhline(100, ls=':', c=self.BLACK, zorder=1)
         
         ax1.errorbar(
             run.flux_profiles['sink_S']['est'],
@@ -1824,9 +1832,9 @@ class PlotterModelRuns(PlotterTwinX):
             label=self.model.sink_L.label, fillstyle='none', elinewidth=1.5,
             capthick=1.5)
         
-        ax1.legend(loc='lower right', fontsize=10)
+        ax1.legend(loc='lower right', fontsize=12, handletextpad=0.01)
         ax1.annotate(
-            'A', xy=(0.91, 0.94), xycoords='axes fraction', fontsize=16)
+            'A', xy=letter_coords, xycoords='axes fraction', fontsize=18)
         
         ax2.tick_params(labelleft=False)
         ax2.errorbar(
@@ -1842,9 +1850,9 @@ class PlotterModelRuns(PlotterTwinX):
             st_flux, st_depths - 4, fmt='d', xerr=st_flux_u, ecolor=self.BLACK,
             c=self.BLACK, capsize=4, label='Sed. Traps', elinewidth=1.5,
             capthick=1.5)
-        ax2.legend(loc='lower right', fontsize=10)
+        ax2.legend(loc='lower right', fontsize=12, handletextpad=0.01)
         ax2.annotate(
-            'B', xy=(0.91, 0.94), xycoords='axes fraction', fontsize=16)
+            'B', xy=letter_coords, xycoords='axes fraction', fontsize=18)
 
         fig.savefig(f'out/sinkfluxes{suffix}')
         plt.close()
@@ -1855,7 +1863,7 @@ class PlotterModelRuns(PlotterTwinX):
         fig.subplots_adjust(left=0.15, bottom=0.15, wspace=0.1)
         axs = (ax1, ax2, ax3, ax4)
         panels = ('A', 'B', 'C', 'D')
-        fig.text(0.5, 0.05, 'Volumetric POC Flux (mmol m$^{-3}$ d$^{-1}$)',
+        fig.text(0.5, 0.05, 'POC Flux (mmol m$^{-3}$ d$^{-1}$)',
                  fontsize=14, ha='center', va='center')
         fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center',
                  va='center', rotation='vertical')
@@ -1890,6 +1898,8 @@ class PlotterModelRuns(PlotterTwinX):
                         (run.flux_profiles[pr[1]]['est'][j]
                          + run.flux_profiles[pr[1]]['err'][j]),
                         color=self.ORANGE, alpha=0.25)
+                if i == 0:
+                    ax.axvline(0, ls=':', c=self.BLACK, zorder=1)
 
             else:
                 depths = self.model.GRID[1:]
@@ -1915,7 +1925,8 @@ class PlotterModelRuns(PlotterTwinX):
             unique = [
                 (h, l) for i, (h, l) in enumerate(
                     zip(handles, labels)) if l not in labels[:i]]
-            ax.legend(*zip(*unique), loc='lower right', fontsize=12)
+            ax.legend(*zip(*unique), loc='lower right', fontsize=12,
+                      handletextpad=0.01)
             
             ax.annotate(panels[i], xy=(0.9, 0.8), xycoords='axes fraction',
                         fontsize=12)
@@ -2241,8 +2252,8 @@ class PlotterTwoModel():
             self.osp_model = pickle.load(file)
 
         self.define_colors()
-        # self.compare_params(0.5, 0.5)
-        # self.budgets_4panel(0.5, 0.5)
+        self.compare_params(0.5, 0.5)
+        self.budgets_4panel(0.5, 0.5)
         self.sensitivity_4panel()
 
     def define_colors(self):
@@ -2625,19 +2636,19 @@ if __name__ == '__main__':
     # rel_errs = [0.5]
     args = (gammas, rel_errs)
 
-    # model_nabe = PyriteModel(0, args, has_dvm=True, priors_from='NABE')
-    # model_osp = PyriteModel(0, args, has_dvm=True, priors_from='OSP')
+    model_nabe = PyriteModel(0, args, has_dvm=True, priors_from='NABE')
+    model_osp = PyriteModel(0, args, has_dvm=True, priors_from='OSP')
 
-    # PlotterModelRuns('out/POC_modelruns_dvmTrue_NABE.pkl')
-    # PlotterModelRuns('out/POC_modelruns_dvmTrue_OSP.pkl')
+    PlotterModelRuns('out/POC_modelruns_dvmTrue_NABE.pkl')
+    PlotterModelRuns('out/POC_modelruns_dvmTrue_OSP.pkl')
     
-    # twinX_nabe = PyriteTwinX(0, ([0.5], [0.5]),
-    #                           'out/POC_modelruns_dvmTrue_NABE.pkl')
-    # twinX_osp = PyriteTwinX(0, ([0.5], [0.5]),
-    #                         'out/POC_modelruns_dvmTrue_OSP.pkl')
+    twinX_nabe = PyriteTwinX(0, ([0.5], [0.5]),
+                              'out/POC_modelruns_dvmTrue_NABE.pkl')
+    twinX_osp = PyriteTwinX(0, ([0.5], [0.5]),
+                            'out/POC_modelruns_dvmTrue_OSP.pkl')
     
-    # PlotterTwinX('out/POC_twinX_dvmTrue_NABE.pkl')
-    # PlotterTwinX('out/POC_twinX_dvmTrue_OSP.pkl')
+    PlotterTwinX('out/POC_twinX_dvmTrue_NABE.pkl')
+    PlotterTwinX('out/POC_twinX_dvmTrue_OSP.pkl')
     
     PlotterTwoModel('out/POC_modelruns_dvmTrue_NABE.pkl',
                     'out/POC_modelruns_dvmTrue_OSP.pkl',
