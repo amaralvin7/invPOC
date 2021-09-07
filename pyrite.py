@@ -62,10 +62,10 @@ class PyriteModel:
                 run = PyriteModelRun(g, re)
                 self.define_params(run)
                 self.define_state_and_equation_elements(run)
-                xo = self.define_prior_vector(run)
-                Co = self.define_covariance_matrix(xo, run)
-                xhat = self.ATI(xo, Co, run)
-                self.calculate_data_residuals(xo, Co, xhat, run)
+                self.define_prior_vector(run)
+                self.define_covariance_matrix(run)
+                xhat = self.ATI(run)
+                self.calculate_data_residuals(xhat, run)
                 self.check_equation_residuals(xhat, run)
                 self.integrate_residuals(run)
                 if str(self) != 'PyriteTwinX object':
@@ -294,9 +294,9 @@ class PyriteModel:
             else:
                 xo.append(0)
 
-        return np.array(xo)
+        self.xo = np.array(xo)
     
-    def define_covariance_matrix(self, xo, run):
+    def define_covariance_matrix(self, run):
         """Build the covariance matrix (Co)."""
 
         Co = []
@@ -315,9 +315,7 @@ class PyriteModel:
                     Co_i = (run.gamma*run.P30.prior*self.MLD)**2
             Co.append(Co_i)
         
-        Co = np.diag(Co)
-
-        return Co
+        run.Co = np.diag(Co)
 
     def slice_by_tracer(self, to_slice, species):
         """Return a slice of a list that corresponds to a given tracer.
@@ -562,11 +560,9 @@ class PyriteModel:
 
         return result, error
 
-    def ATI(self, xo, Co, run):
+    def ATI(self, run):
         """Algorithm of total inversion, returns a vector of state estimates.
 
-        xo_log -- log-transformed prior vector
-        Co_log -- log-transformed covariance matrix
         run -- model run whose results are being calculated
         xhat -- Vector that holds estimates of the state elements
         (i.e., the solution vector)
@@ -585,10 +581,10 @@ class PyriteModel:
             f -- vector of model equations
             F -- Jacobian matrix
             """
-            CoFT = Co @ F.T
+            CoFT = run.Co @ F.T
             FCoFT = F @ CoFT
             FCoFTi = np.linalg.inv(FCoFT)
-            xkp1 = xo + CoFT @ FCoFTi @ (F @ (xk - xo) - f)
+            xkp1 = self.xo + CoFT @ FCoFTi @ (F @ (xk - self.xo) - f)
 
             return xkp1, CoFT, FCoFTi
 
@@ -610,7 +606,7 @@ class PyriteModel:
 
         def calculate_cost(x):
             """Calculate the cost at a given iteration"""
-            cost = (x - xo).T @ np.linalg.inv(Co) @ (x - xo)
+            cost = (x - self.xo).T @ np.linalg.inv(run.Co) @ (x - self.xo)
 
             run.cost_evolution.append(cost)
 
@@ -618,7 +614,7 @@ class PyriteModel:
             """Iteratively finds a solution of the state vector."""
             max_iterations = 100
 
-            xk = xo
+            xk = self.xo
             xkp1 = np.ones(len(xk))  # at iteration k+1
             for count in range(max_iterations):
                 f, F = self.evaluate_model_equations(xk, return_F=True)
@@ -642,7 +638,7 @@ class PyriteModel:
             """Convert state estimates from lognormal to normal space."""
             F, xkp1, CoFT, FCoFTi = find_solution()
 
-            Ckp1 = Co - CoFT @ FCoFTi @ F @ Co
+            Ckp1 = run.Co - CoFT @ FCoFTi @ F @ run.Co
                     
             run.cvm = Ckp1
             xhat = xkp1
@@ -683,10 +679,10 @@ class PyriteModel:
 
         return unpack_state_estimates()
 
-    def calculate_data_residuals(self, xo, Co, xhat, run):
+    def calculate_data_residuals(self, xhat, run):
         """Calculate solution and equation residuals."""
-        x_residuals = xhat - xo
-        norm_x_residuals = x_residuals/np.sqrt(np.diag(Co))
+        x_residuals = xhat - self.xo
+        norm_x_residuals = x_residuals/np.sqrt(np.diag(run.Co))
         run.x_resids = norm_x_residuals
     
     def check_equation_residuals(self, xhat, run):
@@ -727,13 +723,14 @@ class PyriteModel:
                 inventory_sym[t][sz] = sz_inventory
         return inventory_sym
 
-    def calculate_fluxes(self, run):
+    def calculate_fluxes(self, run=None):
         """Calculate profiles of all model fluxes."""
         fluxes_sym = {}
 
         for flux in self.fluxes:
             f = flux.name
-            run.flux_profiles[f] = {'est': [], 'err': []}
+            if run:
+                run.flux_profiles[f] = {'est': [], 'err': []}
             if flux.wrt:
                 fluxes_sym[f] = []
             for zone in self.zones:
@@ -810,15 +807,16 @@ class PyriteModel:
                         t_av = (ti + tim1)/2
                         y = pi*t_av**order*h
                     y_discrete = y/h
-                est, err = self.eval_symbolic_func(run, y_discrete)
-                run.flux_profiles[f]['est'].append(est)
-                run.flux_profiles[f]['err'].append(err)
+                if run:
+                    est, err = self.eval_symbolic_func(run, y_discrete)
+                    run.flux_profiles[f]['est'].append(est)
+                    run.flux_profiles[f]['err'].append(err)
                 if flux.wrt:
                     fluxes_sym[f].append(y)
 
         return fluxes_sym
 
-    def integrate_fluxes(self, fluxes_sym, run):
+    def integrate_fluxes(self, fluxes_sym, run=None):
         """Integrate fluxes within each model grid zone."""
         
         fluxes = fluxes_sym.keys()
@@ -828,22 +826,26 @@ class PyriteModel:
 
         for f in fluxes:
             flux_integrals_sym[f] = {}
-            run.flux_integrals[f] = {}                 
+            if run:
+                run.flux_integrals[f] = {}                 
             for sz in zone_dict.keys():
                 to_integrate = 0 
                 flux_integrals_sym[f][sz] = {}
-                run.flux_integrals[f][sz] = {} 
+                if run:
+                    run.flux_integrals[f][sz] = {} 
                 for z in zone_dict[sz]:
-                    flux_integrals_sym[f][z] = {}
-                    run.flux_integrals[f][z] = {}
                     zone_flux = fluxes_sym[f][self.zone_names.index(z)]
-                    run.flux_integrals[f][z] = self.eval_symbolic_func(
-                        run, zone_flux)
                     to_integrate += zone_flux
-                    flux_integrals_sym[f][z] = zone_flux
+                    if run:
+                        flux_integrals_sym[f][z] = {}
+                        run.flux_integrals[f][z] = {}                    
+                        run.flux_integrals[f][z] = self.eval_symbolic_func(
+                            run, zone_flux)                    
+                        flux_integrals_sym[f][z] = zone_flux                        
                 flux_integrals_sym[f][sz] = to_integrate
-                run.flux_integrals[f][sz] = self.eval_symbolic_func(
-                    run, to_integrate)
+                if run:
+                    run.flux_integrals[f][sz] = self.eval_symbolic_func(
+                        run, to_integrate)
 
         return fluxes, flux_integrals_sym
     
@@ -2239,8 +2241,9 @@ class PlotterTwoModel():
             self.osp_model = pickle.load(file)
 
         self.define_colors()
-        self.compare_params(0.5, 0.5)
-        self.budgets_4panel(0.5, 0.5)
+        # self.compare_params(0.5, 0.5)
+        # self.budgets_4panel(0.5, 0.5)
+        self.sensitivity_4panel()
 
     def define_colors(self):
 
@@ -2460,6 +2463,156 @@ class PlotterTwoModel():
                         
             fig.savefig(f'out/budgets_4panel_{z}.png')
             plt.close()
+    
+    def sensitivity_4panel(self):    
+
+        def eval_symbolic_func2(model, run, y):
+
+            x_symbolic = y.free_symbols
+            x_numerical = []
+            x_indices = []
+            for x in x_symbolic:
+                idx = model.state_elements.index(x.name)
+                x_indices.append(idx)
+                x_numerical.append(model.xo[idx])
+    
+            result = sym.lambdify(x_symbolic, y)(*x_numerical)
+  
+            variance_sym = 0 
+            derivs = [y.diff(x) for x in x_symbolic]
+            cvm = run.Co[np.ix_(x_indices, x_indices)]
+            for i, row in enumerate(cvm):
+                for j, _ in enumerate(row):
+                    if i == j:
+                        variance_sym += (derivs[i]**2)*cvm[i, j]
+            variance = sym.lambdify(x_symbolic, variance_sym)(*x_numerical)
+            error = np.sqrt(variance)
+    
+            return result, error            
+
+        prior_fluxes_sym = self.nabe_model.calculate_fluxes()
+        _, prior_fluxes_sym_integrated = self.nabe_model.integrate_fluxes(
+            prior_fluxes_sym)
+        
+        prior_fluxes = {}
+        for i, model in enumerate((self.nabe_model, self.osp_model)):
+            m = model.priors_from
+            prior_fluxes[m] = {}
+            for r in model.model_runs:
+                if r.gamma == 0.5 and r.rel_err == 0.5:
+                    run = r 
+            for f in prior_fluxes_sym_integrated.keys():
+                prior_fluxes[m][f] = {}
+                for z in ('EZ', 'UMZ'):
+                    prior_fluxes[m][f][z] = eval_symbolic_func2(
+                        model, run, prior_fluxes_sym_integrated[f][z])
+
+
+        width = 0.2
+        combos = ((0.5, 0.5), (0.5, 1), (1, 0.5), (1, 1))
+        run_colors = {0: self.BLUE, 1: self.ORANGE, 2: self.GREEN,
+                      3: self.VERMILLION, 4: self.RADISH}
+    
+        for z in ('EZ', 'UMZ'):
+
+            fig, (nabe_axs, osp_axs) = plt.subplots(2, 2)
+            fig.subplots_adjust(hspace=0.05, bottom=0.2, top=0.9)
+            osp_axs[0].set_ylabel('Integrated flux (mmol m$^{-2}$ d$^{-1}$)',
+                                  fontsize=14)
+            osp_axs[0].yaxis.set_label_coords(-0.2, 1)
+
+            for model in (self.nabe_model, self.osp_model):
+                runs = []               
+                for (gamma, rel_err) in combos:
+                    for r in model.model_runs:
+                        if r.gamma == gamma and r.rel_err == rel_err:
+                            runs.append(r)              
+                if model == self.nabe_model:
+                    axs = nabe_axs
+                    [ax.axes.xaxis.set_visible(False) for ax in axs]
+                else:
+                    axs = osp_axs
+                    [ax.set_ylim([-20, 20]) for ax in axs]
+
+                runs.insert(0, prior_fluxes[model.priors_from])
+                
+                ax1, ax2 = axs
+                ylabel = f'{model.priors_from} priors'
+                ax2.set_ylabel(ylabel, fontsize=14, rotation=270, labelpad=20)
+                ax2.yaxis.set_label_position('right')
+
+                for i, run in enumerate(runs):
+                    if i > 0:
+                        rfi = {**run.flux_integrals, **run.integrated_resids}
+                    else:
+                        rfi = run
+                    color = run_colors[i]
+                    for group in ((ax1, 'S', -1, 1), (ax2, 'L', 1, -1)):
+                        ax, sf, agg_sign, dagg_sign = group
+                        ax.axhline(0, c='k', lw=0.5)
+                        ax.set_xlabel(f'$P_{sf}$ fluxes', fontsize=14)
+                        ax_labels = ['SFD', 'Remin.', 'Agg.', 'Disagg.', 'Resid.']
+                        fluxes = [-rfi[f'sinkdiv_{sf}'][z][0],
+                                  -rfi[f'remin_{sf}'][z][0],
+                                  agg_sign*rfi['aggregation'][z][0],
+                                  dagg_sign*rfi['disaggregation'][z][0]]
+                        flux_errs = [rfi[f'sinkdiv_{sf}'][z][1],
+                                     rfi[f'remin_{sf}'][z][1],
+                                     rfi['aggregation'][z][1],
+                                     rfi['disaggregation'][z][1]]
+                        if i > 0:
+                            fluxes.append(rfi[f'POC{sf}'][z][0])
+                            flux_errs.append(rfi[f'POC{sf}'][z][1])
+                        else:
+                            fluxes.append(0)
+                            flux_errs.append(
+                                runs[1].gamma*runs[1].P30.prior*model.MLD)                           
+                        if sf == 'S':
+                            ax_labels.insert(-1, 'Prod.')
+                            fluxes.insert(-1, rfi['production'][z][0])
+                            flux_errs.insert(-1, rfi['production'][z][1])
+                            if z == 'EZ':
+                                ax_labels.insert(-1, 'DVM')
+                                fluxes.insert(-1, -rfi['dvm'][z][0])
+                                flux_errs.insert(-1, rfi['dvm'][z][1])                        
+                        elif sf == 'L' and z == 'UMZ':
+                            ax_labels.insert(-1, 'DVM')
+                            fluxes.insert(-1, rfi['dvm'][z][0])
+                            flux_errs.insert(-1, rfi['dvm'][z][1])
+                        x = np.arange(len(ax_labels))
+                        if i == 0:
+                            positions = x - width*2
+                        elif i == 1:
+                            positions = x - width
+                        elif i == 2:
+                            positions = x
+                        elif i == 3:
+                            positions = x + width
+                        else:
+                            positions = x + width*2
+                        ax.bar(positions, fluxes, width=width, yerr=flux_errs,
+                               tick_label=ax_labels, color=color,
+                               error_kw={'elinewidth': 1})
+                        ax.set_xticks(x)
+                        ax.set_xticklabels(ax_labels)
+                        for tick in ax.get_xticklabels():
+                            tick.set_rotation(45)
+            leg_elements = [
+                Line2D([0], [0], c=self.BLUE, marker='s', ls='none', ms=6,
+                       label='prior ($\gamma = 0.5, RE = 0.5$)'),
+                Line2D([0], [0], c=self.ORANGE, marker='s', ls='none', ms=6,
+                       label='$\gamma = 0.5, RE = 0.5$'),
+                Line2D([0], [0], c=self.GREEN, marker='s', ls='none', ms=6,
+                       label='$\gamma = 0.5, RE = 1$'),
+                Line2D([0], [0], c=self.VERMILLION, marker='s', ls='none', ms=6,
+                       label='$\gamma = 1, RE = 0.5$'),
+                Line2D([0], [0], c=self.RADISH, marker='s', ls='none', ms=6,
+                       label='$\gamma = 1, RE = 1$')]
+            nabe_axs[1].legend(handles=leg_elements, fontsize=9,
+                               frameon=False, handletextpad=-0.5,
+                               loc=(-0.04,0.47), labelspacing=0)
+            fig.savefig(f'out/sensitivity_4panel_{z}.png')
+            plt.close()
 
 if __name__ == '__main__':
 
@@ -2468,8 +2621,8 @@ if __name__ == '__main__':
     
     gammas = [0.5, 1, 5, 10]
     rel_errs = [0.1, 0.2, 0.5, 1]
-    gammas = [0.5]
-    rel_errs = [0.5]
+    # gammas = [0.5]
+    # rel_errs = [0.5]
     args = (gammas, rel_errs)
 
     # model_nabe = PyriteModel(0, args, has_dvm=True, priors_from='NABE')
