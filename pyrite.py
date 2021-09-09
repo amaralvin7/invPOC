@@ -1555,9 +1555,6 @@ class PlotterModelRuns(PlotterTwinX):
         if 'Ti' in self.model.species:
             self.ti_data()
 
-        if self.model.has_dvm:
-            self.theoretical_dvm()
-
         priors_str = self.model.priors_from
         dvm_str = f'dvm{self.model.has_dvm}'
 
@@ -1642,41 +1639,6 @@ class PlotterModelRuns(PlotterTwinX):
             ax.tick_params(axis='both', which='major', labelsize=12)
 
         fig.savefig('out/ti_data.png')
-        plt.close()
-
-    def theoretical_dvm(self):
-
-        D = 500
-        zg = 100
-        B3Ps_av = 1
-        a = 3
-        depths = np.arange(zg, D)
-        co = np.pi/(2*(D - zg))*a*zg
-        flux = B3Ps_av*co*(np.sin(np.pi*(depths - zg)/(D - zg)))
-
-        fig, ax = plt.subplots(1, 1, tight_layout=True, figsize=(4,4))
-        ax.invert_yaxis()
-        ax.plot([0, 0], [0, zg], lw=2, c=self.black)
-        ax.plot(flux, depths, lw=2, c=self.black)
-        ax.set_yticks([0, zg, (D + zg)/2, D])
-        ax.set_yticklabels(['0', '$z_g$', '$\\frac{D_M + z_g}{2}$','$D_M$'],
-                           fontsize=14)
-        ax.set_xticks([0, co])
-        ax.set_xticklabels(['0', '$c_o$'], fontsize=14)
-        ax.xaxis.tick_top()
-        ax.set_xlabel('Excretion Flux (mmol m$^{-3}$ d$^{-1}$)', fontsize=14,
-                      labelpad=10)
-        ax.set_ylabel('Depth (m)', fontsize=14, labelpad=10)
-        ax.xaxis.set_label_position('top')
-
-        ax.axvline(0, lw=0.5, ls='--', c=self.black)
-        ax.axvline(co, lw=0.5, ls='--', c=self.black)
-        ax.axhline(0, lw=0.5, ls='--', c=self.black)
-        ax.axhline(zg, lw=0.5, ls='--', c=self.black)
-        ax.axhline(D, lw=0.5, ls='--', c=self.black)
-        ax.axhline((D+zg)/2, lw=0.5, ls='--', c=self.black)
-
-        fig.savefig('out/theoretical_dvm')
         plt.close()
 
     def sinking_fluxes(self, run, suffix):
@@ -2519,8 +2481,8 @@ if __name__ == '__main__':
     # rel_errs = [0.5]
     args = (gammas, rel_errs)
 
-    # model_nabe = PyriteModel(0, args, has_dvm=True, priors_from='NABE')
-    # model_osp = PyriteModel(0, args, has_dvm=True, priors_from='OSP')
+    model_nabe = PyriteModel(0, args, has_dvm=True, priors_from='NABE')
+    model_osp = PyriteModel(0, args, has_dvm=True, priors_from='OSP')
 
     PlotterModelRuns('out/POC_modelruns_dvmTrue_NABE.pkl')
     PlotterModelRuns('out/POC_modelruns_dvmTrue_OSP.pkl')
