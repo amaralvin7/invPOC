@@ -182,8 +182,8 @@ class PyriteModel:
             run.B3 = Param(0.06, 0.06*rel_err, 'B3', '$\\beta_3$', 'd$^{-1}$',
                            depth_vary=False)
             run.a = Param(0.3, 0.15, 'a', '$\\alpha$', depth_vary=False)
-            run.DM = Param(500, 250, 'DM', '$D_M$', 'm', depth_vary=False)
-            run.params.extend([run.B3, run.a, run.DM])
+            run.zm = Param(500, 250, 'zm', '$z_m$', 'm', depth_vary=False)
+            run.params.extend([run.B3, run.a, run.zm])
 
         if 'Ti' in self.species:
             run.Phi = Param(ti_dust, ti_dust, 'Phi', '$\\Phi_D$',
@@ -361,7 +361,7 @@ class PyriteModel:
             if self.has_dvm:
                 B3 = sym.symbols('B3')
                 a = sym.symbols('a')
-                D = sym.symbols('DM')
+                D = sym.symbols('zm')
             if zone.label != 'A':
                 wsm1 = sym.symbols(f'ws_{pz}')
                 wlm1 = sym.symbols(f'wl_{pz}')
@@ -383,7 +383,7 @@ class PyriteModel:
             if self.has_dvm:
                 B3 = params_known['B3']['est']
                 a = params_known['a']['est']
-                D = params_known['DM']['est']
+                D = params_known['zm']['est']
             if zone.label != 'A':
                 wsm1 = params_known['ws'][pz]['est']
                 wlm1 = params_known['wl'][pz]['est']
@@ -727,7 +727,7 @@ class PyriteModel:
                 elif f == 'dvm':
                     B3 = sym.symbols('B3')
                     a = sym.symbols('a')
-                    D = sym.symbols('DM')
+                    D = sym.symbols('zm')
                     if z in ('A', 'B', 'C'):
                         ti = sym.symbols(f'POCS_{z}')
                         if z == 'A':
@@ -1966,7 +1966,7 @@ class PlotterModelRuns(PlotterTwinX):
                'G': {'c':self.sky, 'm': 'X'},
                'P30': {'c':self.orange, 'm': 'o'},
                'Lp': {'c':self.blue, 'm': '^'},
-               'DM': {'c':self.green, 'm': 's'},
+               'zm': {'c':self.green, 'm': 's'},
                'B3': {'c':self.black, 'm': 'd'},
                'a': {'c':self.radish, 'm': 'v'},}
 
