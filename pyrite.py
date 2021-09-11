@@ -1390,8 +1390,8 @@ class PlotterTwinX():
         if self.is_twinX:
             dv_file += '_TE'
             dc_file += '_TE'
-        dv.savefig(f'{dv_file}.png')
-        dc.savefig(f'{dc_file}.png')
+        dv.savefig(f'{dv_file}.pdf')
+        dc.savefig(f'{dc_file}.pdf')
         plt.close(dc)
         plt.close(dv)
 
@@ -1442,7 +1442,7 @@ class PlotterTwinX():
         filename = f'out/POCprofs{suffix}'
         if self.is_twinX:
             filename += '_TE'
-        fig.savefig(f'{filename}.png')
+        fig.savefig(f'{filename}.pdf')
         plt.close()
 
     def residual_pdfs(self, run, suffix):
@@ -1470,7 +1470,7 @@ class PlotterTwinX():
         filename = f'out/pdfs{suffix}'
         if self.is_twinX:
             filename += '_TE'
-        fig.savefig(f'{filename}.png')
+        fig.savefig(f'{filename}.pdf')
         plt.close()
 
     def residual_profiles(self, run, suffix):
@@ -1513,7 +1513,7 @@ class PlotterTwinX():
         filename = f'out/POCresids{suffix}'
         if self.is_twinX:
             filename += '_TE'
-        fig.savefig(f'{filename}.png')
+        fig.savefig(f'{filename}.pdf')
         plt.close()
 
         if 'Ti' in self.model.species:
@@ -1536,7 +1536,7 @@ class PlotterTwinX():
             filename = f'out/Ti_resids{suffix}'
             if self.is_twinX:
                 filename += '_TE'
-            fig.savefig(f'{filename}.png')
+            fig.savefig(f'{filename}.pdf')
             plt.close()
 
 
@@ -1605,7 +1605,7 @@ class PlotterModelRuns(PlotterTwinX):
             ax.tick_params(axis='both', which='major', labelsize=12)
         ax2.tick_params(labelleft=False)
 
-        fig.savefig('out/data_POC.png')
+        fig.savefig('out/data_POC.pdf')
         plt.close()
 
     def ti_data(self):
@@ -1638,7 +1638,7 @@ class PlotterModelRuns(PlotterTwinX):
             ax.set_ylim(top=0, bottom=500)
             ax.tick_params(axis='both', which='major', labelsize=12)
 
-        fig.savefig('out/ti_data.png')
+        fig.savefig('out/ti_data.pdf')
         plt.close()
 
     def sinking_fluxes(self, run, suffix):
@@ -1702,7 +1702,7 @@ class PlotterModelRuns(PlotterTwinX):
         ax2.annotate(
             'B', xy=letter_coords, xycoords='axes fraction', fontsize=18)
 
-        fig.savefig(f'out/sinkfluxes{suffix}')
+        fig.savefig(f'out/sinkfluxes{suffix}.pdf')
         plt.close()
 
     def volumetric_fluxes(self, run, suffix):
@@ -1783,12 +1783,12 @@ class PlotterModelRuns(PlotterTwinX):
             ax.invert_yaxis()
             ax.set_ylim(
                 top=0, bottom=505)
-        fig.savefig(f'out/fluxes_volumetric{suffix}')
+        fig.savefig(f'out/fluxes_volumetric{suffix}.pdf')
         plt.close()
 
         if self.model.has_dvm:
             fig, (ax1, ax2) = plt.subplots(1, 2, tight_layout=True)
-            ax1.set_xlabel('Consumption Flux (mmol m$^{-3}$ d$^{-1}$)',
+            ax1.set_xlabel('Ingestion Flux (mmol m$^{-3}$ d$^{-1}$)',
                       fontsize=12)
             ax2.set_xlabel('Excretion Flux (mmol m$^{-3}$ d$^{-1}$)',
                       fontsize=12)
@@ -1818,7 +1818,7 @@ class PlotterModelRuns(PlotterTwinX):
                 ax.axhline(100, ls=':', c=self.black)
             ax2.tick_params(labelleft=False)
 
-            fig.savefig(f'out/dvmflux{suffix}')
+            fig.savefig(f'out/dvmflux{suffix.pdf}')
             plt.close()
 
     def write_output(self, priors_str, dvm_str):
@@ -2081,7 +2081,7 @@ class PlotterModelRuns(PlotterTwinX):
                 for tick in ax.get_xticklabels():
                     tick.set_rotation(45)
 
-            fig.savefig(f'out/budget{z}{suffix}')
+            fig.savefig(f'out/budget{z}{suffix}.pdf')
             plt.close()
 
 class PlotterTwoModel():
@@ -2250,7 +2250,7 @@ class PlotterTwoModel():
                     bbox_to_anchor=(0.44, 1.05), loc='lower center', 
                     handletextpad=0.01, frameon=False)
 
-        fig.savefig('out/compareparams')
+        fig.savefig('out/compareparams.pdf')
         plt.close()
 
     def budgets_4panel(self, gamma, rel_err):
@@ -2316,7 +2316,7 @@ class PlotterTwoModel():
                     for tick in ax.get_xticklabels():
                         tick.set_rotation(45)
 
-            fig.savefig(f'out/budgets_4panel_{z}.png')
+            fig.savefig(f'out/budgets_4panel_{z}.pdf')
             plt.close()
 
     def sensitivity_4panel(self):
@@ -2467,7 +2467,7 @@ class PlotterTwoModel():
             nabe_axs[1].legend(handles=leg_elements, fontsize=9,
                                frameon=False, handletextpad=-0.5,
                                loc=(-0.04,0.47), labelspacing=0)
-            fig.savefig(f'out/sensitivity_4panel_{z}.png')
+            fig.savefig(f'out/sensitivity_4panel_{z}.pdf')
             plt.close()
 
 if __name__ == '__main__':
