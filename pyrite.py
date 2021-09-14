@@ -1315,7 +1315,7 @@ class PlotterTwinX():
             else:
                 ax.tick_params(labelleft=False)
             ax.invert_yaxis()
-            ax.set_ylim(top=0, bottom=500)
+            ax.set_ylim(top=0, bottom=530)
             ax.tick_params(axis='both', which='major', labelsize=12)
             ax.axvline(param.prior, c=self.blue, lw=1.5, ls=':')
             ax.axvline(param.prior - param.prior_e, c=self.blue, lw=1.5,
@@ -1433,9 +1433,7 @@ class PlotterTwinX():
 
         for ax in (ax1, ax2):
             ax.invert_yaxis()
-            ax.set_ylim(top=0, bottom=500)
-            ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
-                      loc='lower right')
+            ax.set_ylim(top=0, bottom=530)
             ax.tick_params(axis='both', which='major', labelsize=12)
         ax2.tick_params(labelleft=False)
 
@@ -1601,7 +1599,7 @@ class PlotterModelRuns(PlotterTwinX):
 
         for ax in (ax1, ax2):
             ax.invert_yaxis()
-            ax.set_ylim(top=0, bottom=500)
+            ax.set_ylim(top=0, bottom=530)
             ax.tick_params(axis='both', which='major', labelsize=12)
         ax2.tick_params(labelleft=False)
 
@@ -1635,7 +1633,7 @@ class PlotterModelRuns(PlotterTwinX):
 
         for ax in (ax1, ax2):
             ax.invert_yaxis()
-            ax.set_ylim(top=0, bottom=500)
+            ax.set_ylim(top=0, bottom=530)
             ax.tick_params(axis='both', which='major', labelsize=12)
 
         fig.savefig('out/ti_data.pdf')
@@ -1662,7 +1660,7 @@ class PlotterModelRuns(PlotterTwinX):
             fontsize=14, ha='center', va='center')
         for ax in (ax1, ax2):
             ax.invert_yaxis()
-            ax.set_ylim(top=0, bottom=520)
+            ax.set_ylim(top=0, bottom=530)
             ax.axhline(100, ls=':', c=self.black, zorder=1)
 
         ax1.errorbar(
@@ -2099,6 +2097,7 @@ class PlotterTwoModel():
         self.compare_params(0.5, 0.5)
         self.budgets_4panel(0.5, 0.5)
         self.sensitivity_4panel()
+        self.poc_profiles(0.5, 0.5)
 
     def define_colors(self):
 
@@ -2470,6 +2469,75 @@ class PlotterTwoModel():
             fig.savefig(f'out/sensitivity_4panel_{z}.pdf')
             plt.close()
 
+    def poc_profiles(self, gamma, rel_err):
+
+        fig, [ax1, ax2] = plt.subplots(1, 2, tight_layout=True)
+        fig.subplots_adjust(wspace=0.5)
+
+        ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)', fontsize=14)
+        ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
+        ax1.set_ylabel('Depth (m)', fontsize=14)
+        
+        for r in self.nabe_model.model_runs:
+            if r.gamma == gamma and r.rel_err == rel_err:
+                nrun = r
+                break
+
+        for r in self.sp_model.model_runs:
+            if r.gamma == gamma and r.rel_err == rel_err:
+                srun = r
+                break
+            
+        ngrid = [d - 5 for d in self.sp_model.grid]
+        sgrid = [d + 5 for d in self.sp_model.grid]
+
+        ax1.errorbar(
+            self.sp_model.POCS.prior['conc'], 
+            self.sp_model.POCS.prior['depth'],
+            fmt='^', xerr=self.sp_model.POCS.prior['conc_e'], ecolor=self.blue,
+            elinewidth=1, c=self.blue, ms=10, capsize=5, fillstyle='full')
+        ax1.errorbar(
+            nrun.tracer_results['POCS']['est'], ngrid, fmt='o',
+            xerr=nrun.tracer_results['POCS']['err'], ecolor=self.orange,
+            elinewidth=1, c=self.orange, ms=8, capsize=5, fillstyle='none',
+            zorder=3, markeredgewidth=1)
+        ax1.errorbar(
+            srun.tracer_results['POCS']['est'], sgrid, fmt='s',
+            xerr=srun.tracer_results['POCS']['err'], ecolor=self.green,
+            elinewidth=1, c=self.green, ms=8, capsize=5,
+            label='Data', fillstyle='none',
+            zorder=3, markeredgewidth=1)
+
+        ax2.errorbar(
+            self.sp_model.POCL.prior['conc'],
+            self.sp_model.POCL.prior['depth'],
+            fmt='^', xerr=self.sp_model.POCL.prior['conc_e'], ecolor=self.blue,
+            elinewidth=1, c=self.blue, ms=10, capsize=5, fillstyle='full',
+            label='Data')
+        ax2.errorbar(
+            nrun.tracer_results['POCL']['est'], ngrid, fmt='o',
+            xerr=nrun.tracer_results['POCL']['err'], ecolor=self.orange,
+            elinewidth=1, c=self.orange, ms=8, capsize=5,
+            label='NABE', fillstyle='none',
+            zorder=3, markeredgewidth=1)
+        ax2.errorbar(
+            srun.tracer_results['POCL']['est'], sgrid, fmt='s',
+            xerr=srun.tracer_results['POCL']['err'], ecolor=self.green,
+            elinewidth=1, c=self.green, ms=8, capsize=5,
+            label='SP', fillstyle='none',
+            zorder=3, markeredgewidth=1)
+
+        for ax in (ax1, ax2):
+            ax.invert_yaxis()
+            ax.set_ylim(top=0, bottom=530)
+            ax.tick_params(axis='both', which='major', labelsize=12)
+        ax2.tick_params(labelleft=False)
+        ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
+                  loc='lower right')
+
+        fig.savefig('out/POCprofs_2model.pdf')
+        plt.close()
+        
 if __name__ == '__main__':
 
     sys.setrecursionlimit(100000)
