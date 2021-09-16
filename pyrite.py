@@ -1288,12 +1288,6 @@ class PlotterTwinX():
 
     def params(self, run, suffix):
 
-        tar = {True: {'EZ': 2, 'UMZ': 4}, False: 3}
-        pri = {True: 2, False: 1}
-        est = {True: {True: {'EZ': 3, 'UMZ': 5}, False: 4},
-                False: {True: {'EZ': 2, 'UMZ': 3}, False: 3}}
-        maxtick = {True: 7, False: 5}
-
         dv, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(
             2, 3, tight_layout=True)
         dv_axs = ax1, ax2, ax3, ax4, ax5, ax6
@@ -1360,38 +1354,33 @@ class PlotterTwinX():
             if param.units:
                 xlabel += f' ({param.units})'
             ax.set_xlabel(xlabel, fontsize=12)
-            ax.errorbar(
-                pri[self.is_twinX], param.prior,
-                yerr=eval(f'run.{p}.prior_e'), fmt='o', ms=9,
-                c=self.blue, elinewidth=1.5, ecolor=self.blue,
-                capsize=6, label='Prior', markeredgewidth=1.5)
-            ax.errorbar(
-                est[self.is_twinX][param.dv],
-                run.param_results[p]['est'],
-                yerr=run.param_results[p]['err'], fmt='s',
-                c=self.orange, ms=9, elinewidth=1.5, label='Estimate',
-                ecolor=self.orange, capsize=6, markeredgewidth=1.5)
+            ax.errorbar(1, param.prior, yerr=param.prior_e, fmt='^',
+                        ms=9, c=self.blue, elinewidth=1.5, ecolor=self.blue,
+                        capsize=6, label='Prior', markeredgewidth=1.5)
+            ax.errorbar(3, run.param_results[p]['est'],
+                        yerr=run.param_results[p]['err'], fmt='o',
+                        c=self.orange, ms=9, elinewidth=1.5, label='Estimate',
+                        ecolor=self.orange, capsize=6, markeredgewidth=1.5)
             if self.is_twinX:
-                ax.scatter(
-                    tar[param.dv], self.model.target_values[p]['est'],
-                    marker='x', s=90, c=self.green, label='Target')
+                ax.scatter(2, self.model.target_values[p]['est'], marker='x',
+                           s=90, c=self.green, label='Target')
             ax.tick_params(bottom=False, labelbottom=False)
-            ax.set_xticks(np.arange(maxtick[self.is_twinX]))
+            ax.set_xticks(np.arange(5))
 
         handles, labels = ax11.get_legend_handles_labels()
+        handles[-2:] = [h[0] for h in handles[-2:]]
         unique = [(h, l) for i, (h, l) in enumerate(
             zip(handles, labels)) if l not in labels[:i]]
         ax12.legend(*zip(*unique), fontsize=12, loc='center', frameon=False,
                     ncol=1, labelspacing=2, bbox_to_anchor=(0.35, 0.5))
-
         dv_file = f'out/paramsDV{suffix}'
         dc_file = f'out/paramsDC{suffix}'
 
         if self.is_twinX:
-            dv_file += '_TE'
-            dc_file += '_TE'
-        dv.savefig(f'{dv_file}.pdf')
-        dc.savefig(f'{dc_file}.pdf')
+            dv_file += '_TE.pdf'
+            dc_file += '_TE.pdf'
+        dv.savefig(f'{dv_file}')
+        dc.savefig(f'{dc_file}')
         plt.close(dc)
         plt.close(dv)
 
@@ -1404,31 +1393,26 @@ class PlotterTwinX():
         ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
         ax1.set_ylabel('Depth (m)', fontsize=14)
 
-        art = {True: {'data_label': 'Data', 'inv_label': 'TE'},
-               False: {'data_label': 'LVISF', 'inv_label': 'Estimate'}}
-
         ax1.errorbar(
             self.model.POCS.prior['conc'], self.model.POCS.prior['depth'],
             fmt='^', xerr=self.model.POCS.prior['conc_e'], ecolor=self.blue,
-            elinewidth=1, c=self.blue, ms=10, capsize=5, fillstyle='full',
-            label=art[self.is_twinX]['data_label'])
+            elinewidth=1, c=self.blue, ms=10, capsize=5, fillstyle='full')
         ax1.errorbar(
             run.tracer_results['POCS']['est'], self.model.grid, fmt='o',
             xerr=run.tracer_results['POCS']['err'], ecolor=self.orange,
-            elinewidth=1, c=self.orange, ms=8, capsize=5,
-            label=art[self.is_twinX]['inv_label'], fillstyle='none',
+            elinewidth=1, c=self.orange, ms=8, capsize=5, fillstyle='none',
             zorder=3, markeredgewidth=1)
 
         ax2.errorbar(
             self.model.POCL.prior['conc'], self.model.POCL.prior['depth'],
             fmt='^', xerr=self.model.POCL.prior['conc_e'], ecolor=self.blue,
             elinewidth=1, c=self.blue, ms=10, capsize=5, fillstyle='full',
-            label=art[self.is_twinX]['data_label'])
+            label='Data')
         ax2.errorbar(
             run.tracer_results['POCL']['est'], self.model.grid, fmt='o',
             xerr=run.tracer_results['POCL']['err'], ecolor=self.orange,
             elinewidth=1, c=self.orange, ms=8, capsize=5,
-            label=art[self.is_twinX]['inv_label'], fillstyle='none',
+            label='Estimate', fillstyle='none',
             zorder=3, markeredgewidth=1)
 
         for ax in (ax1, ax2):
@@ -1436,11 +1420,13 @@ class PlotterTwinX():
             ax.set_ylim(top=0, bottom=530)
             ax.tick_params(axis='both', which='major', labelsize=12)
         ax2.tick_params(labelleft=False)
+        ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
+                  loc='lower right')
 
         filename = f'out/POCprofs{suffix}'
         if self.is_twinX:
-            filename += '_TE'
-        fig.savefig(f'{filename}.pdf')
+            filename += '_TE.pdf'
+        fig.savefig(f'{filename}')
         plt.close()
 
     def residual_pdfs(self, run, suffix):
@@ -1485,7 +1471,6 @@ class PlotterTwinX():
 
         for i, t in enumerate(self.model.tracer_names):
             ax = axs[i]
-            ax.invert_yaxis()
             if 'POC' in t:
                 prior_err = run.gamma*run.P30.prior*self.model.mld
             for j, zone in enumerate(self.model.zones):
@@ -1506,7 +1491,12 @@ class PlotterTwinX():
                             marker='x', c=self.green, s=250)
             ax.axvline(prior_err, ls='--', c=self.blue)
             ax.axvline(-prior_err, ls='--', c=self.blue)
-            ax.axvline(0, ls=':', c=self.black)
+            ax.axvline(0, ls=':', c=self.blue)
+            
+        for ax in (ax1, ax2):
+            ax.invert_yaxis()
+            ax.tick_params(axis='both', which='major', labelsize=12)
+        ax2.tick_params(labelleft=False)
 
         filename = f'out/POCresids{suffix}'
         if self.is_twinX:
@@ -1527,9 +1517,6 @@ class PlotterTwinX():
                 run.tracer_results['TiS']['resids'], self.model.grid)
             ax2.scatter(
                 run.tracer_results['TiL']['resids'], self.model.grid)
-
-            for ax in (ax1, ax2):
-                ax.invert_yaxis()
 
             filename = f'out/Ti_resids{suffix}'
             if self.is_twinX:
@@ -1699,6 +1686,9 @@ class PlotterModelRuns(PlotterTwinX):
         ax2.legend(loc='lower right', fontsize=12, handletextpad=0.01)
         ax2.annotate(
             'B', xy=letter_coords, xycoords='axes fraction', fontsize=18)
+        
+        for ax in (ax1, ax2):
+            ax.tick_params(axis='both', which='major', labelsize=12)
 
         fig.savefig(f'out/sinkfluxes{suffix}.pdf')
         plt.close()
@@ -1779,8 +1769,7 @@ class PlotterModelRuns(PlotterTwinX):
             if i % 2:
                 ax.tick_params(labelleft=False)
             ax.invert_yaxis()
-            ax.set_ylim(
-                top=0, bottom=505)
+            ax.set_ylim(top=0, bottom=520)
         fig.savefig(f'out/fluxes_volumetric{suffix}.pdf')
         plt.close()
 
@@ -1814,6 +1803,7 @@ class PlotterModelRuns(PlotterTwinX):
                 ax.invert_yaxis()
                 ax.set_ylim(top=0, bottom=505)
                 ax.axhline(100, ls=':', c=self.black)
+                ax.tick_params(axis='both', which='major', labelsize=12)
             ax2.tick_params(labelleft=False)
 
             fig.savefig(f'out/dvmflux{suffix}.pdf')
@@ -2094,10 +2084,12 @@ class PlotterTwoModel():
             self.sp_model = pickle.load(file)
 
         self.define_colors()
+        
         self.compare_params(0.5, 0.5)
         self.budgets_4panel(0.5, 0.5)
         self.sensitivity_4panel()
         self.poc_profiles(0.5, 0.5)
+        self.paramsDC_2model(0.5, 0.5)
 
     def define_colors(self):
 
@@ -2536,6 +2528,57 @@ class PlotterTwoModel():
                   loc='lower right')
 
         fig.savefig('out/POCprofs_2model.pdf')
+        plt.close()
+
+    def paramsDC_2model(self, gamma, rel_err):
+
+        
+        for r in self.nabe_model.model_runs:
+            if r.gamma == gamma and r.rel_err == rel_err:
+                nrun = r
+                break
+
+        for r in self.sp_model.model_runs:
+            if r.gamma == gamma and r.rel_err == rel_err:
+                srun = r
+                break
+
+        fig, ((ax7, ax8, ax9), (ax10, ax11, ax12)) = plt.subplots(
+            2, 3, tight_layout=True)
+        dc_axs = ax7, ax8, ax9, ax10, ax11
+        ax12.axis('off')
+
+        dc_params = [p for p in nrun.params if not p.dv]
+
+        for i, param in enumerate(dc_params):
+            p = param.name
+            ax = dc_axs[i]
+            xlabel = param.label
+            if param.units:
+                xlabel += f' ({param.units})'
+            ax.set_xlabel(xlabel, fontsize=12)
+            ax.errorbar(1, param.prior, yerr=param.prior_e, fmt='^',
+                        c=self.blue, elinewidth=1.5, ecolor=self.blue, ms=9,
+                        capsize=6, label='Prior', markeredgewidth=1.5)
+            ax.errorbar(2, nrun.param_results[p]['est'], fmt='o',
+                        yerr=nrun.param_results[p]['err'], c=self.orange, ms=9, 
+                        ecolor=self.orange, elinewidth=1.5, capsize=6, 
+                        label='Estimate (NABE)', markeredgewidth=1.5)
+            ax.errorbar(3, srun.param_results[p]['est'], fmt='s',
+                        yerr=srun.param_results[p]['err'], c=self.green, ms=9, 
+                        ecolor=self.green, elinewidth=1.5, capsize=6, 
+                        label='Estimate (SP)', markeredgewidth=1.5)
+            ax.tick_params(bottom=False, labelbottom=False)
+            ax.set_xticks(np.arange(5))
+
+        handles, labels = ax11.get_legend_handles_labels()
+        handles = [h[0] for h in handles]
+        unique = [(h, l) for i, (h, l) in enumerate(
+            zip(handles, labels)) if l not in labels[:i]]
+        ax12.legend(*zip(*unique), fontsize=12, loc='center', frameon=False,
+                    ncol=1, labelspacing=2, bbox_to_anchor=(0.35, 0.5))
+
+        fig.savefig('out/paramsDC_2model.pdf')
         plt.close()
         
 if __name__ == '__main__':
