@@ -29,7 +29,7 @@ class PyriteModel:
     (2021).
     """
 
-    def __init__(self, model_id, args, has_dvm=False, priors_from='NABE'):
+    def __init__(self, model_id, args, has_dvm=False, priors_from='NA'):
         """Define basic model attributes and run the model.
 
         args -- a tuple of lists. The first list specifies gamma values,
@@ -147,7 +147,7 @@ class PyriteModel:
         ti_dust = 2*0.0042*1000/47.867 #umol m-2 d-1
         rel_err = run.rel_err
 
-        if self.priors_from == 'NABE':
+        if self.priors_from == 'NA':
             B2p_prior = (2/21) # m^3 mg^-1 y^-1
             B2p_prior_e = np.sqrt((0.2/21)**2 + (-1*(2/21**2))**2)
             Bm2_prior = 156  # y^-1
@@ -170,7 +170,7 @@ class PyriteModel:
                          'd$^{-1}$')
         run.Bm1l = Param(0.15, 0.15*rel_err, 'Bm1l', '$\\beta_{-1,L}$',
                          'd$^{-1}$')
-        run.P30 = Param(P30_prior, P30_prior_e, 'P30', '$\.P_{S,30}$',
+        run.P30 = Param(P30_prior, P30_prior_e, 'P30', '$\.P_{S,ML}$',
                         'mmol m$^{-3}$ d$^{-1}$', depth_vary=False)
         run.Lp = Param(Lp_prior, Lp_prior_e, 'Lp', '$L_P$', 'm',
                        depth_vary=False)
@@ -1377,10 +1377,10 @@ class PlotterTwinX():
         dc_file = f'out/paramsDC{suffix}'
 
         if self.is_twinX:
-            dv_file += '_TE.pdf'
-            dc_file += '_TE.pdf'
-        dv.savefig(f'{dv_file}')
-        dc.savefig(f'{dc_file}')
+            dv_file += '_TE'
+            dc_file += '_TE'
+        dv.savefig(f'{dv_file}.pdf')
+        dc.savefig(f'{dc_file}.pdf')
         plt.close(dc)
         plt.close(dv)
 
@@ -2075,10 +2075,10 @@ class PlotterModelRuns(PlotterTwinX):
 class PlotterTwoModel():
     """Makes plots with results from two models."""
 
-    def __init__(self, nabe_model, sp_model, gamma, rel_err):
+    def __init__(self, na_model, sp_model, gamma, rel_err):
 
-        with open(nabe_model, 'rb') as file:
-            self.nabe_model = pickle.load(file)
+        with open(na_model, 'rb') as file:
+            self.na_model = pickle.load(file)
 
         with open(sp_model, 'rb') as file:
             self.sp_model = pickle.load(file)
@@ -2104,13 +2104,13 @@ class PlotterTwoModel():
 
     def compare_params(self, gamma, rel_err):
 
-        dpy = self.nabe_model.DAYS_PER_YEAR
+        dpy = self.na_model.DAYS_PER_YEAR
 
         data = {
                 'MSP': {'B2': (0.8/dpy, 0.9/dpy),
                           'Bm2': (400/dpy, 10000/dpy),
                           'Bm1s': (1.7/dpy, 0.9/dpy)},
-                'MNABE': {'B2': (2/dpy, 0.2/dpy),
+                'MNA': {'B2': (2/dpy, 0.2/dpy),
                           'Bm2': (156/dpy, 17/dpy),
                           'Bm1s': (13/dpy, 1/dpy)},
                 'MNWA': {0: {'depth': 25.5, 'thick':50.9,
@@ -2134,21 +2134,21 @@ class PlotterTwoModel():
                              'B2': (17/dpy, 77/dpy),
                              'Bm2': (870/dpy, 5000/dpy)}}}
 
-        fig, (nabe_axs, sp_axs) = plt.subplots(2, 3, figsize=(7, 5))
+        fig, (na_axs, sp_axs) = plt.subplots(2, 3, figsize=(7, 5))
         fig.subplots_adjust(bottom=0.15, hspace=0.1)
         capsize = 4
 
-        for model in (self.nabe_model, self.sp_model):
+        for model in (self.na_model, self.sp_model):
             for r in model.model_runs:
                 if r.gamma == gamma and r.rel_err == rel_err:
                     run = r
                     break
-            if model == self.nabe_model:
-                axs = nabe_axs
-                ylabel = 'NABE priors'
+            if model == self.na_model:
+                axs = na_axs
+                ylabel = 'NA inversion'
             else:
                 axs = sp_axs
-                ylabel = 'SP priors'
+                ylabel = 'SP inversion'
             B2 = {}
             for z in model.zone_names:
                 B2p, Psi = sym.symbols(f'B2p_{z} POCS_{z}')
@@ -2156,7 +2156,7 @@ class PlotterTwoModel():
                     Psa = Psi
                 else:
                     Psim1 = sym.symbols(
-                        f'POCS_{self.nabe_model.previous_zone(z)}')
+                        f'POCS_{self.na_model.previous_zone(z)}')
                     Psa = (Psi + Psim1)/2
                 y = B2p*Psa
                 B2[z] = model.eval_symbolic_func(run, y)
@@ -2177,7 +2177,7 @@ class PlotterTwoModel():
                     ax.set_ylabel(ylabel, fontsize=14, rotation=270,
                                   labelpad=20)
                     ax.yaxis.set_label_position('right')
-                if ax in nabe_axs:
+                if ax in na_axs:
                     ax.tick_params(labelbottom=False)
                 else:
                     ax.set_xlabel(label, fontsize=14)
@@ -2211,9 +2211,9 @@ class PlotterTwoModel():
                 ax.scatter(data['MSP'][p][0], 650, marker='s', c=self.sky)
                 ax.scatter(data['MSP'][p][1], 650, marker='s', zorder=10,
                            edgecolors=self.black, facecolors='none')
-                ax.errorbar(data['MNABE'][p][0], 225, fmt='d', yerr=75,
+                ax.errorbar(data['MNA'][p][0], 225, fmt='d', yerr=75,
                             c=self.green, capsize=capsize, zorder=4)
-                ax.scatter(data['MNABE'][p][1], 225, marker='d', zorder=10,
+                ax.scatter(data['MNA'][p][1], 225, marker='d', zorder=10,
                            edgecolors=self.black, facecolors='none')
 
             axs[0].set_xlim([0.001, 100000])
@@ -2237,7 +2237,7 @@ class PlotterTwoModel():
             Line2D([0], [0], marker='d', mec=self.black, c=self.white,
                     label='Murnane et al. (1996)\nNABE',
                     markerfacecolor=self.green, ms=9)]
-        nabe_axs[1].legend(handles=leg_elements, fontsize=10, ncol=4,
+        na_axs[1].legend(handles=leg_elements, fontsize=10, ncol=4,
                     bbox_to_anchor=(0.44, 1.05), loc='lower center', 
                     handletextpad=0.01, frameon=False)
 
@@ -2248,24 +2248,24 @@ class PlotterTwoModel():
 
         for z in ('EZ', 'UMZ'):
 
-            fig, (nabe_axs, sp_axs) = plt.subplots(2, 2)
+            fig, (na_axs, sp_axs) = plt.subplots(2, 2)
             fig.subplots_adjust(hspace=0.05, bottom=0.2, top=0.9)
             sp_axs[0].set_ylabel('Integrated flux (mmol m$^{-2}$ d$^{-1}$)',
                                   fontsize=14)
             sp_axs[0].yaxis.set_label_coords(-0.2, 1)
 
-            for model in (self.nabe_model, self.sp_model):
+            for model in (self.na_model, self.sp_model):
                 for r in model.model_runs:
                     if r.gamma == gamma and r.rel_err == rel_err:
                         run = r
                         break
-                if model == self.nabe_model:
-                    axs = nabe_axs
-                    ylabel = 'NABE priors'
+                if model == self.na_model:
+                    axs = na_axs
+                    ylabel = 'NA inversion'
                     [ax.axes.xaxis.set_visible(False) for ax in axs]
                 else:
                     axs = sp_axs
-                    ylabel = 'SP priors'
+                    ylabel = 'SP inversion'
 
                 rfi = run.flux_integrals
 
@@ -2336,12 +2336,12 @@ class PlotterTwoModel():
 
             return result, error
 
-        prior_fluxes_sym = self.nabe_model.calculate_fluxes()
-        _, prior_fluxes_sym_integrated = self.nabe_model.integrate_fluxes(
+        prior_fluxes_sym = self.na_model.calculate_fluxes()
+        _, prior_fluxes_sym_integrated = self.na_model.integrate_fluxes(
             prior_fluxes_sym)
 
         prior_fluxes = {}
-        for i, model in enumerate((self.nabe_model, self.sp_model)):
+        for i, model in enumerate((self.na_model, self.sp_model)):
             m = model.priors_from
             prior_fluxes[m] = {}
             for r in model.model_runs:
@@ -2361,20 +2361,20 @@ class PlotterTwoModel():
 
         for z in ('EZ', 'UMZ'):
 
-            fig, (nabe_axs, sp_axs) = plt.subplots(2, 2)
+            fig, (na_axs, sp_axs) = plt.subplots(2, 2)
             fig.subplots_adjust(hspace=0.05, bottom=0.2, top=0.9)
             sp_axs[0].set_ylabel('Integrated flux (mmol m$^{-2}$ d$^{-1}$)',
                                   fontsize=14)
             sp_axs[0].yaxis.set_label_coords(-0.2, 1)
 
-            for model in (self.nabe_model, self.sp_model):
+            for model in (self.na_model, self.sp_model):
                 runs = []
                 for (gamma, rel_err) in combos:
                     for r in model.model_runs:
                         if r.gamma == gamma and r.rel_err == rel_err:
                             runs.append(r)
-                if model == self.nabe_model:
-                    axs = nabe_axs
+                if model == self.na_model:
+                    axs = na_axs
                     [ax.axes.xaxis.set_visible(False) for ax in axs]
                 else:
                     axs = sp_axs
@@ -2383,7 +2383,7 @@ class PlotterTwoModel():
                 runs.insert(0, prior_fluxes[model.priors_from])
 
                 ax1, ax2 = axs
-                ylabel = f'{model.priors_from} priors'
+                ylabel = f'{model.priors_from} inversions'
                 ax2.set_ylabel(ylabel, fontsize=14, rotation=270, labelpad=20)
                 ax2.yaxis.set_label_position('right')
 
@@ -2455,7 +2455,7 @@ class PlotterTwoModel():
                        label='$\gamma = 1, RE = 0.5$'),
                 Line2D([0], [0], c=self.radish, marker='s', ls='none', ms=6,
                        label='$\gamma = 1, RE = 1$')]
-            nabe_axs[1].legend(handles=leg_elements, fontsize=9,
+            na_axs[1].legend(handles=leg_elements, fontsize=9,
                                frameon=False, handletextpad=-0.5,
                                loc=(-0.04,0.47), labelspacing=0)
             fig.savefig(f'out/sensitivity_4panel_{z}.pdf')
@@ -2470,7 +2470,7 @@ class PlotterTwoModel():
         ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
         ax1.set_ylabel('Depth (m)', fontsize=14)
         
-        for r in self.nabe_model.model_runs:
+        for r in self.na_model.model_runs:
             if r.gamma == gamma and r.rel_err == rel_err:
                 nrun = r
                 break
@@ -2510,7 +2510,7 @@ class PlotterTwoModel():
             nrun.tracer_results['POCL']['est'], ngrid, fmt='o',
             xerr=nrun.tracer_results['POCL']['err'], ecolor=self.orange,
             elinewidth=1, c=self.orange, ms=8, capsize=5,
-            label='NABE', fillstyle='none',
+            label='NA', fillstyle='none',
             zorder=3, markeredgewidth=1)
         ax2.errorbar(
             srun.tracer_results['POCL']['est'], sgrid, fmt='s',
@@ -2533,7 +2533,7 @@ class PlotterTwoModel():
     def paramsDC_2model(self, gamma, rel_err):
 
         
-        for r in self.nabe_model.model_runs:
+        for r in self.na_model.model_runs:
             if r.gamma == gamma and r.rel_err == rel_err:
                 nrun = r
                 break
@@ -2563,7 +2563,7 @@ class PlotterTwoModel():
             ax.errorbar(2, nrun.param_results[p]['est'], fmt='o',
                         yerr=nrun.param_results[p]['err'], c=self.orange, ms=9, 
                         ecolor=self.orange, elinewidth=1.5, capsize=6, 
-                        label='Estimate (NABE)', markeredgewidth=1.5)
+                        label='Estimate (NA)', markeredgewidth=1.5)
             ax.errorbar(3, srun.param_results[p]['est'], fmt='s',
                         yerr=srun.param_results[p]['err'], c=self.green, ms=9, 
                         ecolor=self.green, elinewidth=1.5, capsize=6, 
@@ -2592,21 +2592,21 @@ if __name__ == '__main__':
     # rel_errs = [0.5]
     args = (gammas, rel_errs)
 
-    model_nabe = PyriteModel(0, args, has_dvm=True, priors_from='NABE')
+    model_na = PyriteModel(0, args, has_dvm=True, priors_from='NA')
     model_sp = PyriteModel(0, args, has_dvm=True, priors_from='SP')
 
-    PlotterModelRuns('out/POC_modelruns_dvmTrue_NABE.pkl')
+    PlotterModelRuns('out/POC_modelruns_dvmTrue_NA.pkl')
     PlotterModelRuns('out/POC_modelruns_dvmTrue_SP.pkl')
 
-    twinX_nabe = PyriteTwinX(0, ([0.5], [0.5]),
-                              'out/POC_modelruns_dvmTrue_NABE.pkl')
+    twinX_na = PyriteTwinX(0, ([0.5], [0.5]),
+                              'out/POC_modelruns_dvmTrue_NA.pkl')
     twinX_sp = PyriteTwinX(0, ([0.5], [0.5]),
                             'out/POC_modelruns_dvmTrue_SP.pkl')
 
-    PlotterTwinX('out/POC_twinX_dvmTrue_NABE.pkl')
+    PlotterTwinX('out/POC_twinX_dvmTrue_NA.pkl')
     PlotterTwinX('out/POC_twinX_dvmTrue_SP.pkl')
 
-    PlotterTwoModel('out/POC_modelruns_dvmTrue_NABE.pkl',
+    PlotterTwoModel('out/POC_modelruns_dvmTrue_NA.pkl',
                     'out/POC_modelruns_dvmTrue_SP.pkl',
                     0.5, 0.5)
 
