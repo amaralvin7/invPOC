@@ -1572,11 +1572,17 @@ class PlotterModelRuns(PlotterTwinX):
             self.model.POCS.prior['conc'], self.model.POCS.prior['depth'],
             fmt='^', xerr=self.model.POCS.prior['conc_e'], ecolor=self.blue,
             elinewidth=1, c=self.blue, ms=10, capsize=5, fillstyle='full')
+        ax1.scatter(
+            self.model.data['POC']['POCS'],
+            self.model.data['POC']['mod_depth'], c=self.blue, alpha=0.4)
 
         ax2.errorbar(
             self.model.POCL.prior['conc'], self.model.POCL.prior['depth'],
             fmt='^', xerr=self.model.POCL.prior['conc_e'], ecolor=self.blue,
             elinewidth=1, c=self.blue, ms=10, capsize=5, fillstyle='full')
+        ax2.scatter(
+            self.model.data['POC']['POCL'],
+            self.model.data['POC']['mod_depth'], c=self.blue, alpha=0.4)
 
         ax1.set_xticks([0, 1, 2, 3])
         ax1.set_xlim([0, 3.4])
