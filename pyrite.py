@@ -52,7 +52,7 @@ class PyriteModel:
         self.mld = 30  # mixed layer depth
         self.grid = [30, 50, 100, 150, 200, 330, 500]
 
-        self.MOLAR_MASS_C = 12
+        self.MOLAR_MASS_C = 12.011
         self.DAYS_PER_YEAR = 365.24
 
         self.load_data()
