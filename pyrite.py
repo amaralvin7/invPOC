@@ -69,12 +69,14 @@ class PyriteModel:
                 self.define_prior_vector_and_cov_matrix(run)
                 xhat = self.ATI(run)
                 self.calculate_residuals(xhat, run)
-                self.integrate_residuals(run)
+                int_resids = self.integrate_residuals(run)
                 if str(self) != 'PyriteTwinX object':
                     inventories = self.calculate_inventories(run)
                     fluxes_sym = self.calculate_fluxes(run)
                     flux_names, int_fluxes = self.integrate_fluxes(
                         fluxes_sym, run)
+                    self.calculate_res_times(
+                        inventories, int_fluxes, int_resids, run)
                     self.calculate_timescales(
                         inventories, flux_names, int_fluxes, run)
                 self.model_runs.append(run)
@@ -665,7 +667,7 @@ class PyriteModel:
         inventory_sym = {}
         zone_dict = {'EZ': self.zones[:3], 'UMZ': self.zones[3:]}
 
-        for t in ('POCS', 'POCL'):
+        for t in self.tracer_names:
             run.inventories[t] = {}
             inventory_sym[t] = {}
             for sz in zone_dict.keys():
@@ -694,6 +696,7 @@ class PyriteModel:
 
     def calculate_fluxes(self, run=None):
         """Calculate profiles of all model fluxes."""
+
         fluxes_sym = {}
 
         for flux in self.fluxes:
@@ -821,20 +824,51 @@ class PyriteModel:
         """Integrate model equation residuals within each model grid zone."""
 
         zone_dict = {'EZ': self.zone_names[:3], 'UMZ': self.zone_names[3:]}
+        
+        int_resids_sym = {}
 
-        for t in run.integrated_resids.keys():
+        for t in self.tracer_names:
+            int_resids_sym[t] = {}
             for sz in zone_dict.keys():
-                run.integrated_resids[t][sz] = {}
                 to_integrate = 0
                 for z in zone_dict[sz]:
+                    int_resids_sym[t][z] = sym.symbols(f'R{t}_{z}')
                     to_integrate += sym.symbols(f'R{t}_{z}')
+                int_resids_sym[t][sz] = to_integrate
                 run.integrated_resids[t][sz] = self.eval_symbolic_func(
                     run, to_integrate)
-
+        
+        return int_resids_sym
+    
+    def calculate_res_times(self, invent_sym, flux_int_sym, int_resids, run):
+        
+        fluxes = {'POCS': ['production', 'disaggregation'],
+                  'POCL': ['disaggregation', 'remin_L']}
+        
+        for t in self.tracer_names:
+            run.res_times[t] = {}
+            for z in invent_sym[t].keys():
+                inventory = invent_sym[t][z]
+                sum_of_fluxes = 0
+                for f in fluxes[t]:
+                    sum_of_fluxes += flux_int_sym[f][z]
+                if t == 'POCS':
+                    if run.flux_integrals['sinkdiv_S'][z][0] < 0:
+                        sum_of_fluxes += -flux_int_sym['sinkdiv_S'][z]
+                    if run.integrated_resids[t][z][0] > 0:
+                        sum_of_fluxes += int_resids[t][z]
+                else:
+                    if run.flux_integrals['sinkdiv_L'][z][0] > 0:
+                        sum_of_fluxes += flux_int_sym['sinkdiv_L'][z]
+                    if run.integrated_resids[t][z][0] < 0:
+                        sum_of_fluxes += int_resids[t][z]
+                run.res_times[t][z] = self.eval_symbolic_func(
+                    run, inventory/sum_of_fluxes)
+            
     def calculate_timescales(self, inventory_sym, fluxes, flux_int_sym, run):
         """Calculate turnover timescales associated with each model flux."""
 
-        for t in inventory_sym.keys():
+        for t in self.tracer_names:
             run.timescales[t] = {}
             for z in inventory_sym[t].keys():
                 run.timescales[t][z] = {}
@@ -939,6 +973,7 @@ class PyriteModelRun():
         self.integrated_resids = {}
         self.flux_profiles = {}
         self.flux_integrals = {}
+        self.res_times = {}
         self.timescales = {}
 
     def __repr__(self):
@@ -1844,7 +1879,7 @@ class PlotterModelRuns(PlotterTwinX):
                 print('+++++++++++++++++++++++++++', file=f)
                 for z in zones_to_print:
                     print(f'--------{z}--------', file=f)
-                    for t in run.inventories.keys():
+                    for t in self.model.tracer_names:
                         est, err = run.inventories[t][z]
                         print(f'{t}: {est:.2f} ± {err:.2f}', file=f)
                 print('+++++++++++++++++++++++++++', file=f)
@@ -1860,11 +1895,19 @@ class PlotterModelRuns(PlotterTwinX):
                 print('+++++++++++++++++++++++++++', file=f)
                 for z in zones_to_print:
                     print(f'--------{z}--------', file=f)
-                    for t in run.integrated_resids.keys():
+                    for t in self.model.tracer_names:
                         est, err = run.integrated_resids[t][z]
                         print(f'{t}: {est:.2f} ± {err:.2f}', file=f)
                 print('+++++++++++++++++++++++++++', file=f)
-                print('Timescales', file=f)
+                print('Residence times', file=f)
+                print('+++++++++++++++++++++++++++', file=f)
+                for z in zones_to_print:
+                    print(f'--------{z}--------', file=f)
+                    for t in self.model.tracer_names:
+                        est, err = run.res_times[t][z]
+                        print(f'{t}: {est:.2f} ± {err:.2f}', file=f)
+                print('+++++++++++++++++++++++++++', file=f)
+                print('Turnover Timescales', file=f)
                 print('+++++++++++++++++++++++++++', file=f)
                 for z in zones_to_print:
                     print(f'--------{z}--------', file=f)
