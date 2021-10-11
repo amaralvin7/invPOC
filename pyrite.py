@@ -844,36 +844,23 @@ class PyriteModel:
         
         fluxes_in = {'POCS': ['production', 'disaggregation'],
                      'POCL': ['aggregation']}
-        fluxes_out = {'POCS': ['aggregation', 'remin_S'],
-                     'POCL': ['disaggregation', 'remin_L']}
         
-        for d in ('in', 'out'):
-            run.res_times[d] = {}
-            fluxes = fluxes_in if d == 'in' else fluxes_out
-            for t in self.tracer_names:
-                run.res_times[d][t] = {}
-                sf = t[-1]
-                for z in invent_sym[t].keys():
-                    inventory = invent_sym[t][z]
-                    sum_of_fluxes = 0
-                    for f in fluxes[t]:
-                        sum_of_fluxes += flux_int_sym[f][z]
-                    if d == 'in':
-                        if run.flux_integrals[f'sinkdiv_{sf}'][z][0] < 0:
-                            sum_of_fluxes += -flux_int_sym[f'sinkdiv_{sf}'][z]
-                        if run.integrated_resids[t][z][0] > 0:
-                            sum_of_fluxes += int_resids[t][z]                        
-                        if t == 'POCL' and z in ('UMZ', 'D', 'E', 'F', 'G'):
-                            sum_of_fluxes += flux_int_sym['dvm'][z]                           
-                    else:
-                        if run.flux_integrals[f'sinkdiv_{sf}'][z][0] > 0:
-                            sum_of_fluxes += flux_int_sym[f'sinkdiv_{sf}'][z]
-                        if run.integrated_resids[t][z][0] < 0:
-                            sum_of_fluxes += int_resids[t][z]
-                        if t == 'POCS' and z in ('EZ', 'A', 'B', 'C'):
-                            sum_of_fluxes += flux_int_sym['dvm'][z]
-                    run.res_times[d][t][z] = self.eval_symbolic_func(
-                        run, inventory/sum_of_fluxes)
+        for t in self.tracer_names:
+            run.res_times[t] = {}
+            sf = t[-1]
+            for z in invent_sym[t].keys():
+                inventory = invent_sym[t][z]
+                sum_of_fluxes = 0
+                for f in fluxes_in[t]:
+                    sum_of_fluxes += flux_int_sym[f][z]
+                if run.flux_integrals[f'sinkdiv_{sf}'][z][0] < 0:
+                    sum_of_fluxes += -flux_int_sym[f'sinkdiv_{sf}'][z]
+                if run.integrated_resids[t][z][0] > 0:
+                    sum_of_fluxes += int_resids[t][z]                        
+                if t == 'POCL' and z in ('UMZ', 'D', 'E', 'F', 'G'):
+                    sum_of_fluxes += flux_int_sym['dvm'][z]                           
+                run.res_times[t][z] = self.eval_symbolic_func(
+                    run, inventory/sum_of_fluxes)
             
     def calculate_timescales(self, inventory_sym, fluxes, flux_int_sym, run):
         """Calculate turnover timescales associated with each model flux."""
@@ -1914,9 +1901,7 @@ class PlotterModelRuns(PlotterTwinX):
                 for z in zones_to_print:
                     print(f'--------{z}--------', file=f)
                     for t in self.model.tracer_names:
-                        est, err = run.res_times['in'][t][z]
-                        print(f'{t}: {est:.2f} ± {err:.2f}', file=f)
-                        est, err = run.res_times['out'][t][z]
+                        est, err = run.res_times[t][z]
                         print(f'{t}: {est:.2f} ± {err:.2f}', file=f)
                 print('+++++++++++++++++++++++++++', file=f)
                 print('Turnover Timescales', file=f)
@@ -2649,8 +2634,8 @@ if __name__ == '__main__':
 
     gammas = [0.5, 1, 5, 10]
     rel_errs = [0.1, 0.2, 0.5, 1]
-    gammas = [0.5]
-    rel_errs = [0.5]
+    # gammas = [0.5]
+    # rel_errs = [0.5]
     args = (gammas, rel_errs)
 
     model_na = PyriteModel(0, args, has_dvm=True, priors_from='NA')
