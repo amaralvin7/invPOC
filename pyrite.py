@@ -672,13 +672,9 @@ class PyriteModel:
             inventory_sym[t] = {}
             for sz in zone_dict.keys():
                 sz_inventory = 0
-                run.inventories[t][sz] = {}
-                inventory_sym[t][sz] = {}
                 for zone in zone_dict[sz]:
                     z = zone.label
                     h = zone.thick
-                    run.inventories[t][z] = {}
-                    inventory_sym[t][z] = {}
                     if z == 'A':
                         t_sym = sym.symbols(f'{t}_{z}')
                     else:
@@ -801,15 +797,10 @@ class PyriteModel:
                 run.flux_integrals[f] = {}
             for sz in zone_dict.keys():
                 to_integrate = 0
-                flux_integrals_sym[f][sz] = {}
-                if run:
-                    run.flux_integrals[f][sz] = {}
                 for z in zone_dict[sz]:
                     zone_flux = fluxes_sym[f][self.zone_names.index(z)]
                     to_integrate += zone_flux
                     if run:
-                        flux_integrals_sym[f][z] = {}
-                        run.flux_integrals[f][z] = {}
                         run.flux_integrals[f][z] = self.eval_symbolic_func(
                             run, zone_flux)
                         flux_integrals_sym[f][z] = zone_flux
