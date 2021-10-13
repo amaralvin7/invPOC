@@ -1893,7 +1893,7 @@ class PlotterModelRuns(PlotterTwinX):
                     print(f'--------{z}--------', file=f)
                     for t in self.model.tracer_names:
                         est, err = run.res_times[t][z]
-                        print(f'{t}: {est:.2f} ± {err:.2f}', file=f)
+                        print(f'{t}: {est:.1f} ± {err:.1f}', file=f)
                 print('+++++++++++++++++++++++++++', file=f)
                 print('Turnover Timescales', file=f)
                 print('+++++++++++++++++++++++++++', file=f)
