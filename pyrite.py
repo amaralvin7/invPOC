@@ -16,10 +16,10 @@ import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
 import matplotlib.pyplot as plt
-import matplotlib.colorbar as colorbar
-import matplotlib.colors as mplc
 import matplotlib.ticker as ticker
 from matplotlib.lines import Line2D
+import mpl_toolkits.axisartist as AA
+from mpl_toolkits.axes_grid1 import host_subplot
 
 class PyriteModel:
     """A container for attributes and results of model runs.
@@ -1803,37 +1803,73 @@ class PlotterModelRuns(PlotterTwinX):
         plt.close()
 
         if self.model.has_dvm:
-            fig, (ax1, ax2) = plt.subplots(1, 2, tight_layout=True)
-            ax1.set_xlabel('Ingestion Flux (mmol m$^{-3}$ d$^{-1}$)',
-                      fontsize=12)
-            ax2.set_xlabel('Excretion Flux (mmol m$^{-3}$ d$^{-1}$)',
-                      fontsize=12)
-            ax1.set_ylabel('Depth (m)', fontsize=14, rotation='vertical')
+            fig = plt.figure(tight_layout=True)
+            
+            hostL = host_subplot(121, axes_class=AA.Axes, figure=fig)
+            parL = hostL.twiny()
+            parL.axis['top'].toggle(all=True)
+            hostL.set_ylabel('Depth (m)')
+            hostL.set_xlabel('Ingestion Flux (mmol m$^{-3}$ d$^{-1}$)')
+            parL.set_xlabel('$P_S$ Remin. Flux (mmol m$^{-3}$ d$^{-1}$)')
+            hostL.set_xlim(0, 0.3)
+            parL.set_xlim(0, 0.3)
+            
+            hostR = host_subplot(122, axes_class=AA.Axes, figure=fig)
+            hostR.yaxis.set_ticklabels([])
+            parR = hostR.twiny()  
+            parR.axis['top'].toggle(all=True)
+            hostR.set_xlabel('Excretion Flux (mmol m$^{-3}$ d$^{-1}$)')
+            parR.set_xlabel('$P_L$ SFD (mmol m$^{-3}$ d$^{-1}$)')
+            hostR.set_xlim(-0.02, 0.02)
+            parR.set_xlim(0.02, -0.02)
+            hostR.axvline(c=self.black, alpha=0.3)
+            
+            for host, par in ((hostL, parL), (hostR, parR)):
+                host.axis['right'].toggle(all=False)
+                host.axis['left'].major_ticks.set_tick_out('out')                
+                host.axis['bottom'].label.set_color(self.blue)
+                par.axis['top'].label.set_color(self.orange)
+                host.axis['left'].label.set_fontsize(14)
+                host.axis['bottom'].label.set_fontsize(12)
+                host.axis['bottom', 'left'].major_ticklabels.set_size(12)
+                par.axis['top'].label.set_fontsize(12)
+                par.axis['top'].major_ticklabels.set_size(12)
+
             for j, z in enumerate(self.model.zones):
                 if j < 3:
-                    ax = ax1
+                    host = hostL
+                    par = parL
+                    par_flux = 'remin_S'
                 else:
-                    ax = ax2
+                    host = hostR
+                    par = parR
+                    par_flux = 'sinkdiv_L'
                 depths = z.depths
-                ax.scatter(
+                host.scatter(
                     run.flux_profiles['dvm']['est'][j], np.mean(depths), 
-                    marker='o', c=self.blue, s=14, zorder=3, lw=0.7,
-                    label=eval(f'self.model.{"dvm"}.label'))
-                ax.fill_betweenx(
+                    marker='o', c=self.blue, s=14, zorder=3, lw=0.7)
+                host.fill_betweenx(
                     depths,
                     (run.flux_profiles['dvm']['est'][j]
                      - run.flux_profiles['dvm']['err'][j]),
                     (run.flux_profiles['dvm']['est'][j]
                      + run.flux_profiles['dvm']['err'][j]),
                     color=self.blue, alpha=0.25)
-
-            for ax in (ax1, ax2):
+                par.scatter(
+                    run.flux_profiles[par_flux]['est'][j], np.mean(depths), 
+                    marker='o', c=self.orange, s=14, zorder=3, lw=0.7)
+                par.fill_betweenx(
+                    depths,
+                    (run.flux_profiles[par_flux]['est'][j]
+                     - run.flux_profiles[par_flux]['err'][j]),
+                    (run.flux_profiles[par_flux]['est'][j]
+                     + run.flux_profiles[par_flux]['err'][j]),
+                    color=self.orange, alpha=0.25)
+            for ax in (hostL, hostR):
                 ax.set_yticks([0, 100, 200, 300, 400, 500])
                 ax.invert_yaxis()
-                ax.set_ylim(top=0, bottom=505)
+                ax.set_ylim(top=0, bottom=510)
                 ax.axhline(100, ls=':', c=self.black)
-                ax.tick_params(axis='both', which='major', labelsize=12)
-            ax2.tick_params(labelleft=False)
 
             fig.savefig(f'out/dvmflux{suffix}.pdf')
             plt.close()
