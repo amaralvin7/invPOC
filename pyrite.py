@@ -2205,10 +2205,16 @@ class PlotterTwoModel():
                          4: {'depth': 482.8, 'thick':224,
                              'Bm1s': (113/dpy, 10000/dpy),
                              'B2': (17/dpy, 77/dpy),
-                             'Bm2': (870/dpy, 5000/dpy)}}}
+                             'Bm2': (870/dpy, 5000/dpy)}},
+                'BRIG': {'depth': np.arange(250, 555, 50),
+                         'Bm2': (0.27*np.exp(-0.0024*np.arange(250, 555, 50)),
+                                  0.03*np.exp(-0.00027*np.arange(250, 555, 50))
+                                  )
+                         }
+                }
 
-        fig, (na_axs, sp_axs) = plt.subplots(2, 3, figsize=(7, 5))
-        fig.subplots_adjust(bottom=0.15, hspace=0.1)
+        fig, (na_axs, sp_axs) = plt.subplots(2, 3, figsize=(7, 6))
+        fig.subplots_adjust(bottom=0.12, top=0.85, hspace=0.1)
         capsize = 4
 
         for model in (self.na_model, self.sp_model):
@@ -2288,6 +2294,12 @@ class PlotterTwoModel():
                             c=self.green, capsize=capsize, zorder=4)
                 ax.scatter(data['MNA'][p][1], 225, marker='d', zorder=10,
                            edgecolors=self.black, facecolors='none')
+                if p == 'Bm2':
+                    ax.scatter(data['BRIG'][p][0], data['BRIG']['depth'],
+                               marker='*', c=self.vermillion)
+                    ax.scatter(data['BRIG'][p][1], data['BRIG']['depth'],
+                               marker='*', zorder=10, edgecolors=self.black,
+                               facecolors='none')
 
             axs[0].set_xlim([0.001, 100000])
             axs[0].set_xticks([0.001, 0.1, 10, 1000, 10**5])
@@ -2309,9 +2321,12 @@ class PlotterTwoModel():
                     markerfacecolor=self.radish, ms=9),
             Line2D([0], [0], marker='d', mec=self.black, c=self.white,
                     label='Murnane et al. (1996)\nNABE',
-                    markerfacecolor=self.green, ms=9)]
-        na_axs[1].legend(handles=leg_elements, fontsize=10, ncol=4,
-                    bbox_to_anchor=(0.44, 1.05), loc='lower center', 
+                    markerfacecolor=self.green, ms=9),
+            Line2D([0], [0], marker='*', mec=self.black, c=self.white,
+                    label='Briggs et al. (2020)\nSNA, SO',
+                    markerfacecolor=self.vermillion, ms=9)]
+        na_axs[1].legend(handles=leg_elements, fontsize=10, ncol=3,
+                    bbox_to_anchor=(0.44, 1.02), loc='lower center', 
                     handletextpad=0.01, frameon=False)
 
         fig.savefig('out/compareparams.pdf')
