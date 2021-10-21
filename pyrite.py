@@ -1311,14 +1311,18 @@ class PlotterTwinX():
 
     def params(self, run, suffix):
 
-        dv, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(
-            2, 3, tight_layout=True)
+        dv, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3)
         dv_axs = ax1, ax2, ax3, ax4, ax5, ax6
 
         dc, ((ax7, ax8, ax9), (ax10, ax11, ax12)) = plt.subplots(
             2, 3, tight_layout=True)
         dc_axs = ax7, ax8, ax9, ax10, ax11
         ax12.axis('off')
+
+        dv.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center',
+                va='center', rotation='vertical')
+        dv.subplots_adjust(left=0.14, right=0.95, top=0.95, bottom=0.15,
+                           hspace=0.5)
 
         dv_params = [p for p in run.params if p.dv]
         dc_params = [p for p in run.params if not p.dv]
@@ -1327,9 +1331,7 @@ class PlotterTwinX():
             p = param.name
             ax = dv_axs[i]
             ax.set_xlabel(f'{param.label} ({param.units})', fontsize=12)
-            if i in (0,3):
-                ax.set_ylabel('Depth (m)', fontsize=14)
-            else:
+            if i not in (0,3):
                 ax.tick_params(labelleft=False)
             ax.invert_yaxis()
             ax.set_ylim(top=0, bottom=530)
@@ -1400,10 +1402,10 @@ class PlotterTwinX():
         dc_file = f'out/paramsDC{suffix}'
 
         if self.is_twinX:
-            dv_file += '_TE'
-            dc_file += '_TE'
-        dv.savefig(f'{dv_file}.pdf')
-        dc.savefig(f'{dc_file}.pdf')
+            dv_file += '_TE.pdf'
+            dc_file += '_TE.pdf'
+        dv.savefig(f'{dv_file}')
+        dc.savefig(f'{dc_file}')
         plt.close(dc)
         plt.close(dv)
 
@@ -2163,6 +2165,7 @@ class PlotterTwoModel():
         self.sensitivity_4panel()
         self.poc_profiles(0.5, 0.5)
         self.paramsDC_2model(0.5, 0.5)
+        self.paramsDV_2model(0.5, 0.5)
 
     def define_colors(self):
 
@@ -2216,6 +2219,8 @@ class PlotterTwoModel():
         fig, (na_axs, sp_axs) = plt.subplots(2, 3, figsize=(7, 6))
         fig.subplots_adjust(bottom=0.12, top=0.85, hspace=0.1)
         capsize = 4
+        fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center',
+                 va='center', rotation='vertical')
 
         for model in (self.na_model, self.sp_model):
             for r in model.model_runs:
@@ -2244,7 +2249,6 @@ class PlotterTwoModel():
                 if i == 0:
                     p = 'Bm1s'
                     label = f'{run.Bm1s.label} ({run.Bm1s.units})'
-                    ax.set_ylabel('Depth (m)', fontsize=14)
                 elif i == 1:
                     p = 'Bm2'
                     label = f'{run.Bm2.label} ({run.Bm2.units})'
@@ -2619,7 +2623,6 @@ class PlotterTwoModel():
         plt.close()
 
     def paramsDC_2model(self, gamma, rel_err):
-
         
         for r in self.na_model.model_runs:
             if r.gamma == gamma and r.rel_err == rel_err:
@@ -2631,10 +2634,10 @@ class PlotterTwoModel():
                 srun = r
                 break
 
-        fig, ((ax7, ax8, ax9), (ax10, ax11, ax12)) = plt.subplots(
+        fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(
             2, 3, tight_layout=True)
-        dc_axs = ax7, ax8, ax9, ax10, ax11
-        ax12.axis('off')
+        dc_axs = ax1, ax2, ax3, ax4, ax5
+        ax6.axis('off')
 
         dc_params = [p for p in nrun.params if not p.dv]
 
@@ -2659,14 +2662,90 @@ class PlotterTwoModel():
             ax.tick_params(bottom=False, labelbottom=False)
             ax.set_xticks(np.arange(5))
 
-        handles, labels = ax11.get_legend_handles_labels()
+        handles, labels = ax5.get_legend_handles_labels()
         handles = [h[0] for h in handles]
         unique = [(h, l) for i, (h, l) in enumerate(
             zip(handles, labels)) if l not in labels[:i]]
-        ax12.legend(*zip(*unique), fontsize=12, loc='center', frameon=False,
+        ax6.legend(*zip(*unique), fontsize=12, loc='center', frameon=False,
                     ncol=1, labelspacing=2, bbox_to_anchor=(0.35, 0.5))
 
         fig.savefig('out/paramsDC_2model.pdf')
+        plt.close()
+
+
+    def paramsDV_2model(self, gamma, rel_err):
+
+        fig, (na_axs, sp_axs) = plt.subplots(2, 4, figsize=(6.5,4))
+        fig.subplots_adjust(left=0.14, right=0.95, top=0.95, bottom=0.15)
+        fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center',
+                 va='center', rotation='vertical')
+        
+        xlims = {'ws': (0.5, 3.2), 'wl': (9, 31),
+                 'Bm1s': (0, 0.16), 'Bm2':(-1, 3)}
+        
+
+        for model in (self.na_model, self.sp_model):
+            for r in model.model_runs:
+                if r.gamma == gamma and r.rel_err == rel_err:
+                    run = r
+                    break
+            if model == self.na_model:
+                axs = na_axs
+                ylabel = 'NA inversion'
+            else:
+                axs = sp_axs
+                ylabel = 'SP inversion'
+            dv_params = [p for p in run.params if p.dv and p.name in xlims]
+            for i, param in enumerate(dv_params):
+                p = param.name
+                if p not in (xlims.keys()):
+                    continue
+                ax = axs[i]
+                if i:
+                    ax.tick_params(labelleft=False)
+                if i == 3:
+                    ax.set_ylabel(ylabel, fontsize=14, rotation=270,
+                                  labelpad=20)
+                    ax.yaxis.set_label_position('right')
+                if ylabel == 'SP inversion':
+                    ax.set_xlabel(f'{param.label} ({param.units})',
+                                  fontsize=12)
+                else:
+                    ax.axes.xaxis.set_ticklabels([])
+                ax.invert_yaxis()
+                ax.set_xlim(xlims[p])
+                ax.set_ylim(top=0, bottom=530)
+                ax.tick_params(axis='both', which='major', labelsize=12)
+                ax.axvline(param.prior, c=self.blue, lw=1.5, ls=':')
+                ax.axvline(param.prior - param.prior_e, c=self.blue, lw=1.5,
+                           ls='--')
+                ax.axvline(param.prior + param.prior_e, c=self.blue, lw=1.5,
+                           ls='--')
+                for i, z in enumerate(self.na_model.zone_names):
+                    zone = self.na_model.zones[i]
+                    if 'w' in p:
+                        depth = zone.depths[1]
+                        ax.errorbar(
+                            run.param_results[p][z]['est'], depth, fmt='o', 
+                            xerr=run.param_results[p][z]['err'], ms=8,
+                            ecolor=self.orange, elinewidth=1, c=self.orange, 
+                            capsize=6, fillstyle='none', zorder=3,
+                            markeredgewidth=1)
+                    else:
+                        depths = zone.depths
+                        depth = np.mean(depths)
+                        ax.scatter(
+                            run.param_results[p][z]['est'], depth, marker='o',
+                            c=self.orange, s=14, zorder=3)
+                        ax.fill_betweenx(
+                            depths,
+                            (run.param_results[p][z]['est']
+                              - run.param_results[p][z]['err']),
+                            (run.param_results[p][z]['est']
+                              + run.param_results[p][z]['err']),
+                            color=self.orange, alpha=0.25)
+
+        fig.savefig('out/paramsDV_2model.pdf')
         plt.close()
         
 if __name__ == '__main__':
