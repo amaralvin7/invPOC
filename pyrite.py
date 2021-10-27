@@ -207,7 +207,7 @@ class PyriteModel:
                             wrt=('POCS',))
         self.remin_L = Flux('remin_L', '$\\beta_{-1,L}P_L$', 'POCL', 'Bm1l',
                             wrt=('POCL',))
-        self.aggregation = Flux('aggregation', '$\\beta^,_2P^2_S$', 'POCS', 
+        self.aggregation = Flux('aggregation', '$\\beta^,_2P^2_S$', 'POCS',
                             'B2p', wrt=('POCS', 'POCL'))
         self.disaggregation = Flux('disaggregation', '$\\beta_{-2}P_L$',
                                    'POCL', 'Bm2', wrt=('POCS', 'POCL'))
@@ -277,13 +277,13 @@ class PyriteModel:
                 for z in self.zone_names:
                     self.state_elements.append(f'{p.name}_{z}')
             else:
-                self.state_elements.append(f'{p.name}') 
+                self.state_elements.append(f'{p.name}')
 
     def define_prior_vector_and_cov_matrix(self, run):
         """Build the prior vector (xo) and covariance matrix (Co)"""
         xo = []
         Co = []
-        
+
         for t in self.tracers:
             xo.extend(t.prior['conc'])
             Co.extend(t.prior['conc_e']**2)
@@ -293,14 +293,14 @@ class PyriteModel:
             if 'POC' in t:
                 Co.extend(np.ones(len(self.grid))*(
                     run.gamma*run.P30.prior*self.mld)**2)
-        
+
         for p in run.params:
             if p.dv:
                 xo.extend(np.ones(len(self.grid))*p.prior)
                 Co.extend(np.ones(len(self.grid))*p.prior_e**2)
             else:
                 xo.append(p.prior)
-                Co.append(p.prior_e**2)                
+                Co.append(p.prior_e**2)
 
         self.xo = np.array(xo)
         run.Co = np.diag(Co)
@@ -655,7 +655,7 @@ class PyriteModel:
 
     def calculate_residuals(self, xhat, run):
         """Calculate data and equation residuals.
-        
+
         Also, check that equations are satisfied."""
         run.x_resids = (xhat - self.xo)/np.sqrt(np.diag(run.Co))
         eq_resids = self.evaluate_model_equations(xhat)
@@ -815,7 +815,7 @@ class PyriteModel:
         """Integrate model equation residuals within each model grid zone."""
 
         zone_dict = {'EZ': self.zone_names[:3], 'UMZ': self.zone_names[3:]}
-        
+
         int_resids_sym = {}
 
         for t in self.tracer_names:
@@ -828,14 +828,14 @@ class PyriteModel:
                 int_resids_sym[t][sz] = to_integrate
                 run.integrated_resids[t][sz] = self.eval_symbolic_func(
                     run, to_integrate)
-        
+
         return int_resids_sym
-    
+
     def calculate_res_times(self, invent_sym, flux_int_sym, int_resids, run):
-        
+
         fluxes_in = {'POCS': ['production', 'disaggregation'],
                      'POCL': ['aggregation']}
-        
+
         for t in self.tracer_names:
             run.res_times[t] = {}
             sf = t[-1]
@@ -847,12 +847,12 @@ class PyriteModel:
                 if run.flux_integrals[f'sinkdiv_{sf}'][z][0] < 0:
                     sum_of_fluxes += -flux_int_sym[f'sinkdiv_{sf}'][z]
                 if run.integrated_resids[t][z][0] > 0:
-                    sum_of_fluxes += int_resids[t][z]                        
+                    sum_of_fluxes += int_resids[t][z]
                 if t == 'POCL' and z in ('UMZ', 'D', 'E', 'F', 'G'):
-                    sum_of_fluxes += flux_int_sym['dvm'][z]                           
+                    sum_of_fluxes += flux_int_sym['dvm'][z]
                 run.res_times[t][z] = self.eval_symbolic_func(
                     run, inventory/sum_of_fluxes)
-            
+
     def calculate_timescales(self, inventory_sym, fluxes, flux_int_sym, run):
         """Calculate turnover timescales associated with each model flux."""
 
@@ -1348,7 +1348,7 @@ class PlotterTwinX():
                     ax.errorbar(
                         run.param_results[p][z]['est'], depth, fmt='o', ms=8,
                         xerr=run.param_results[p][z]['err'],
-                        ecolor=self.orange, elinewidth=1, c=self.orange, 
+                        ecolor=self.orange, elinewidth=1, c=self.orange,
                         capsize=6, fillstyle='none', zorder=3,
                         markeredgewidth=1)
                 else:
@@ -1517,7 +1517,7 @@ class PlotterTwinX():
             ax.axvline(prior_err, ls='--', c=self.blue)
             ax.axvline(-prior_err, ls='--', c=self.blue)
             ax.axvline(0, ls=':', c=self.blue)
-            
+
         for ax in (ax1, ax2):
             ax.invert_yaxis()
             ax.tick_params(axis='both', which='major', labelsize=12)
@@ -1717,7 +1717,7 @@ class PlotterModelRuns(PlotterTwinX):
         ax2.legend(loc='lower right', fontsize=12, handletextpad=0.01)
         ax2.annotate(
             'B', xy=letter_coords, xycoords='axes fraction', fontsize=18)
-        
+
         for ax in (ax1, ax2):
             ax.tick_params(axis='both', which='major', labelsize=12)
 
@@ -1746,7 +1746,7 @@ class PlotterModelRuns(PlotterTwinX):
                     ax.scatter(
                         run.flux_profiles[pr[0]]['est'][j], np.mean(depths),
                         marker='o', c=self.blue, s=14, zorder=3, lw=0.7,
-                        label=eval(f'self.model.{pr[0]}.label'))                        
+                        label=eval(f'self.model.{pr[0]}.label'))
                     ax.fill_betweenx(
                         depths,
                         (run.flux_profiles[pr[0]]['est'][j]
@@ -1806,7 +1806,7 @@ class PlotterModelRuns(PlotterTwinX):
 
         if self.model.has_dvm:
             fig = plt.figure(tight_layout=True)
-            
+
             hostL = host_subplot(121, axes_class=AA.Axes, figure=fig)
             parL = hostL.twiny()
             parL.axis['top'].toggle(all=True)
@@ -1815,20 +1815,20 @@ class PlotterModelRuns(PlotterTwinX):
             parL.set_xlabel('$P_S$ Remin. Flux (mmol m$^{-3}$ d$^{-1}$)')
             hostL.set_xlim(0, 0.3)
             parL.set_xlim(0, 0.3)
-            
+
             hostR = host_subplot(122, axes_class=AA.Axes, figure=fig)
             hostR.yaxis.set_ticklabels([])
-            parR = hostR.twiny()  
+            parR = hostR.twiny()
             parR.axis['top'].toggle(all=True)
             hostR.set_xlabel('Excretion Flux (mmol m$^{-3}$ d$^{-1}$)')
             parR.set_xlabel('$P_L$ SFD (mmol m$^{-3}$ d$^{-1}$)')
             hostR.set_xlim(-0.02, 0.02)
             parR.set_xlim(0.02, -0.02)
             hostR.axvline(c=self.black, alpha=0.3)
-            
+
             for host, par in ((hostL, parL), (hostR, parR)):
                 host.axis['right'].toggle(all=False)
-                host.axis['left'].major_ticks.set_tick_out('out')                
+                host.axis['left'].major_ticks.set_tick_out('out')
                 host.axis['bottom'].label.set_color(self.blue)
                 par.axis['top'].label.set_color(self.orange)
                 host.axis['left'].label.set_fontsize(14)
@@ -1848,7 +1848,7 @@ class PlotterModelRuns(PlotterTwinX):
                     par_flux = 'sinkdiv_L'
                 depths = z.depths
                 host.scatter(
-                    run.flux_profiles['dvm']['est'][j], np.mean(depths), 
+                    run.flux_profiles['dvm']['est'][j], np.mean(depths),
                     marker='o', c=self.blue, s=14, zorder=3, lw=0.7)
                 host.fill_betweenx(
                     depths,
@@ -1858,7 +1858,7 @@ class PlotterModelRuns(PlotterTwinX):
                      + run.flux_profiles['dvm']['err'][j]),
                     color=self.blue, alpha=0.25)
                 par.scatter(
-                    run.flux_profiles[par_flux]['est'][j], np.mean(depths), 
+                    run.flux_profiles[par_flux]['est'][j], np.mean(depths),
                     marker='o', c=self.orange, s=14, zorder=3, lw=0.7)
                 par.fill_betweenx(
                     depths,
@@ -2159,7 +2159,7 @@ class PlotterTwoModel():
             self.sp_model = pickle.load(file)
 
         self.define_colors()
-        
+
         self.compare_params(0.5, 0.5)
         self.budgets_4panel(0.5, 0.5)
         self.sensitivity_4panel()
@@ -2183,12 +2183,9 @@ class PlotterTwoModel():
         dpy = self.na_model.DAYS_PER_YEAR
 
         data = {
-                'MSP': {'B2': (0.8/dpy, 0.9/dpy),
-                          'Bm2': (400/dpy, 10000/dpy),
-                          'Bm1s': (1.7/dpy, 0.9/dpy)},
                 'MNA': {'B2': (2/dpy, 0.2/dpy),
-                          'Bm2': (156/dpy, 17/dpy),
-                          'Bm1s': (13/dpy, 1/dpy)},
+                        'Bm2': (156/dpy, 17/dpy),
+                        'Bm1s': (13/dpy, 1/dpy)},
                 'MNWA': {0: {'depth': 25.5, 'thick':50.9,
                              'Bm1s': (70/dpy, 137/dpy),
                              'B2': (9/dpy, 24/dpy),
@@ -2212,9 +2209,64 @@ class PlotterTwoModel():
                 'BRIG': {'depth': np.arange(250, 555, 50),
                          'Bm2': (0.27*np.exp(-0.0024*np.arange(250, 555, 50)),
                                   0.03*np.exp(-0.00027*np.arange(250, 555, 50))
-                                  )
-                         }
-                }
+                                  )},
+                'CLEG': {'Bm1s': {'EP': {'depth': [8.694176691, 29.48109721,
+                                                   49.6013742, 70.31883177,
+                                                   88.87067924, 124.4489829,
+                                                   173.9252911, 248.4389759,
+                                                   348.4530184, 448.5886014],
+                                         'est': [0.051887519, 0.178345733,
+                                                 0.22605604, 0.071119386,
+                                                 0.033423448, 0.022647476,
+                                                 0.020748539, 0.005321444,
+                                                 0.0040375, 0.003877201],
+                                         'err': [0.029125986, 0.068928149,
+                                                 0.08115125, 0.08557525,
+                                                 0.091710495, 0.033536243,
+                                                 0.033705286, 0.017032243,
+                                                 0.01124989, 0.010966607]},
+                                  'SP': {'depth': [55.39594182, 105.7416053,
+                                                   170.3402765, 281.4015083,
+                                                   372.3626324],
+                                         'est': [0.838243981, 0.832458749,
+                                                 0.467690663, 0.374724094,
+                                                 0.293289586]}},
+                         'B2': {'EP': {'depth': [30.77953839, 50.76269642,
+                                                 80.61454904, 102.5688552,
+                                                 142.430575, 176.0573893,
+                                                 251.5227028, 350.735996,
+                                                 450.5050505],
+                                       'est': [0.035755288, 0.109873452,
+                                               0.010680515, 0.003620261,
+                                               0.038039483, 0.003907699,
+                                               0.000413925, 0.000350797,
+                                               0.000667077],
+                                       'err': [0.012214804, 0.032958757,
+                                               0.017898566, 0.003106243,
+                                               0.045793402, 0.003063559,
+                                               0.001785665, 0.001306329,
+                                               0.002227189]},
+                                'SP': {'depth': [20.64375691, 62.80198408,
+                                                 139.5674981, 251.4684366,
+                                                 357.0709774],
+                                       'est': [0.086868158, 0.047762631,
+                                               0.021107875, 0.00532128,
+                                               0.00471852]}},
+                         'Bm2': {'EP': {'depth': [22.95595846, 38.2227626,
+                                                  62.75455011, 83.91835297,
+                                                  119.0743645, 168.1556833,
+                                                  246.9700358, 345.6563059,
+                                                  447.1153846],
+                                        'est': [2.440824069, 11.45628156,
+                                                1.859098607, 0.533865192,
+                                                0.664345743, 1.854904373,
+                                                0.159348769, 0.175967215,
+                                                0.212286842],
+                                        'err': [3.701200346, 8.456005002,
+                                                6.517677793, 3.242497695,
+                                                1.312408875, 2.910707038,
+                                                0.714475243, 0.50814118,
+                                                1.008215058]}}}}
 
         fig, (na_axs, sp_axs) = plt.subplots(2, 3, figsize=(7, 6))
         fig.subplots_adjust(bottom=0.12, top=0.85, hspace=0.1)
@@ -2266,7 +2318,7 @@ class PlotterTwoModel():
                     ax.set_xlabel(label, fontsize=14)
                 ax.invert_yaxis()
                 ax.set_xscale('log')
-                ax.set_ylim([700, -50])
+                ax.set_ylim([600, -50])
 
                 for zone in model.zones:
                     z = zone.label
@@ -2280,30 +2332,41 @@ class PlotterTwoModel():
                         data_point = run.param_results[p][z]['est']
                         data_err = run.param_results[p][z]['err']
                     ax.errorbar(data_point, d_av, fmt='o', yerr=d_err,
-                                c=self.orange, capsize=capsize)
+                                c=self.vermillion, capsize=capsize, zorder=9)
                     ax.scatter(data_err, d_av, marker='o', facecolors='none',
                                edgecolors=self.black, zorder=10)
                 for z in data['MNWA'].keys():
                     d_av = data['MNWA'][z]['depth']
                     d_err = data['MNWA'][z]['thick']/2
-                    ax.errorbar(data['MNWA'][z][p][0], d_av, fmt='^',
+                    ax.errorbar(data['MNWA'][z][p][0], d_av, fmt='s',
                                 yerr=d_err, c=self.radish, capsize=4)
-                    ax.scatter(data['MNWA'][z][p][1], d_av, marker='^',
+                    ax.scatter(data['MNWA'][z][p][1], d_av, marker='s',
                                facecolors='none', edgecolors=self.black,
                                zorder=10)
-                ax.scatter(data['MSP'][p][0], 650, marker='s', c=self.sky)
-                ax.scatter(data['MSP'][p][1], 650, marker='s', zorder=10,
-                           edgecolors=self.black, facecolors='none')
                 ax.errorbar(data['MNA'][p][0], 225, fmt='d', yerr=75,
                             c=self.green, capsize=capsize, zorder=4)
                 ax.scatter(data['MNA'][p][1], 225, marker='d', zorder=10,
                            edgecolors=self.black, facecolors='none')
                 if p == 'Bm2':
                     ax.scatter(data['BRIG'][p][0], data['BRIG']['depth'],
-                               marker='*', c=self.vermillion)
+                               marker='*', c=self.orange, s=60)
                     ax.scatter(data['BRIG'][p][1], data['BRIG']['depth'],
                                marker='*', zorder=10, edgecolors=self.black,
-                               facecolors='none')
+                               facecolors='none', s=60)
+                for s in data['CLEG'][p].keys():
+                    if s == 'EP':
+                        m = '^'
+                        c = self.sky
+                    else:
+                        m = 'v'
+                        c = self.blue
+                    ax.scatter(data['CLEG'][p][s]['est'],
+                               data['CLEG'][p][s]['depth'], marker=m, c=c)
+                    if 'err' in data['CLEG'][p][s].keys():
+                        ax.scatter(data['CLEG'][p][s]['err'],
+                                   data['CLEG'][p][s]['depth'],
+                                   marker=m, zorder=10, edgecolors=self.black,
+                                   facecolors='none')                        
 
             axs[0].set_xlim([0.001, 100000])
             axs[0].set_xticks([0.001, 0.1, 10, 1000, 10**5])
@@ -2316,10 +2379,7 @@ class PlotterTwoModel():
         leg_elements = [
             Line2D([0], [0], marker='o', mec=self.black, c=self.white,
                     label='This study \nStation P',
-                    markerfacecolor=self.orange, ms=9),
-            Line2D([0], [0], marker='s', mec=self.black, c=self.white,
-                    label='Murnane (1994)\nStation P',
-                    markerfacecolor=self.sky, ms=9),
+                    markerfacecolor=self.vermillion, ms=9),
             Line2D([0], [0], marker='^', mec=self.black, c=self.white,
                     label='Murnane et al. (1994)\nNWAO',
                     markerfacecolor=self.radish, ms=9),
@@ -2328,9 +2388,15 @@ class PlotterTwoModel():
                     markerfacecolor=self.green, ms=9),
             Line2D([0], [0], marker='*', mec=self.black, c=self.white,
                     label='Briggs et al. (2020)\nSNA, SO',
-                    markerfacecolor=self.vermillion, ms=9)]
+                    markerfacecolor=self.orange, ms=12),
+            Line2D([0], [0], marker='^', mec=self.black, c=self.white,
+                    label='Clegg et al. (1999)\nEq. Pac.',
+                    markerfacecolor=self.sky, ms=9),
+            Line2D([0], [0], marker='v', mec=self.black, c=self.white,
+                    label='Clegg et al. (1999)\nStation P',
+                    markerfacecolor=self.blue, ms=9)]
         na_axs[1].legend(handles=leg_elements, fontsize=10, ncol=3,
-                    bbox_to_anchor=(0.44, 1.02), loc='lower center', 
+                    bbox_to_anchor=(0.44, 1.02), loc='lower center',
                     handletextpad=0.01, frameon=False)
 
         fig.savefig('out/compareparams.pdf')
@@ -2561,7 +2627,7 @@ class PlotterTwoModel():
         ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)', fontsize=14)
         ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
         ax1.set_ylabel('Depth (m)', fontsize=14)
-        
+
         for r in self.na_model.model_runs:
             if r.gamma == gamma and r.rel_err == rel_err:
                 nrun = r
@@ -2571,12 +2637,12 @@ class PlotterTwoModel():
             if r.gamma == gamma and r.rel_err == rel_err:
                 srun = r
                 break
-            
+
         ngrid = [d - 5 for d in self.sp_model.grid]
         sgrid = [d + 5 for d in self.sp_model.grid]
 
         ax1.errorbar(
-            self.sp_model.POCS.prior['conc'], 
+            self.sp_model.POCS.prior['conc'],
             self.sp_model.POCS.prior['depth'],
             fmt='^', xerr=self.sp_model.POCS.prior['conc_e'], ecolor=self.blue,
             elinewidth=1, c=self.blue, ms=10, capsize=5, fillstyle='full')
@@ -2623,7 +2689,7 @@ class PlotterTwoModel():
         plt.close()
 
     def paramsDC_2model(self, gamma, rel_err):
-        
+
         for r in self.na_model.model_runs:
             if r.gamma == gamma and r.rel_err == rel_err:
                 nrun = r
@@ -2652,12 +2718,12 @@ class PlotterTwoModel():
                         c=self.blue, elinewidth=1.5, ecolor=self.blue, ms=9,
                         capsize=6, label='Prior', markeredgewidth=1.5)
             ax.errorbar(2, nrun.param_results[p]['est'], fmt='o',
-                        yerr=nrun.param_results[p]['err'], c=self.orange, ms=9, 
-                        ecolor=self.orange, elinewidth=1.5, capsize=6, 
+                        yerr=nrun.param_results[p]['err'], c=self.orange, ms=9,
+                        ecolor=self.orange, elinewidth=1.5, capsize=6,
                         label='Estimate (NA)', markeredgewidth=1.5)
             ax.errorbar(3, srun.param_results[p]['est'], fmt='s',
-                        yerr=srun.param_results[p]['err'], c=self.green, ms=9, 
-                        ecolor=self.green, elinewidth=1.5, capsize=6, 
+                        yerr=srun.param_results[p]['err'], c=self.green, ms=9,
+                        ecolor=self.green, elinewidth=1.5, capsize=6,
                         label='Estimate (SP)', markeredgewidth=1.5)
             ax.tick_params(bottom=False, labelbottom=False)
             ax.set_xticks(np.arange(5))
@@ -2679,10 +2745,10 @@ class PlotterTwoModel():
         fig.subplots_adjust(left=0.14, right=0.95, top=0.95, bottom=0.15)
         fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center',
                  va='center', rotation='vertical')
-        
+
         xlims = {'ws': (0.5, 3.2), 'wl': (9, 31),
                  'Bm1s': (0, 0.16), 'Bm2':(-1, 3)}
-        
+
 
         for model in (self.na_model, self.sp_model):
             for r in model.model_runs:
@@ -2726,9 +2792,9 @@ class PlotterTwoModel():
                     if 'w' in p:
                         depth = zone.depths[1]
                         ax.errorbar(
-                            run.param_results[p][z]['est'], depth, fmt='o', 
+                            run.param_results[p][z]['est'], depth, fmt='o',
                             xerr=run.param_results[p][z]['err'], ms=8,
-                            ecolor=self.orange, elinewidth=1, c=self.orange, 
+                            ecolor=self.orange, elinewidth=1, c=self.orange,
                             capsize=6, fillstyle='none', zorder=3,
                             markeredgewidth=1)
                     else:
@@ -2747,7 +2813,7 @@ class PlotterTwoModel():
 
         fig.savefig('out/paramsDV_2model.pdf')
         plt.close()
-        
+
 if __name__ == '__main__':
 
     sys.setrecursionlimit(100000)
