@@ -1470,7 +1470,8 @@ class PlotterTwinX():
         ax1.set_ylabel('Probability Density', fontsize=16)
         ax1.set_xlabel(r'$\frac{\^x_{i}-x_{o,i}}{\sigma_{o,i}}$',
                        fontsize=14)
-        ax2.set_xlabel(r'$\frac{\^\varepsilon}{\sigma_\varepsilon}$',
+        ax2.set_xlabel(r'$\frac{\^{\overline{\varepsilon}h}}'
+                       r'{\sigma_{\overline{\varepsilon}h}}$',
                        fontsize=14)
 
         ax1.hist(state_vars, density=True, color=self.blue)
@@ -1525,8 +1526,8 @@ class PlotterTwinX():
 
         filename = f'out/POCresids{suffix}'
         if self.is_twinX:
-            filename += '_TE'
-        fig.savefig(f'{filename}.pdf')
+            filename += '_TE.pdf'
+        fig.savefig(f'{filename}')
         plt.close()
 
         if 'Ti' in self.model.species:
@@ -1721,7 +1722,7 @@ class PlotterModelRuns(PlotterTwinX):
         for ax in (ax1, ax2):
             ax.tick_params(axis='both', which='major', labelsize=12)
 
-        fig.savefig(f'out/sinkfluxes{suffix}.pdf')
+        fig.savefig(f'out/sinkfluxes{suffix}')
         plt.close()
 
     def volumetric_fluxes(self, run, suffix):
@@ -1801,7 +1802,7 @@ class PlotterModelRuns(PlotterTwinX):
                 ax.tick_params(labelleft=False)
             ax.invert_yaxis()
             ax.set_ylim(top=0, bottom=520)
-        fig.savefig(f'out/fluxes_volumetric{suffix}.pdf')
+        fig.savefig(f'out/fluxes_volumetric{suffix}')
         plt.close()
 
         if self.model.has_dvm:
@@ -1873,7 +1874,7 @@ class PlotterModelRuns(PlotterTwinX):
                 ax.set_ylim(top=0, bottom=510)
                 ax.axhline(100, ls=':', c=self.black)
 
-            fig.savefig(f'out/dvmflux{suffix}.pdf')
+            fig.savefig(f'out/dvmflux{suffix}')
             plt.close()
 
     def write_output(self, priors_str, dvm_str):
@@ -2159,13 +2160,20 @@ class PlotterTwoModel():
             self.sp_model = pickle.load(file)
 
         self.define_colors()
+        
+        args = (0.5, 0.5)
 
-        self.compare_params(0.5, 0.5)
-        self.budgets_4panel(0.5, 0.5)
+        self.compare_params(*args)
+        self.budgets_4panel(*args)
         self.sensitivity_4panel()
-        self.poc_profiles(0.5, 0.5)
-        self.paramsDC_2model(0.5, 0.5)
-        self.paramsDV_2model(0.5, 0.5)
+        self.poc_profiles(*args)
+        self.paramsDC_2model(*args)
+        self.paramsDV_2model(*args)
+        self.residual_profiles_2model(*args)
+        self.sinking_fluxes_2model(*args)
+        self.volumetric_fluxes_2model(*args)
+        if self.na_model.has_dvm:
+            self.dvm_fluxes_2model(*args)         
 
     def define_colors(self):
 
@@ -2813,6 +2821,351 @@ class PlotterTwoModel():
 
         fig.savefig('out/paramsDV_2model.pdf')
         plt.close()
+
+    def residual_profiles_2model(self, gamma, rel_err):
+
+        fig, (na_axs, sp_axs) = plt.subplots(2, 2)
+        fig.subplots_adjust(left=0.14, right=0.92, top=0.95, bottom=0.15,
+                            wspace=0.1, hspace=0.1)
+        fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center',
+                 va='center', rotation='vertical')
+
+        for model in (self.na_model, self.sp_model):
+            for r in model.model_runs:
+                if r.gamma == gamma and r.rel_err == rel_err:
+                    run = r
+                    break
+            if model == self.na_model:
+                axs = na_axs
+                ylabel = 'NA inversion'
+                [ax.axes.xaxis.set_ticklabels([]) for ax in axs]
+            else:
+                axs = sp_axs
+                ylabel = 'SP inversion'
+                axs[0].set_xlabel(
+                    '$\\overline{\\varepsilon_{S}}h$ (mmol m$^{-2}$ d$^{-1}$)',
+                    fontsize=14)
+                axs[1].set_xlabel(
+                    '$\\overline{\\varepsilon_{L}}h$ (mmol m$^{-2}$ d$^{-1}$)',
+                    fontsize=14)
+            for i, t in enumerate(model.tracer_names):
+                ax = axs[i]
+                ax.invert_yaxis()
+                ax.set_xlim([-4, 6])
+                ax.tick_params(axis='both', which='major', labelsize=12)
+                ax.set_yticks([0, 100, 200, 300, 400, 500])
+                if i == 1:
+                    ax.set_ylabel(ylabel, fontsize=14, rotation=270,
+                                  labelpad=20)
+                    ax.yaxis.set_label_position('right')
+                if 'POC' in t:
+                    prior_err = run.gamma*run.P30.prior*model.mld
+                for j, zone in enumerate(model.zones):
+                    depths = zone.depths
+                    z = zone.label
+                    ax.scatter(run.integrated_resids[t][z][0], np.mean(depths),
+                               marker='o', c=self.orange, s=100, zorder=3,
+                               lw=0.7)
+                    ax.fill_betweenx(
+                        depths,
+                        (run.integrated_resids[t][z][0]
+                         - run.integrated_resids[t][z][1]),
+                        (run.integrated_resids[t][z][0]
+                         + run.integrated_resids[t][z][1]),
+                        color=self.orange, alpha=0.25)
+                ax.axvline(prior_err, ls='--', c=self.blue)
+                ax.axvline(-prior_err, ls='--', c=self.blue)
+                ax.axvline(0, ls=':', c=self.blue)
+                axs[1].tick_params(labelleft=False)
+
+        fig.savefig('out/POCresids_2model.pdf')
+        plt.close()
+
+    def sinking_fluxes_2model(self, gamma, rel_err):
+
+        th_fluxes = pd.read_excel(
+            'pyrite_data.xlsx', sheet_name='POC_fluxes_thorium')
+        th_depths = th_fluxes['depth']
+        th_flux = th_fluxes['flux']
+        th_flux_u = th_fluxes['flux_u']
+        st_fluxes = pd.read_excel(
+            'pyrite_data.xlsx', sheet_name='POC_fluxes_traps')
+        st_depths = st_fluxes['depth']
+        st_flux = st_fluxes['flux']
+        st_flux_u = st_fluxes['flux_u']
+
+        fig, (na_axs, sp_axs) = plt.subplots(2, 2, figsize=(6, 6))
+        fig.subplots_adjust(left=0.16, right=0.92, top=0.95, bottom=0.11,
+                            wspace=0.15, hspace=0.1)
+        fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center',
+                 va='center', rotation='vertical')
+        fig.text(0.54, 0.03, 'POC Flux (mmol m$^{-2}$ d$^{-1}$)',
+                 fontsize=14, ha='center', va='center')
+
+        for model in (self.na_model, self.sp_model):
+            for r in model.model_runs:
+                if r.gamma == gamma and r.rel_err == rel_err:
+                    run = r
+                    break
+            if model == self.na_model:
+                axs = na_axs
+                ylabel = 'NA inversion'
+                [ax.axes.xaxis.set_ticklabels([]) for ax in axs]
+            else:
+                axs = sp_axs
+                ylabel = 'SP inversion'
+            for ax in axs:
+                ax.invert_yaxis()
+                ax.set_ylim(top=0, bottom=530)
+                ax.axhline(100, ls=':', c=self.black, zorder=1)
+                ax.tick_params(axis='both', which='major', labelsize=12)
+            axs[1].set_ylabel(ylabel, fontsize=14, rotation=270,
+                              labelpad=20)
+            axs[1].yaxis.set_label_position('right')    
+            axs[0].errorbar(
+                run.flux_profiles['sink_S']['est'],
+                np.array(model.grid) + 2,
+                fmt='o', xerr=run.flux_profiles['sink_S']['err'],
+                ecolor=self.sky, c=self.sky, capsize=4,
+                label=model.sink_S.label, fillstyle='none',
+                elinewidth=1.5, capthick=1.5)
+    
+            axs[0].errorbar(
+                run.flux_profiles['sink_L']['est'],
+                np.array(model.grid) - 2,
+                fmt='o', xerr=run.flux_profiles['sink_L']['err'],
+                ecolor=self.vermillion, c=self.vermillion, capsize=4,
+                label=model.sink_L.label, fillstyle='none',
+                elinewidth=1.5, capthick=1.5)
+    
+            axs[1].tick_params(labelleft=False)
+            axs[1].errorbar(
+                run.flux_profiles['sink_T']['est'], model.grid, fmt='o',
+                xerr=run.flux_profiles['sink_T']['err'], ecolor=self.orange,
+                c=self.orange, capsize=4, zorder=3,
+                label=model.sink_T.label, elinewidth=1.5, capthick=1.5,
+                fillstyle='none')
+            axs[1].errorbar(
+                th_flux, th_depths + 4, fmt='^', xerr=th_flux_u,
+                ecolor=self.green, c=self.green, capsize=4,
+                label='$^{234}$Th-based', elinewidth=1.5, capthick=1.5)
+            axs[1].errorbar(
+                st_flux, st_depths - 4, fmt='d', xerr=st_flux_u, c=self.black,
+                ecolor=self.black, capsize=4, label='Sed. Traps',
+                elinewidth=1.5, capthick=1.5)
+            
+            axs[0].set_xlim([0, 6])
+            axs[1].set_xlim([0, 10])
+            
+            if ylabel == 'SP inversion':
+                axs[0].legend(loc='lower right', fontsize=12,
+                              handletextpad=0.01)
+                axs[1].legend(loc='lower right', fontsize=12,
+                              handletextpad=0.01)
+                
+        fig.savefig('out/sinkfluxes_2model.pdf')
+        plt.close()
+
+    def volumetric_fluxes_2model(self, gamma, rel_err):
+
+        fig, (na_axs, sp_axs) = plt.subplots(2, 4, figsize=(7, 6))
+        fig.subplots_adjust(left=0.14, right=0.95, top=0.85, bottom=0.17,
+                            wspace=0.1)
+        fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center',
+                 va='center', rotation='vertical')
+        fig.text(0.55, 0.05, 'POC Flux (mmol m$^{-3}$ d$^{-1}$)',
+                 fontsize=14, ha='center', va='center')
+
+        pairs = (('sinkdiv_S', 'sinkdiv_L'), ('remin_S', 'aggregation'),
+                 ('remin_L', 'disaggregation'), ('production',))
+
+        xlims = {'sinkdiv_S': (-0.2, 0.2), 'remin_S': (-0.05, 0.3),
+                  'production':(-0.01, 0.25)}
+
+
+        for model in (self.na_model, self.sp_model):
+            for r in model.model_runs:
+                if r.gamma == gamma and r.rel_err == rel_err:
+                    run = r
+                    break
+            if model == self.na_model:
+                axs = na_axs
+                ylabel = 'NA inversion'
+            else:
+                axs = sp_axs
+                ylabel = 'SP inversion'
+
+            for i, pr in enumerate(pairs):
+                ax = axs[i]
+                if i:
+                    ax.tick_params(labelleft=False)
+                if i == 3:
+                    ax.set_ylabel(ylabel, fontsize=14, rotation=270,
+                                  labelpad=20)
+                    ax.yaxis.set_label_position('right')
+                ax.invert_yaxis()
+                ax.tick_params(axis='both', which='major', labelsize=12)
+                ax.set_yticks([0, 100, 200, 300, 400, 500])
+                if pr[0] != 'remin_L':
+                    ax.set_xlim(xlims[pr[0]])                    
+                if pr[0] != 'production':
+                    for j, z in enumerate(model.zones):
+                        depths = z.depths
+                        ax.scatter(
+                            run.flux_profiles[pr[0]]['est'][j], np.mean(depths),
+                            marker='o', c=self.blue, s=14, zorder=3, lw=0.7,
+                            label=eval(f'model.{pr[0]}.label'))
+                        ax.fill_betweenx(
+                            depths,
+                            (run.flux_profiles[pr[0]]['est'][j]
+                             - run.flux_profiles[pr[0]]['err'][j]),
+                            (run.flux_profiles[pr[0]]['est'][j]
+                             + run.flux_profiles[pr[0]]['err'][j]),
+                            color=self.blue, alpha=0.25)
+                        ax.scatter(
+                            run.flux_profiles[pr[1]]['est'][j], np.mean(depths),
+                            marker='o', c=self.orange, s=14, zorder=3, lw=0.7,
+                            label=eval(f'model.{pr[1]}.label'))
+                        ax.fill_betweenx(
+                            depths,
+                            (run.flux_profiles[pr[1]]['est'][j]
+                             - run.flux_profiles[pr[1]]['err'][j]),
+                            (run.flux_profiles[pr[1]]['est'][j]
+                             + run.flux_profiles[pr[1]]['err'][j]),
+                            color=self.orange, alpha=0.25)
+                    if i == 0:
+                        ax.axvline(0, ls=':', c=self.black, zorder=1)
+    
+                else:
+                    depths = model.grid
+                    df = model.data['NPP']
+                    H = model.mld
+                    npp = df.loc[df['target_depth'] >= H]['NPP']
+                    depth = df.loc[df['target_depth'] >= H]['target_depth']
+                    ax.scatter(npp/model.MOLAR_MASS_C, depth, c=self.orange,
+                               alpha=0.5, label='NPP', s=10)
+                    ax.scatter(
+                        run.flux_profiles[pr[0]]['est'], depths, marker='o',
+                        c=self.blue, s=14, label=eval(f'model.{pr[0]}.label'),
+                        zorder=3, lw=0.7)
+                    ax.errorbar(
+                        run.flux_profiles[pr[0]]['est'], depths, fmt='o',
+                        xerr=run.flux_profiles[pr[0]]['err'], ecolor=self.blue,
+                        elinewidth=0.5, c=self.blue, ms=1.5, capsize=2,
+                        label=eval(f'model.{pr[0]}.label'), fillstyle='none',
+                        markeredgewidth=0.5)
+                if ylabel == 'NA inversion':
+                    handles, labels = ax.get_legend_handles_labels()
+                    unique = [
+                        (h, l) for i, (h, l) in enumerate(
+                            zip(handles, labels)) if l not in labels[:i]]
+                    ax.legend(*zip(*unique), loc='center', fontsize=12,
+                              handletextpad=0.01, bbox_to_anchor=(0.45, 1.2),
+                              frameon=False)
+                else:
+                    ax.set_xlabel(('A', 'B', 'C', 'D')[i], fontsize=14)
+            
+        fig.savefig('out/fluxes_volumetric_2model.pdf')
+        plt.close()
+
+    def dvm_fluxes_2model(self, gamma, rel_err):
+            
+        fig = plt.figure()
+        fig.text(0.025, 0.5, 'Depth (m)', fontsize=14, ha='center',
+                 va='center', rotation='vertical')
+        fig.subplots_adjust(wspace=0.3, hspace=0.1)
+
+        for model in (self.na_model, self.sp_model):
+            for r in model.model_runs:
+                if r.gamma == gamma and r.rel_err == rel_err:
+                    run = r
+                    break
+            if model == self.na_model:
+                i = 0
+            else:
+                i = 1
+
+            hostL = host_subplot(2, 2, 1+2*i, axes_class=AA.Axes, figure=fig)
+            parL = hostL.twiny()
+            parL.axis['top'].toggle(all=True)
+            hostL.set_xlim(0, 0.3)
+            parL.set_xlim(0, 0.3)
+
+            hostR = host_subplot(2, 2, 2*(1+i), axes_class=AA.Axes, figure=fig)
+            hostR.yaxis.set_ticklabels([])
+            parR = hostR.twiny()
+            parR.axis['top'].toggle(all=True)
+            hostR.set_xlim(-0.02, 0.02)
+            parR.set_xlim(0.02, -0.02)
+            hostR.axvline(c=self.black, alpha=0.3)
+            
+            if model == self.sp_model:
+                hostL.set_xlabel('Ingestion Flux (mmol m$^{-3}$ d$^{-1}$)')
+                hostR.set_xlabel('Excretion Flux (mmol m$^{-3}$ d$^{-1}$)')
+                hostR.text(1.05, 0.2, 'SP inversion' , fontsize=14,
+                          rotation=270, transform=hostR.transAxes)
+                parR.xaxis.set_ticklabels([])
+                parL.xaxis.set_ticklabels([])
+            else:
+                parL.set_xlabel('$P_S$ Remin. Flux (mmol m$^{-3}$ d$^{-1}$)')
+                parR.set_xlabel('$P_L$ SFD (mmol m$^{-3}$ d$^{-1}$)')
+                hostR.xaxis.set_ticklabels([])
+                hostL.xaxis.set_ticklabels([])
+                hostR.text(1.05, 0.2, 'NA inversion' , fontsize=14,
+                          rotation=270, transform=hostR.transAxes)
+                
+            for host, par in ((hostL, parL), (hostR, parR)):
+                host.axis['right'].toggle(all=False)
+                host.axis['left', 'top', 'bottom'].major_ticks.set_tick_out(
+                    'out')
+                par.axis['left', 'top', 'bottom'].major_ticks.set_tick_out(
+                    'out')
+                host.axis['bottom'].label.set_color(self.blue)
+                par.axis['top'].label.set_color(self.orange)
+                host.axis['left'].label.set_fontsize(14)
+                host.axis['bottom'].label.set_fontsize(12)
+                host.axis['bottom', 'left'].major_ticklabels.set_size(12)
+                par.axis['top'].label.set_fontsize(12)
+                par.axis['top'].major_ticklabels.set_size(12)
+
+            for j, z in enumerate(model.zones):
+                if j < 3:
+                    host = hostL
+                    par = parL
+                    par_flux = 'remin_S'
+                else:
+                    host = hostR
+                    par = parR
+                    par_flux = 'sinkdiv_L'
+                depths = z.depths
+                host.scatter(
+                    run.flux_profiles['dvm']['est'][j], np.mean(depths),
+                    marker='o', c=self.blue, s=14, zorder=3, lw=0.7)
+                host.fill_betweenx(
+                    depths,
+                    (run.flux_profiles['dvm']['est'][j]
+                     - run.flux_profiles['dvm']['err'][j]),
+                    (run.flux_profiles['dvm']['est'][j]
+                     + run.flux_profiles['dvm']['err'][j]),
+                    color=self.blue, alpha=0.25)
+                par.scatter(
+                    run.flux_profiles[par_flux]['est'][j], np.mean(depths),
+                    marker='o', c=self.orange, s=14, zorder=3, lw=0.7)
+                par.fill_betweenx(
+                    depths,
+                    (run.flux_profiles[par_flux]['est'][j]
+                     - run.flux_profiles[par_flux]['err'][j]),
+                    (run.flux_profiles[par_flux]['est'][j]
+                     + run.flux_profiles[par_flux]['err'][j]),
+                    color=self.orange, alpha=0.25)
+            for ax in (hostL, hostR):
+                ax.set_yticks([0, 100, 200, 300, 400, 500])
+                ax.invert_yaxis()
+                ax.set_ylim(top=0, bottom=510)
+                ax.axhline(100, ls=':', c=self.black)
+
+            fig.savefig('out/dvmflux_2model.pdf')
+            plt.close()
 
 if __name__ == '__main__':
 
