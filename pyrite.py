@@ -2621,7 +2621,8 @@ class PlotterTwoModel():
                        label='$\gamma = 1, RE = 1$')]
             na_axs[1].legend(handles=leg_elements, fontsize=9,
                                frameon=False, handletextpad=-0.5,
-                               loc=(-0.04,0.47), labelspacing=0)
+                               loc=(-0.04,0.54), labelspacing=0)
+
             fig.savefig(f'out/sensitivity_4panel_{z}.pdf')
             plt.close()
 
