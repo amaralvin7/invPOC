@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
+from matplotlib import ticker
 from matplotlib.lines import Line2D
 import mpl_toolkits.axisartist as AA
 from mpl_toolkits.axes_grid1 import host_subplot
@@ -445,7 +445,7 @@ class PyriteModel:
         y -- a symbolic equation.
         v -- list of values from which to draw numerical values from.
         """
-        x_symbolic = y.free_symbols
+        x_symbolic = list(y.free_symbols)
         x_numerical = []
         x_indices = []
 
@@ -497,7 +497,7 @@ class PyriteModel:
         result -- the numerical result
         error -- the numerical error
         """
-        x_symbolic = y.free_symbols
+        x_symbolic = list(y.free_symbols)
         x_numerical = []
         x_indices = []
         for x in x_symbolic:
@@ -519,7 +519,7 @@ class PyriteModel:
 
         result = sym.lambdify(x_symbolic, y)(*x_numerical)
 
-        if err == False:
+        if err is False:
             return result
 
         variance_sym = 0  # symbolic expression for variance of y
@@ -670,7 +670,7 @@ class PyriteModel:
         for t in self.tracer_names:
             run.inventories[t] = {}
             inventory_sym[t] = {}
-            for sz in zone_dict.keys():
+            for sz in zone_dict:
                 sz_inventory = 0
                 for zone in zone_dict[sz]:
                     z = zone.label
@@ -795,9 +795,9 @@ class PyriteModel:
             flux_integrals_sym[f] = {}
             if run:
                 run.flux_integrals[f] = {}
-            for sz in zone_dict.keys():
+            for sz, zones in zone_dict.items():
                 to_integrate = 0
-                for z in zone_dict[sz]:
+                for z in zones:
                     zone_flux = fluxes_sym[f][self.zone_names.index(z)]
                     to_integrate += zone_flux
                     if run:
@@ -820,9 +820,9 @@ class PyriteModel:
 
         for t in self.tracer_names:
             int_resids_sym[t] = {}
-            for sz in zone_dict.keys():
+            for sz, zones in zone_dict.items():
                 to_integrate = 0
-                for z in zone_dict[sz]:
+                for z in zones:
                     int_resids_sym[t][z] = sym.symbols(f'R{t}_{z}')
                     to_integrate += sym.symbols(f'R{t}_{z}')
                 int_resids_sym[t][sz] = to_integrate
@@ -832,6 +832,7 @@ class PyriteModel:
         return int_resids_sym
 
     def calculate_res_times(self, invent_sym, flux_int_sym, int_resids, run):
+        """Calculate residence times of traces in each model grid zone."""
 
         fluxes_in = {'POCS': ['production', 'disaggregation'],
                      'POCL': ['aggregation']}
@@ -1146,7 +1147,7 @@ class PyriteTwinX(PyriteModel):
                 phi = self.target_values['Phi']['est']
                 b[self.model.state_elements.index('TiS_A')] = -phi
 
-            for count in range(max_iterations):
+            for _ in range(max_iterations):
                 f, F = self.model.evaluate_model_equations(
                     xk, return_F=True, params_known=self.target_values)
                 xkp1 = np.linalg.solve(F, (F @ xk - f + b))
@@ -1261,8 +1262,6 @@ class PlotterTwinX():
             self.poc_profiles(run, suffix)
             self.residual_pdfs(run, suffix)
             self.residual_profiles(run, suffix)
-            if 'Ti' in self.model.species:
-                self.ti_profiles(run, suffix)
 
     def define_colors(self):
 
@@ -1341,8 +1340,8 @@ class PlotterTwinX():
                        ls='--')
             ax.axvline(param.prior + param.prior_e, c=self.blue, lw=1.5,
                        ls='--')
-            for i, z in enumerate(self.model.zone_names):
-                zone = self.model.zones[i]
+            for j, z in enumerate(self.model.zone_names):
+                zone = self.model.zones[j]
                 if 'w' in p:
                     depth = zone.depths[1]
                     ax.errorbar(
@@ -1370,7 +1369,7 @@ class PlotterTwinX():
                         self.model.target_values[p][z]['est'], depth,
                         marker='x', s=90, c=self.green)
                 if p == 'Bm2' and self.model.priors_from == 'SP':
-                        ax.set_xlim([-1, 3])
+                    ax.set_xlim([-1, 3])
 
         for i, param in enumerate(dc_params):
             p = param.name
@@ -1460,7 +1459,7 @@ class PlotterTwinX():
         eq_resids = []
 
         j = 0
-        for i, x in enumerate(self.model.state_elements):
+        for x in self.model.state_elements:
             if 'R' in x:
                 eq_resids.append(state_vars.pop(j))
             else:
@@ -1499,7 +1498,7 @@ class PlotterTwinX():
             ax = axs[i]
             if 'POC' in t:
                 prior_err = run.gamma*run.P30.prior*self.model.mld
-            for j, zone in enumerate(self.model.zones):
+            for zone in self.model.zones:
                 depths = zone.depths
                 z = zone.label
                 ax.scatter(run.integrated_resids[t][z][0], np.mean(depths),
@@ -1512,7 +1511,7 @@ class PlotterTwinX():
                      + run.integrated_resids[t][z][1]),
                     color=self.orange, alpha=0.25)
                 if self.is_twinX:
-                        ax.scatter(
+                    ax.scatter(
                             self.model.target_values[t][z][0], np.mean(depths),
                             marker='x', c=self.green, s=250)
             ax.axvline(prior_err, ls='--', c=self.blue)
@@ -1571,7 +1570,7 @@ class PlotterModelRuns(PlotterTwinX):
 
         self.write_output(dvm_str, priors_str)
 
-        for i, run in enumerate(self.model.model_runs):
+        for run in self.model.model_runs:
 
             gamma_str = f'gam{str(run.gamma).replace(".","p")}'
             re_str = f're{str(run.rel_err).replace(".","p")}'
@@ -1877,9 +1876,9 @@ class PlotterModelRuns(PlotterTwinX):
             fig.savefig(f'out/dvmflux{suffix}')
             plt.close()
 
-    def write_output(self, priors_str, dvm_str):
+    def write_output(self, dvm_str, priors_str):
 
-        file = f'out/pyrite_out_{priors_str}_{dvm_str}.txt'
+        file = f'out/pyrite_out_{dvm_str}_{priors_str}.txt'
         with open(file, 'w') as f:
             for run in self.model.model_runs:
                 print('#################################', file=f)
@@ -2034,16 +2033,16 @@ class PlotterModelRuns(PlotterTwinX):
                'B3': {'c':self.black, 'm': 'd'},
                'a': {'c':self.radish, 'm': 'v'},}
 
-        fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3)
+        fig, axs = plt.subplots(2, 3)
         fig.subplots_adjust(wspace=0.5, hspace=0.1, top=0.85, left=0.15)
         fig.text(0.05, 0.5, 'Relative error', fontsize=14, ha='center',
                   va='center', rotation='vertical')
         fig.text(0.5, 0.02, xlabel, fontsize=14, ha='center', va='center')
 
-        axs = fig.get_axes()
+        axs_list = fig.get_axes()
         for i, param in enumerate(depthV):
             p = param.name
-            ax = axs[i]
+            ax = axs_list[i]
             ax.annotate(param.label, xy=(0.56, 0.05), xycoords='axes fraction',
                         fontsize=14)
             for zone in self.model.zones:
@@ -2067,9 +2066,9 @@ class PlotterModelRuns(PlotterTwinX):
         leg_elements = [
             Line2D([0], [0], marker=art[z]['m'], ls='none', color=art[z]['c'],
                     label=z, fillstyle='none') for z in self.model.zone_names]
-        ax2.legend(handles=leg_elements, loc='center', ncol=7,
-                    bbox_to_anchor=(0.4, 1.2), fontsize=12, frameon=False,
-                    handletextpad=0.01, columnspacing=1)
+        axs[0][1].legend(handles=leg_elements, loc='center', ncol=7,
+                         bbox_to_anchor=(0.4, 1.2), fontsize=12, frameon=False,
+                         handletextpad=0.01, columnspacing=1)
 
         fig.savefig(f'out/relerrs_depthV{prefix}{priors_str}_{dvm_str}')
         plt.close()
@@ -2151,7 +2150,7 @@ class PlotterModelRuns(PlotterTwinX):
 class PlotterTwoModel():
     """Makes plots with results from two models."""
 
-    def __init__(self, na_model, sp_model, gamma, rel_err):
+    def __init__(self, na_model, sp_model):
 
         with open(na_model, 'rb') as file:
             self.na_model = pickle.load(file)
@@ -2160,7 +2159,7 @@ class PlotterTwoModel():
             self.sp_model = pickle.load(file)
 
         self.define_colors()
-        
+
         args = (0.5, 0.5)
 
         self.compare_params(*args)
@@ -2173,7 +2172,7 @@ class PlotterTwoModel():
         self.sinking_fluxes_2model(*args)
         self.volumetric_fluxes_2model(*args)
         if self.na_model.has_dvm:
-            self.dvm_fluxes_2model(*args)         
+            self.dvm_fluxes_2model(*args)
 
     def define_colors(self):
 
@@ -2330,7 +2329,6 @@ class PlotterTwoModel():
 
                 for zone in model.zones:
                     z = zone.label
-                    ub, lb = zone.depths
                     d_av = np.mean(zone.depths)
                     d_err = zone.thick/2
                     if p == 'B2':
@@ -2343,7 +2341,7 @@ class PlotterTwoModel():
                                 c=self.vermillion, capsize=capsize, zorder=9)
                     ax.scatter(data_err, d_av, marker='o', facecolors='none',
                                edgecolors=self.black, zorder=10)
-                for z in data['MNWA'].keys():
+                for z in data['MNWA']:
                     d_av = data['MNWA'][z]['depth']
                     d_err = data['MNWA'][z]['thick']/2
                     ax.errorbar(data['MNWA'][z][p][0], d_av, fmt='s',
@@ -2361,7 +2359,7 @@ class PlotterTwoModel():
                     ax.scatter(data['BRIG'][p][1], data['BRIG']['depth'],
                                marker='*', zorder=10, edgecolors=self.black,
                                facecolors='none', s=60)
-                for s in data['CLEG'][p].keys():
+                for s in data['CLEG'][p]:
                     if s == 'EP':
                         m = '^'
                         c = self.sky
@@ -2374,7 +2372,7 @@ class PlotterTwoModel():
                         ax.scatter(data['CLEG'][p][s]['err'],
                                    data['CLEG'][p][s]['depth'],
                                    marker=m, zorder=10, edgecolors=self.black,
-                                   facecolors='none')                        
+                                   facecolors='none')
 
             axs[0].set_xlim([0.001, 100000])
             axs[0].set_xticks([0.001, 0.1, 10, 1000, 10**5])
@@ -2480,7 +2478,7 @@ class PlotterTwoModel():
 
         def eval_symbolic_func2(model, run, y):
 
-            x_symbolic = y.free_symbols
+            x_symbolic = list(y.free_symbols)
             x_numerical = []
             x_indices = []
             for x in x_symbolic:
@@ -2772,7 +2770,7 @@ class PlotterTwoModel():
             dv_params = [p for p in run.params if p.dv and p.name in xlims]
             for i, param in enumerate(dv_params):
                 p = param.name
-                if p not in (xlims.keys()):
+                if p not in xlims.keys():
                     continue
                 ax = axs[i]
                 if i:
@@ -2795,8 +2793,8 @@ class PlotterTwoModel():
                            ls='--')
                 ax.axvline(param.prior + param.prior_e, c=self.blue, lw=1.5,
                            ls='--')
-                for i, z in enumerate(self.na_model.zone_names):
-                    zone = self.na_model.zones[i]
+                for j, z in enumerate(self.na_model.zone_names):
+                    zone = self.na_model.zones[j]
                     if 'w' in p:
                         depth = zone.depths[1]
                         ax.errorbar(
@@ -2860,7 +2858,7 @@ class PlotterTwoModel():
                     ax.yaxis.set_label_position('right')
                 if 'POC' in t:
                     prior_err = run.gamma*run.P30.prior*model.mld
-                for j, zone in enumerate(model.zones):
+                for zone in model.zones:
                     depths = zone.depths
                     z = zone.label
                     ax.scatter(run.integrated_resids[t][z][0], np.mean(depths),
@@ -2921,7 +2919,7 @@ class PlotterTwoModel():
                 ax.tick_params(axis='both', which='major', labelsize=12)
             axs[1].set_ylabel(ylabel, fontsize=14, rotation=270,
                               labelpad=20)
-            axs[1].yaxis.set_label_position('right')    
+            axs[1].yaxis.set_label_position('right')
             axs[0].errorbar(
                 run.flux_profiles['sink_S']['est'],
                 np.array(model.grid) + 2,
@@ -2929,7 +2927,7 @@ class PlotterTwoModel():
                 ecolor=self.sky, c=self.sky, capsize=4,
                 label=model.sink_S.label, fillstyle='none',
                 elinewidth=1.5, capthick=1.5)
-    
+
             axs[0].errorbar(
                 run.flux_profiles['sink_L']['est'],
                 np.array(model.grid) - 2,
@@ -2937,7 +2935,7 @@ class PlotterTwoModel():
                 ecolor=self.vermillion, c=self.vermillion, capsize=4,
                 label=model.sink_L.label, fillstyle='none',
                 elinewidth=1.5, capthick=1.5)
-    
+
             axs[1].tick_params(labelleft=False)
             axs[1].errorbar(
                 run.flux_profiles['sink_T']['est'], model.grid, fmt='o',
@@ -2953,16 +2951,16 @@ class PlotterTwoModel():
                 st_flux, st_depths - 4, fmt='d', xerr=st_flux_u, c=self.black,
                 ecolor=self.black, capsize=4, label='Sed. Traps',
                 elinewidth=1.5, capthick=1.5)
-            
+
             axs[0].set_xlim([0, 6])
             axs[1].set_xlim([0, 10])
-            
+
             if ylabel == 'SP inversion':
                 axs[0].legend(loc='lower right', fontsize=12,
                               handletextpad=0.01)
                 axs[1].legend(loc='lower right', fontsize=12,
                               handletextpad=0.01)
-                
+
         fig.savefig('out/sinkfluxes_2model.pdf')
         plt.close()
 
@@ -3007,7 +3005,7 @@ class PlotterTwoModel():
                 ax.tick_params(axis='both', which='major', labelsize=12)
                 ax.set_yticks([0, 100, 200, 300, 400, 500])
                 if pr[0] != 'remin_L':
-                    ax.set_xlim(xlims[pr[0]])                    
+                    ax.set_xlim(xlims[pr[0]])
                 if pr[0] != 'production':
                     for j, z in enumerate(model.zones):
                         depths = z.depths
@@ -3035,7 +3033,7 @@ class PlotterTwoModel():
                             color=self.orange, alpha=0.25)
                     if i == 0:
                         ax.axvline(0, ls=':', c=self.black, zorder=1)
-    
+
                 else:
                     depths = model.grid
                     df = model.data['NPP']
@@ -3064,12 +3062,12 @@ class PlotterTwoModel():
                               frameon=False)
                 else:
                     ax.set_xlabel(('A', 'B', 'C', 'D')[i], fontsize=14)
-            
+
         fig.savefig('out/fluxes_volumetric_2model.pdf')
         plt.close()
 
     def dvm_fluxes_2model(self, gamma, rel_err):
-            
+
         fig = plt.figure()
         fig.text(0.025, 0.5, 'Depth (m)', fontsize=14, ha='center',
                  va='center', rotation='vertical')
@@ -3098,7 +3096,7 @@ class PlotterTwoModel():
             hostR.set_xlim(-0.02, 0.02)
             parR.set_xlim(0.02, -0.02)
             hostR.axvline(c=self.black, alpha=0.3)
-            
+
             if model == self.sp_model:
                 hostL.set_xlabel('Ingestion Flux (mmol m$^{-3}$ d$^{-1}$)')
                 hostR.set_xlabel('Excretion Flux (mmol m$^{-3}$ d$^{-1}$)')
@@ -3113,7 +3111,7 @@ class PlotterTwoModel():
                 hostL.xaxis.set_ticklabels([])
                 hostR.text(1.05, 0.2, 'NA inversion' , fontsize=14,
                           rotation=270, transform=hostR.transAxes)
-                
+
             for host, par in ((hostL, parL), (hostR, parR)):
                 host.axis['right'].toggle(all=False)
                 host.axis['left', 'top', 'bottom'].major_ticks.set_tick_out(
@@ -3174,12 +3172,11 @@ if __name__ == '__main__':
 
     gammas = [0.5, 1, 5, 10]
     rel_errs = [0.1, 0.2, 0.5, 1]
-    # gammas = [0.5]
-    # rel_errs = [0.5]
-    args = (gammas, rel_errs)
 
-    model_na = PyriteModel(0, args, has_dvm=True, priors_from='NA')
-    model_sp = PyriteModel(0, args, has_dvm=True, priors_from='SP')
+    gam_re = (gammas, rel_errs)
+
+    model_na = PyriteModel(0, gam_re, has_dvm=True, priors_from='NA')
+    model_sp = PyriteModel(0, gam_re, has_dvm=True, priors_from='SP')
 
     PlotterModelRuns('out/POC_modelruns_dvmTrue_NA.pkl')
     PlotterModelRuns('out/POC_modelruns_dvmTrue_SP.pkl')
@@ -3193,7 +3190,6 @@ if __name__ == '__main__':
     PlotterTwinX('out/POC_twinX_dvmTrue_SP.pkl')
 
     PlotterTwoModel('out/POC_modelruns_dvmTrue_NA.pkl',
-                    'out/POC_modelruns_dvmTrue_SP.pkl',
-                    0.5, 0.5)
+                    'out/POC_modelruns_dvmTrue_SP.pkl')
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
