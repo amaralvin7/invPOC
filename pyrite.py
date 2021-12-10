@@ -2386,7 +2386,7 @@ class PlotterTwoModel():
             Line2D([0], [0], marker='o', mec=self.black, c=self.white,
                     label='This study \nStation P',
                     markerfacecolor=self.vermillion, ms=9),
-            Line2D([0], [0], marker='^', mec=self.black, c=self.white,
+            Line2D([0], [0], marker='s', mec=self.black, c=self.white,
                     label='Murnane et al. (1994)\nNWAO',
                     markerfacecolor=self.radish, ms=9),
             Line2D([0], [0], marker='d', mec=self.black, c=self.white,
@@ -2413,7 +2413,7 @@ class PlotterTwoModel():
         for z in ('EZ', 'UMZ'):
 
             fig, (na_axs, sp_axs) = plt.subplots(2, 2)
-            fig.subplots_adjust(hspace=0.05, bottom=0.2, top=0.9)
+            fig.subplots_adjust(hspace=0.02, wspace=0.1, bottom=0.2, top=0.9)
             sp_axs[0].set_ylabel('Integrated flux (mmol m$^{-2}$ d$^{-1}$)',
                                   fontsize=14)
             sp_axs[0].yaxis.set_label_coords(-0.2, 1)
@@ -2440,6 +2440,7 @@ class PlotterTwoModel():
                 for group in ((ax1, 'S', -1, 1), (ax2, 'L', 1, -1)):
                     ax, sf, agg_sign, dagg_sign = group
                     ax.axhline(0, c='k', lw=1)
+                    ax.set_ylim([-16, 15])
                     ax.set_xlabel(f'$P_{sf}$ fluxes', fontsize=14)
                     labels = ['SFD', 'Remin.', 'Agg.', 'Disagg.', 'Resid.']
                     fluxes = [-rfi[f'sinkdiv_{sf}'][z][0],
@@ -2456,6 +2457,8 @@ class PlotterTwoModel():
                         labels.insert(-1, 'Prod.')
                         fluxes.insert(-1, rfi['production'][z][0])
                         flux_errs.insert(-1, rfi['production'][z][1])
+                    else:
+                        ax.tick_params(labelleft=False)
                     if model.has_dvm:
                         if sf == 'S' and z in ('EZ', 'A', 'B', 'C'):
                             labels.insert(-1, 'DVM')
@@ -2925,7 +2928,7 @@ class PlotterTwoModel():
                 run.flux_profiles['sink_S']['est'],
                 np.array(model.grid) + 2,
                 fmt='o', xerr=run.flux_profiles['sink_S']['err'],
-                ecolor=self.sky, c=self.sky, capsize=4,
+                ecolor=self.blue, c=self.blue, capsize=4,
                 label=model.sink_S.label, fillstyle='none',
                 elinewidth=1.5, capthick=1.5)
 
@@ -2933,15 +2936,15 @@ class PlotterTwoModel():
                 run.flux_profiles['sink_L']['est'],
                 np.array(model.grid) - 2,
                 fmt='o', xerr=run.flux_profiles['sink_L']['err'],
-                ecolor=self.vermillion, c=self.vermillion, capsize=4,
+                ecolor=self.orange, c=self.orange, capsize=4,
                 label=model.sink_L.label, fillstyle='none',
                 elinewidth=1.5, capthick=1.5)
 
             axs[1].tick_params(labelleft=False)
             axs[1].errorbar(
                 run.flux_profiles['sink_T']['est'], model.grid, fmt='o',
-                xerr=run.flux_profiles['sink_T']['err'], ecolor=self.orange,
-                c=self.orange, capsize=4, zorder=3,
+                xerr=run.flux_profiles['sink_T']['err'],
+                ecolor=self.vermillion, c=self.vermillion, capsize=4, zorder=3,
                 label=model.sink_T.label, elinewidth=1.5, capthick=1.5,
                 fillstyle='none')
             axs[1].errorbar(
