@@ -2687,6 +2687,12 @@ class PlotterTwoModel():
             label='SP', fillstyle='none',
             zorder=3, markeredgewidth=1)
 
+        ax1.set_xticks([0, 1, 2, 3])
+        ax1.set_xlim([0, 3.4])
+        ax2.set_xticks([0, 0.05, 0.1, 0.15])
+        ax2.set_xticklabels(['0', '0.05', '0.1', '0.15'])
+        ax2.tick_params(labelleft=False)
+
         for ax in (ax1, ax2):
             ax.invert_yaxis()
             ax.set_ylim(top=0, bottom=530)
