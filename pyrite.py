@@ -1466,7 +1466,7 @@ class PlotterTwinX():
                 j += 1
 
         fig, (ax1, ax2) = plt.subplots(1, 2, tight_layout=True)
-        ax1.set_ylabel('Probability Density', fontsize=16)
+        ax1.set_ylabel('Probability density', fontsize=16)
         ax1.set_xlabel(r'$\frac{\^x_{i}-x_{o,i}}{\sigma_{o,i}}$',
                        fontsize=14)
         ax2.set_xlabel(r'$\frac{\^{\overline{\varepsilon}h}}'
@@ -1674,7 +1674,7 @@ class PlotterModelRuns(PlotterTwinX):
         fig, (ax1, ax2) = plt.subplots(1, 2)
         ax1.set_ylabel('Depth (m)', fontsize=14)
         fig.text(
-            0.5, 0.03, 'POC Flux (mmol m$^{-2}$ d$^{-1}$)',
+            0.5, 0.03, 'POC flux (mmol m$^{-2}$ d$^{-1}$)',
             fontsize=14, ha='center', va='center')
         for ax in (ax1, ax2):
             ax.invert_yaxis()
@@ -1730,7 +1730,7 @@ class PlotterModelRuns(PlotterTwinX):
         fig.subplots_adjust(left=0.15, bottom=0.15, wspace=0.1)
         axs = (ax1, ax2, ax3, ax4)
         panels = ('A', 'B', 'C', 'D')
-        fig.text(0.5, 0.05, 'POC Flux (mmol m$^{-3}$ d$^{-1}$)',
+        fig.text(0.5, 0.05, 'POC flux (mmol m$^{-3}$ d$^{-1}$)',
                  fontsize=14, ha='center', va='center')
         fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center',
                  va='center', rotation='vertical')
@@ -1811,8 +1811,8 @@ class PlotterModelRuns(PlotterTwinX):
             parL = hostL.twiny()
             parL.axis['top'].toggle(all=True)
             hostL.set_ylabel('Depth (m)')
-            hostL.set_xlabel('Ingestion Flux (mmol m$^{-3}$ d$^{-1}$)')
-            parL.set_xlabel('$P_S$ Remin. Flux (mmol m$^{-3}$ d$^{-1}$)')
+            hostL.set_xlabel('Ingestion flux (mmol m$^{-3}$ d$^{-1}$)')
+            parL.set_xlabel('$P_S$ remin. flux (mmol m$^{-3}$ d$^{-1}$)')
             hostL.set_xlim(0, 0.3)
             parL.set_xlim(0, 0.3)
 
@@ -1820,7 +1820,7 @@ class PlotterModelRuns(PlotterTwinX):
             hostR.yaxis.set_ticklabels([])
             parR = hostR.twiny()
             parR.axis['top'].toggle(all=True)
-            hostR.set_xlabel('Excretion Flux (mmol m$^{-3}$ d$^{-1}$)')
+            hostR.set_xlabel('Excretion flux (mmol m$^{-3}$ d$^{-1}$)')
             parR.set_xlabel('$P_L$ SFD (mmol m$^{-3}$ d$^{-1}$)')
             hostR.set_xlim(-0.02, 0.02)
             parR.set_xlim(0.02, -0.02)
@@ -2907,7 +2907,7 @@ class PlotterTwoModel():
                             wspace=0.15, hspace=0.1)
         fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center',
                  va='center', rotation='vertical')
-        fig.text(0.54, 0.03, 'POC Flux (mmol m$^{-2}$ d$^{-1}$)',
+        fig.text(0.54, 0.03, 'POC flux (mmol m$^{-2}$ d$^{-1}$)',
                  fontsize=14, ha='center', va='center')
 
         for model in (self.na_model, self.sp_model):
@@ -2981,7 +2981,7 @@ class PlotterTwoModel():
                             wspace=0.1)
         fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center',
                  va='center', rotation='vertical')
-        fig.text(0.55, 0.05, 'POC Flux (mmol m$^{-3}$ d$^{-1}$)',
+        fig.text(0.55, 0.05, 'POC flux (mmol m$^{-3}$ d$^{-1}$)',
                  fontsize=14, ha='center', va='center')
 
         pairs = (('sinkdiv_S', 'sinkdiv_L'), ('remin_S', 'aggregation'),
@@ -3108,14 +3108,14 @@ class PlotterTwoModel():
             hostR.axvline(c=self.black, alpha=0.3)
 
             if model == self.sp_model:
-                hostL.set_xlabel('Ingestion Flux (mmol m$^{-3}$ d$^{-1}$)')
-                hostR.set_xlabel('Excretion Flux (mmol m$^{-3}$ d$^{-1}$)')
+                hostL.set_xlabel('Ingestion flux (mmol m$^{-3}$ d$^{-1}$)')
+                hostR.set_xlabel('Excretion flux (mmol m$^{-3}$ d$^{-1}$)')
                 hostR.text(1.05, 0.2, 'SP inversion' , fontsize=14,
                           rotation=270, transform=hostR.transAxes)
                 parR.xaxis.set_ticklabels([])
                 parL.xaxis.set_ticklabels([])
             else:
-                parL.set_xlabel('$P_S$ Remin. Flux (mmol m$^{-3}$ d$^{-1}$)')
+                parL.set_xlabel('$P_S$ remin. flux (mmol m$^{-3}$ d$^{-1}$)')
                 parR.set_xlabel('$P_L$ SFD (mmol m$^{-3}$ d$^{-1}$)')
                 hostR.xaxis.set_ticklabels([])
                 hostL.xaxis.set_ticklabels([])
