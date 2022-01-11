@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import pandas as pd
+import numpy as np
 from constants import MLD, GRID
 from os import path
 
@@ -14,14 +15,13 @@ def load_data():
 def process_poc_data(to_process):
 
     processed = pd.DataFrame(GRID, columns=['depth'])
-    processed['ncasts'] = [
+    processed['n_casts'] = [
         get_number_of_casts(to_process, depth) for depth in GRID]
 
     for tracer in ('POCS', 'POCL'):
         mean, sd = calculate_mean_and_sd(to_process, tracer)
         processed[tracer] = mean
-        processed[f'{tracer}_sd'] = sd
-        # processed[f'{tracer}_se'] = calculate_se(to_process, tracer)
+        processed[f'{tracer}_se'] = (sd  / np.sqrt(processed['n_casts']))
         
     return processed
 
@@ -37,5 +37,8 @@ def calculate_mean_and_sd(to_process, tracer):
         at_depth = to_process[to_process['mod_depth'] == depth][tracer]
         mean.append(at_depth.mean())
         sd.append(at_depth.std())
+
+    relative_sd_50m = sd[1]/mean[1]  # 50m is the second grid depth
+    sd[0] = mean[0] * relative_sd_50m  # 30m is the first grid depth
 
     return mean, sd
