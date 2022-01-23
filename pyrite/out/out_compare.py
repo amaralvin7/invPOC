@@ -10,4 +10,4 @@ True == match
 """
 
 import filecmp
-print(filecmp.cmp('pyrite_out_dvmTrue_SP_1.txt', 'pyrite_out_dvmTrue_SP.txt', shallow=False))
+print(filecmp.cmp('pyrite_out_dvmTrue_NA_test.txt', 'out.txt', shallow=False))

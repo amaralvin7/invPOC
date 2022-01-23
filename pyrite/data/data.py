@@ -42,3 +42,16 @@ def calculate_mean_and_sd(to_process, tracer):
     sd[0] = mean[0] * relative_sd_50m  # 30m is the first grid depth
 
     return mean, sd
+
+def define_tracers(data):
+    
+    tracers = {'POCS': {}, 'POCL': {}}
+    
+    for t in tracers:
+        tracers[t]['prior'] = data[t]
+        tracers[t]['prior_e'] = data[f'{t}_se']
+        tracers[t]['posterior'] = None
+        tracers[t]['posterior_e'] = None
+    
+    return tracers
+    
