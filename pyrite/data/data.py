@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import pandas as pd
 import numpy as np
-from constants import MLD, GRID
+from constants import MLD, GRID, GAMMA
 from os import path
 
 def load_data():
@@ -54,4 +54,16 @@ def define_tracers(data):
         tracers[t]['posterior_e'] = None
     
     return tracers
+
+def define_residuals(params):
+    
+    residuals = {'POCS': {}, 'POCL': {}}
+    
+    for tracer in residuals:
+        residuals[tracer]['prior'] = 0
+        residuals[tracer]['prior_e'] = GAMMA * params['P30']['prior'] * MLD
+        residuals[tracer]['posterior'] = None
+        residuals[tracer]['posterior_e'] = None
+    
+    return residuals
     

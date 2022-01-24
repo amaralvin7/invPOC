@@ -1,8 +1,4 @@
 #!/usr/bin/env python3
-"""
-To do:
-- convergence evolution and cost evolution
-"""
 from constants import LAYERS
 from modelequations import evaluate_model_equations
 import numpy as np
@@ -19,24 +15,27 @@ def calculate_xkp1(Co, xo, xk, f, F):
 def check_convergence(xk, xkp1):
 
     converged = False
+    convergence = []
     max_change_limit = 10**-6
     change = np.abs((xkp1 - xk)/xk)
-    # Convergence_evolution.append(np.max(change))
+    convergence.append(np.max(change))
 
     if np.max(change) < max_change_limit:
         converged = True
 
-    return converged
+    return converged, convergence
 
 def calculate_cost(Co, xo, x):
 
     cost = (x - xo).T @ np.linalg.inv(Co) @ (x - xo)
 
-    # Cost_evolution.append(cost)
+    return cost
 
 def find_solution(tracers, state_elements, equation_elements, xo, Co):
 
     max_iterations = 100
+    convergence_evolution = []
+    cost_evolution = []
 
     xk = xo
     xkp1 = np.ones(len(xk))  # at iteration k+1
@@ -44,9 +43,11 @@ def find_solution(tracers, state_elements, equation_elements, xo, Co):
         f, F = evaluate_model_equations(tracers, state_elements,
                                         equation_elements, xk)
         xkp1, CoFT, FCoFTi = calculate_xkp1(Co, xo, xk, f, F)
-        calculate_cost(Co, xo, xkp1)
-        if count > 0:
-            converged = check_convergence(xk, xkp1)
+        cost = calculate_cost(Co, xo, xkp1)
+        cost_evolution.append(cost)
+        if count > 0:  # xk contains 0's for residuals when k=0
+            converged, convergence = check_convergence(xk, xkp1)
+            convergence_evolution.append(convergence)
             if converged:
                 break
         xk = xkp1
@@ -54,4 +55,4 @@ def find_solution(tracers, state_elements, equation_elements, xo, Co):
     Ckp1 = Co - CoFT @ FCoFTi @ F @ Co
     xhat = xkp1
     
-    return xhat, Ckp1
+    return xhat, Ckp1, convergence_evolution, cost_evolution

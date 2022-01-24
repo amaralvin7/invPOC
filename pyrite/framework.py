@@ -29,14 +29,15 @@ def define_equation_elements(tracers):
     
     return equation_elements
 
-def define_prior_vector(tracers, params):
+def define_prior_vector(tracers, residuals, params):
 
     xo = []
 
-    for t in tracers:  # tracer concentrations
+    for t in tracers:
         xo.extend(tracers[t]['prior'])
 
-    xo.extend(np.zeros(len(GRID) * len(tracers)))  # residuals
+    for r in residuals:
+        xo.extend(np.ones(len(GRID)) * residuals[r]['prior'])
 
     for p in params:
         if params[p]['dv']:
@@ -46,15 +47,15 @@ def define_prior_vector(tracers, params):
 
     return np.array(xo)
         
-def define_cov_matrix(tracers, params):
+def define_cov_matrix(tracers, residuals, params):
 
     Co = []
 
-    for t in tracers:  # tracer concentrations
+    for t in tracers:
         Co.extend(tracers[t]['prior_e']**2)
     
-    Co.extend(np.ones(len(GRID) * len(tracers))  # residuals
-              * (GAMMA * params['P30']['prior'] * MLD)**2)
+    for r in residuals:
+        Co.extend(np.ones(len(GRID)) * residuals[r]['prior_e']**2)
 
     for p in params:
         if params[p]['dv']:

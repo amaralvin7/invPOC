@@ -3,7 +3,7 @@ from constants import LAYERS
 
 def write(params):
 
-    file = f'out.txt'
+    file = f'out/out.txt'
     with open(file, 'w') as f:
         print('#################################', file=f)
         print(f'GAMMA = {0.5}, RE = {0.5}', file=f)
