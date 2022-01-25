@@ -6,6 +6,7 @@ import framework as fw
 from unpacking import unpack_state_estimates
 from ati import find_solution
 import output
+import budgets
 
 start_time = time.time()
 
@@ -27,7 +28,11 @@ ati_results = find_solution(tracers, state_elements, equation_elements, xo, Co)
 xhat, Ckp1, convergence_evolution, cost_evolution = ati_results
 unpack_state_estimates(tracers, residuals, params, state_elements, xhat, Ckp1)
 
-output.write(params)
+residuals_sym = budgets.get_symbolic_residuals(residuals)
+budgets.integrate_residuals_by_zone(
+    residuals, residuals_sym, state_elements, tracers, params, Ckp1)
+
+output.write(params, residuals)
 
 
 

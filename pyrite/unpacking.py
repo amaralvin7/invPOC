@@ -8,20 +8,20 @@ def unpack_state_estimates(
     xhat_e = np.sqrt(np.diag(Ckp1))
     
     unpack_by_slicing(tracers, state_elements, xhat, xhat_e)
-    unpack_by_slicing(residuals, state_elements, xhat, xhat_e)
+    unpack_by_slicing(residuals, state_elements, xhat, xhat_e, prefix='R')
     unpack_param_estimates(params, state_elements, xhat, xhat_e)
 
-
-def unpack_by_slicing(dict, state_elements, xhat, xhat_e):
+def unpack_by_slicing(dict, state_elements, xhat, xhat_e, prefix=''):
     
-    for key in dict:
-        dict[key]['posterior'] = slice_by_tracer(xhat, key, state_elements)
-        dict[key]['posterior_e'] = slice_by_tracer(xhat_e, key, state_elements)
+    for k in dict:
+        kp = f'{prefix}{k}'
+        dict[k]['posterior'] = slice_by_species(xhat, kp, state_elements)
+        dict[k]['posterior_e'] = slice_by_species(xhat_e, kp, state_elements)
 
-def slice_by_tracer(to_slice, tracer, state_elements):
+def slice_by_species(to_slice, species, state_elements):
 
     sliced = [to_slice[i] for i, e in enumerate(
-        state_elements) if e.split('_')[0] == tracer]
+        state_elements) if e.split('_')[0] == species]
 
     return sliced
 
