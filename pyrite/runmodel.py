@@ -29,10 +29,13 @@ xhat, Ckp1, convergence_evolution, cost_evolution = ati_results
 unpack_state_estimates(tracers, residuals, params, state_elements, xhat, Ckp1)
 
 residuals_sym = budgets.get_symbolic_residuals(residuals)
-budgets.integrate_residuals_by_zone(
-    residuals, residuals_sym, state_elements, tracers, params, Ckp1)
+budgets.integrate_residuals(residuals, residuals_sym, state_elements, Ckp1)
 
-output.write(params, residuals)
+inventories_sym = budgets.get_symbolic_inventories(tracers)
+inventories = budgets.integrate_inventories(
+    inventories_sym, state_elements, Ckp1, tracers)
+
+output.write(params, residuals, inventories)
 
 
 

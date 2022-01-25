@@ -1,37 +1,16 @@
 #!/usr/bin/env python3
-from constants import LAYERS
+"""
+to do:
+- turn common parts of integrate_* into functions?
+"""
+
+from constants import LAYERS, GRID
 from itertools import product
 import sympy as sym
 import numpy as np
 
-# def integrate_residuals(residuals):
-
-#     zone_dict = {'EZ': self.zone_names[:3], 'UMZ': self.zone_names[3:]}
-
-#     int_resids_sym = {}
-
-#     for t in self.tracer_names:
-#         int_resids_sym[t] = {}
-#         for sz, zones in zone_dict.items():
-#             to_integrate = 0
-#             for z in zones:
-#                 int_resids_sym[t][z] = sym.symbols(f'R{t}_{z}')
-#                 to_integrate += sym.symbols(f'R{t}_{z}')
-#             int_resids_sym[t][sz] = to_integrate
-#             run.integrated_resids[t][sz] = self.eval_symbolic_func(
-#                 run, to_integrate)
-
-#     return integrated_residuals_sym
-
-# def create_layer_zone_dict():
-    
-#     dictionary = dict.fromkeys(LAYERS)
-#     dictionary['EZ'] = None
-#     dictionary['UMZ'] = None
-    
-#     return dictionary
-
-def eval_sym_expression(y, state_elements, tracers, residuals, params, Ckp1):
+def eval_sym_expression(
+    y, state_elements, Ckp1, tracers=[], residuals=[], params=[]):
 
     x_symbolic = list(y.free_symbols)
     x_numerical = []
@@ -84,13 +63,50 @@ def get_symbolic_residuals(residuals):
     
     return residuals_sym
 
-def integrate_residuals_by_zone(
-    residuals, residuals_sym, state_elements, tracers, params, Ckp1):
+def integrate_residuals(residuals, residuals_sym, state_elements, Ckp1):
     
     for (r, z) in product(residuals, ('EZ', 'UMZ')):
         y = residuals_sym[r][z]
         integral, error = eval_sym_expression(
-            y, state_elements, tracers, residuals, params, Ckp1)
+            y, state_elements, Ckp1, residuals=residuals)
         residuals[r][z] = integral
         residuals[r][f'{z}_e'] = error
         
+def get_symbolic_inventories(tracers):
+    
+    inventories_sym = {t: {} for t in tracers}
+    grid_with_surface = (0,) + GRID
+    thickness = np.diff(grid_with_surface)
+    
+    for t in tracers:  
+        concentrations = [sym.symbols(f'{t}_{l}') for l in LAYERS]
+        profile = [concentrations[0] * thickness[0]]  # mixed layer 
+        for i, h in enumerate(thickness[1:], 1):  # all other layers
+            avg_conc = np.mean([concentrations[i], concentrations[i-1]])
+            profile.append(avg_conc * h)
+        inventories_sym[t]['profile'] = profile
+        inventories_sym[t]['EZ'] = np.sum(profile[:3])
+        inventories_sym[t]['UMZ'] = np.sum(profile[3:])
+        
+    return inventories_sym
+
+def integrate_inventories(inventories_sym, state_elements, Ckp1, tracers):
+    
+    inventories = {tracer: {} for tracer in inventories_sym}
+    
+    for (tracer, z) in product(inventories, ('EZ', 'UMZ')):
+        y = inventories_sym[tracer][z]
+        integral, error = eval_sym_expression(y, state_elements, Ckp1, tracers)
+        inventories[tracer][z] = integral
+        inventories[tracer][f'{z}_e'] = error
+
+    for tracer in inventories:
+        inventories[tracer]['posterior'] = []
+        inventories[tracer]['posterior_e'] = []
+        for y in inventories_sym[tracer]['profile']:
+            integral, error = eval_sym_expression(
+                y, state_elements, Ckp1, tracers)
+            inventories[tracer]['posterior'].append(integral)
+            inventories[tracer]['posterior_e'].append(error)
+    
+    return inventories
