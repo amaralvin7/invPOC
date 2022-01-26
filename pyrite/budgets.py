@@ -63,14 +63,18 @@ def get_symbolic_residuals(residuals):
     
     return residuals_sym
 
-def integrate_residuals(residuals, residuals_sym, state_elements, Ckp1):
+def integrate_resids_by_zone(residuals, residuals_sym, state_elements, Ckp1):
+    
+    integrated = {r: {} for r in residuals}
     
     for (r, z) in product(residuals, ('EZ', 'UMZ')):
         y = residuals_sym[r][z]
         integral, error = eval_sym_expression(
             y, state_elements, Ckp1, residuals=residuals)
-        residuals[r][z] = integral
-        residuals[r][f'{z}_e'] = error
+        integrated[r][z] = integral
+        integrated[r][f'{z}_e'] = error
+    
+    return integrated
         
 def get_symbolic_inventories(tracers):
     
@@ -96,7 +100,8 @@ def integrate_inventories(inventories_sym, state_elements, Ckp1, tracers):
     
     for (tracer, z) in product(inventories, ('EZ', 'UMZ')):
         y = inventories_sym[tracer][z]
-        integral, error = eval_sym_expression(y, state_elements, Ckp1, tracers)
+        integral, error = eval_sym_expression(
+            y, state_elements, Ckp1, tracers=tracers)
         inventories[tracer][z] = integral
         inventories[tracer][f'{z}_e'] = error
 

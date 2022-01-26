@@ -50,8 +50,6 @@ def define_tracers(data):
     for t in tracers:
         tracers[t]['prior'] = data[t]
         tracers[t]['prior_e'] = data[f'{t}_se']
-        tracers[t]['posterior'] = None
-        tracers[t]['posterior_e'] = None
     
     return tracers
 
@@ -62,8 +60,6 @@ def define_residuals(params):
     for tracer in residuals:
         residuals[tracer]['prior'] = 0
         residuals[tracer]['prior_e'] = GAMMA * params['P30']['prior'] * MLD
-        residuals[tracer]['posterior'] = None
-        residuals[tracer]['posterior_e'] = None
     
     return residuals
     

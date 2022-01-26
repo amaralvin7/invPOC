@@ -37,8 +37,6 @@ def set_prior(prior, error, label, units, depth_varying=True):
     data['label'] = label
     data['units'] = units
     data['dv'] = depth_varying
-    data['posterior'] = {}
-    data['posterior_e'] = {}
     
     return data
 
