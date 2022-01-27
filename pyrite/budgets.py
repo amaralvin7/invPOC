@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""
-to do:
-- turn common parts of integrate_* into functions?
-"""
-
 from constants import LAYERS, GRID
 from itertools import product
 import sympy as sym
@@ -63,16 +58,16 @@ def get_symbolic_residuals(residuals):
     
     return residuals_sym
 
-def integrate_resids_by_zone(residuals, residuals_sym, state_elements, Ckp1):
+def integrate_by_zone(symbolic, state_elements, Ckp1, **state_element_types):
     
-    integrated = {r: {} for r in residuals}
-    
-    for (r, z) in product(residuals, ('EZ', 'UMZ')):
-        y = residuals_sym[r][z]
+    integrated = {k: {} for k in symbolic}
+
+    for (k, z) in product(integrated, ('EZ', 'UMZ')):
+        y = symbolic[k][z]
         integral, error = eval_sym_expression(
-            y, state_elements, Ckp1, residuals=residuals)
-        integrated[r][z] = integral
-        integrated[r][f'{z}_e'] = error
+            y, state_elements, Ckp1, **state_element_types)
+        integrated[k][z] = integral
+        integrated[k][f'{z}_e'] = error
     
     return integrated
         
@@ -96,14 +91,8 @@ def get_symbolic_inventories(tracers):
 
 def integrate_inventories(inventories_sym, state_elements, Ckp1, tracers):
     
-    inventories = {tracer: {} for tracer in inventories_sym}
-    
-    for (tracer, z) in product(inventories, ('EZ', 'UMZ')):
-        y = inventories_sym[tracer][z]
-        integral, error = eval_sym_expression(
-            y, state_elements, Ckp1, tracers=tracers)
-        inventories[tracer][z] = integral
-        inventories[tracer][f'{z}_e'] = error
+    inventories = integrate_by_zone(
+        inventories_sym, state_elements, Ckp1, tracers=tracers)
 
     for tracer in inventories:
         inventories[tracer]['posterior'] = []

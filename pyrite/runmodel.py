@@ -35,13 +35,13 @@ merge_by_keys(param_estimates, params)
 merge_by_keys(residual_estimates, residuals)
 
 residuals_sym = budgets.get_symbolic_residuals(residuals)
-integrated_residuals = budgets.integrate_resids_by_zone(
-    residuals, residuals_sym, state_elements, Ckp1)
+integrated_residuals = budgets.integrate_by_zone(
+    residuals_sym, state_elements, Ckp1, residuals=residuals)
 merge_by_keys(integrated_residuals, residuals)
 
 inventories_sym = budgets.get_symbolic_inventories(tracers)
 inventories = budgets.integrate_inventories(
-    inventories_sym, state_elements, Ckp1, tracers)
+    inventories_sym, state_elements, Ckp1, tracers=tracers)
 
 output.write(params, residuals, inventories)
 
