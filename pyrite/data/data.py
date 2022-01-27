@@ -53,13 +53,13 @@ def define_tracers(data):
     
     return tracers
 
-def define_residuals(params):
+def define_residuals(proportional_to):
     
     residuals = {'POCS': {}, 'POCL': {}}
     
     for tracer in residuals:
         residuals[tracer]['prior'] = 0
-        residuals[tracer]['prior_e'] = GAMMA * params['P30']['prior'] * MLD
+        residuals[tracer]['prior_e'] = GAMMA * proportional_to * MLD
     
     return residuals
     

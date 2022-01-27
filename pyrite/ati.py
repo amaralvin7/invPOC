@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from constants import LAYERS
 from modelequations import evaluate_model_equations
 import numpy as np
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from constants import MLD, GAMMA, GRID, LAYERS
+from constants import GRID, LAYERS
 from itertools import product
 import numpy as np
 
@@ -16,8 +16,7 @@ def define_state_elements(tracers, params):
 
     for p in params:
         if params[p]['dv']:
-            for l in LAYERS:
-                state_elements.append(f'{p}_{l}')
+            state_elements.extend([f'{p}_{l}' for l in LAYERS])
         else:
             state_elements.append(f'{p}')
     

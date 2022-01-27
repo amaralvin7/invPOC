@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from constants import LAYERS, GRID
+from constants import GRID, LAYERS
 from itertools import product
 import sympy as sym
 import numpy as np
@@ -15,13 +15,13 @@ def eval_sym_expression(
         x_indices.append(state_elements.index(x.name))
         if '_' in x.name:  # if it varies with depth
             element, layer = x.name.split('_')
-            li = LAYERS.index(layer)
+            layer = int(layer)
             if element in tracers:
-                x_numerical.append(tracers[element]['posterior'][li])
+                x_numerical.append(tracers[element]['posterior'][layer])
             elif element[1:] in residuals:
-                x_numerical.append(residuals[element[1:]]['posterior'][li])
+                x_numerical.append(residuals[element[1:]]['posterior'][layer])
             else:  # if it's a depth-varying parameter
-                x_numerical.append(params[element][layer]['posterior'])
+                x_numerical.append(params[element]['posterior'][layer])
         else:  # if it's a depth-independent parameter
             x_numerical.append(params[x.name]['posterior'])
 

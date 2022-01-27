@@ -36,13 +36,10 @@ def unpack_param_estimates(params, state_elements, xhat, xhat_e):
     
     for p in params:
         if params[p]['dv']:
-            param_estimates[p]['posterior'] = {}
-            param_estimates[p]['posterior_e'] = {}
-            for l in LAYERS:
-                layer_param = '_'.join([p, l])
-                i = state_elements.index(layer_param)
-                param_estimates[p]['posterior'][l] = xhat[i]
-                param_estimates[p]['posterior_e'][l] = xhat_e[i]
+            param_estimates[p]['posterior'] = slice_by_species(
+                xhat, p, state_elements)
+            param_estimates[p]['posterior_e'] = slice_by_species(
+                xhat_e, p, state_elements)
         else:
             i = state_elements.index(p)
             param_estimates[p]['posterior'] = xhat[i]
