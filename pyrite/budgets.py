@@ -30,15 +30,15 @@ def eval_sym_expression(
     
     # sub-CVM corresponding to state elements in y
     cvm = Ckp1[np.ix_(x_indices, x_indices)]
-    
-    for i, row in enumerate(cvm):
-        for j, _ in enumerate(row):
-            if i > j:
-                continue
-            if i == j:
-                variance_sym += (derivs[i]**2)*cvm[i, j]
-            else:
-                variance_sym += 2*derivs[i]*derivs[j]*cvm[i, j]
+    nrows, ncols = cvm.shape
+       
+    for (i, j) in product(range(nrows), range(ncols)):
+        if i > j:
+            continue
+        if i == j:
+            variance_sym += (derivs[i]**2)*cvm[i, j]
+        else:
+            variance_sym += 2*derivs[i]*derivs[j]*cvm[i, j]
 
     result = sym.lambdify(x_symbolic, y)(*x_numerical)
     variance = sym.lambdify(x_symbolic, variance_sym)(*x_numerical)
@@ -57,20 +57,7 @@ def get_symbolic_residuals(residuals):
         residuals_sym[r]['UMZ'] = np.sum(profile[3:])
     
     return residuals_sym
-
-def integrate_by_zone(symbolic, state_elements, Ckp1, **state_element_types):
-    
-    integrated = {k: {} for k in symbolic}
-
-    for (k, z) in product(integrated, ('EZ', 'UMZ')):
-        y = symbolic[k][z]
-        integral, error = eval_sym_expression(
-            y, state_elements, Ckp1, **state_element_types)
-        integrated[k][z] = integral
-        integrated[k][f'{z}_e'] = error
-    
-    return integrated
-        
+       
 def get_symbolic_inventories(tracers):
     
     inventories_sym = {t: {} for t in tracers}
@@ -88,6 +75,19 @@ def get_symbolic_inventories(tracers):
         inventories_sym[t]['UMZ'] = np.sum(profile[3:])
         
     return inventories_sym
+
+def integrate_by_zone(symbolic, state_elements, Ckp1, **state_element_types):
+    
+    integrated = {k: {} for k in symbolic}
+
+    for (k, z) in product(integrated, ('EZ', 'UMZ')):
+        y = symbolic[k][z]
+        integral, error = eval_sym_expression(
+            y, state_elements, Ckp1, **state_element_types)
+        integrated[k][z] = integral
+        integrated[k][f'{z}_e'] = error
+    
+    return integrated
 
 def integrate_inventories(inventories_sym, state_elements, Ckp1, tracers):
     
