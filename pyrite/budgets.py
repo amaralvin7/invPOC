@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from constants import GRID, LAYERS
+from constants import GRID, THICK, LAYERS
 from itertools import product
 import sympy as sym
 import numpy as np
@@ -48,26 +48,24 @@ def eval_sym_expression(
 
 def get_symbolic_residuals(residuals):
     
-    residuals_sym = {r: {} for r in residuals}
+    resids_sym = {r: {} for r in residuals}
     
-    for r in residuals_sym:
-        # resids_sym[r]['profile'] = [sym.symbols(f'R{r}_{l}') for l in LAYERS]
+    for r in resids_sym:
+        resids_sym[r]['profile'] = [sym.symbols(f'R{r}_{l}') for l in LAYERS]
         profile = [sym.symbols(f'R{r}_{l}') for l in LAYERS]
-        residuals_sym[r]['EZ'] = np.sum(profile[:3])
-        residuals_sym[r]['UMZ'] = np.sum(profile[3:])
+        resids_sym[r]['EZ'] = np.sum(profile[:3])
+        resids_sym[r]['UMZ'] = np.sum(profile[3:])
     
-    return residuals_sym
+    return resids_sym
        
 def get_symbolic_inventories(tracers):
     
     inventories_sym = {t: {} for t in tracers}
-    grid_with_surface = (0,) + GRID
-    thickness = np.diff(grid_with_surface)
     
     for t in tracers:  
         concentrations = [sym.symbols(f'{t}_{l}') for l in LAYERS]
-        profile = [concentrations[0] * thickness[0]]  # mixed layer 
-        for i, h in enumerate(thickness[1:], 1):  # all other layers
+        profile = [concentrations[0] * THICK[0]]  # mixed layer 
+        for i, h in enumerate(THICK[1:], 1):  # all other layers
             avg_conc = np.mean([concentrations[i], concentrations[i-1]])
             profile.append(avg_conc * h)
         inventories_sym[t]['profile'] = profile
@@ -89,18 +87,19 @@ def integrate_by_zone(symbolic, state_elements, Ckp1, **state_element_types):
     
     return integrated
 
-def integrate_inventories(inventories_sym, state_elements, Ckp1, tracers):
+def integrate_by_zone_and_layer(
+    symbolic, state_elements, Ckp1, **state_element_types):
     
-    inventories = integrate_by_zone(
-        inventories_sym, state_elements, Ckp1, tracers=tracers)
+    integrated = integrate_by_zone(
+        symbolic, state_elements, Ckp1, **state_element_types)
 
-    for tracer in inventories:
-        inventories[tracer]['posterior'] = []
-        inventories[tracer]['posterior_e'] = []
-        for y in inventories_sym[tracer]['profile']:
+    for k in integrated:
+        integrated[k]['posterior'] = []
+        integrated[k]['posterior_e'] = []
+        for y in symbolic[k]['profile']:
             integral, error = eval_sym_expression(
-                y, state_elements, Ckp1, tracers)
-            inventories[tracer]['posterior'].append(integral)
-            inventories[tracer]['posterior_e'].append(error)
+                y, state_elements, Ckp1, **state_element_types)
+            integrated[k]['posterior'].append(integral)
+            integrated[k]['posterior_e'].append(error)
     
-    return inventories
+    return integrated

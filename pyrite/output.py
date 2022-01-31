@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from constants import LAYERS
 
-def write(params, residuals, inventories):
+def write(params, residuals, inventories, fluxes):
 
     file = f'out/out.txt'
     with open(file, 'w') as f:
@@ -36,6 +36,21 @@ def write(params, residuals, inventories):
                 est = inventories[i]['posterior'][j]
                 err = inventories[i]['posterior_e'][j]
                 print(f'{i}: {est:.2f} ± {err:.2f}', file=f)
+        print('+++++++++++++++++++++++++++', file=f)
+        print('Integrated Fluxes', file=f)
+        print('+++++++++++++++++++++++++++', file=f)
+        for z in ('EZ', 'UMZ'):
+            print(f'--------{z}--------', file=f)
+            for flx in fluxes:
+                est = fluxes[flx][z]
+                err = fluxes[flx][f'{z}_e']
+                print(f'{flx}: {est:.2f} ± {err:.2f}', file=f)
+        for i, l in enumerate(LAYERS):
+            print(f'--------{l}--------', file=f)
+            for r in fluxes:
+                est = fluxes[r]['posterior'][i]
+                err = fluxes[r]['posterior_e'][i]
+                print(f'{r}: {est:.2f} ± {err:.2f}', file=f)
         print('+++++++++++++++++++++++++++', file=f)
         print('Integrated Residuals', file=f)
         print('+++++++++++++++++++++++++++', file=f)

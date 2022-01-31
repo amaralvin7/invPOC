@@ -1,6 +1,6 @@
 import numpy as np
 import sympy as sym
-from constants import LAYERS, GRID, MLD, ZG
+from constants import LAYERS, THICK, GRID, MLD, ZG
 
 def evaluate_model_equations(tracers, state_elements, equation_elements, xk):
     
@@ -38,9 +38,8 @@ def extract_equation_variables(state_elements, y, xk):
 
 def equation_builder(tracer, layer):
 
-    grid_with_surface = (0,) + GRID
-    zi = grid_with_surface[layer + 1]
-    zim1 = grid_with_surface[layer]
+    zi = GRID[layer]
+    zim1 = zi - THICK[layer]
     h = zi - zim1
     
     t_syms = get_tracer_symbols(layer)
@@ -48,7 +47,7 @@ def equation_builder(tracer, layer):
     RPsi, RPli = get_residual_symbols(layer)
     
     Psi, Pli = t_syms[:2]
-    Bm2, B2p, Bm1s, Bm1l, ws, wl, P30, Lp, B3, a, D = p_syms[:11]
+    Bm2, B2p, Bm1s, Bm1l, ws, wl, P30, Lp, B3, a, zm = p_syms[:11]
     if layer != 0:
         Psim1, Plim1, Psa, Pla = t_syms[2:]
         wsm1, wlm1 = p_syms[11:]        
@@ -72,10 +71,10 @@ def equation_builder(tracer, layer):
                 Ps_0, Ps_1, Ps_2 = sym.symbols('POCS_0 POCS_1 POCS_2')
                 B3Ps_av = (B3/ZG)*(Ps_0*30 + (Ps_0 + Ps_1)/2*20
                                    + (Ps_1 + Ps_2)/2*50)
-                co = np.pi/(2*(D - ZG))*a*ZG
-                eq += B3Ps_av*co*((D - ZG)/np.pi*(
-                        sym.cos(np.pi*(zim1 - ZG)/(D - ZG))
-                        - sym.cos(np.pi*(zi - ZG)/(D - ZG))))
+                co = np.pi/(2*(zm - ZG))*a*ZG
+                eq += B3Ps_av*co*((zm - ZG)/np.pi*(
+                        sym.cos(np.pi*(zim1 - ZG)/(zm - ZG))
+                        - sym.cos(np.pi*(zi - ZG)/(zm - ZG))))
     return eq
 
 def get_tracer_symbols(layer):
