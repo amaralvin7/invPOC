@@ -102,9 +102,9 @@ def get_param_symbols(layer):
     Lp = sym.symbols('Lp')
     B3 = sym.symbols('B3')
     a = sym.symbols('a')
-    D = sym.symbols('zm')
+    zm = sym.symbols('zm')
     
-    params = [Bm2, B2p, Bm1s, Bm1l, ws, wl, P30, Lp, B3, a, D]
+    params = [Bm2, B2p, Bm1s, Bm1l, ws, wl, P30, Lp, B3, a, zm]
     
     if layer != 0:
         wsm1 = sym.symbols(f'ws_{layer - 1}')

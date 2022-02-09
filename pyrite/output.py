@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
-from constants import LAYERS
+from constants import LAYERS, ZONE_LAYERS
 
-def write(params, residuals, inventories, fluxes):
+def merge_by_keys(merge_this, into_this):
+    
+    for i in into_this:
+        for j in merge_this[i]:
+            into_this[i][j] = merge_this[i][j]
+
+def write_output(
+    params, residuals, inventories, fluxes, residence_times, turnover_times):
 
     file = f'out/out.txt'
     with open(file, 'w') as f:
@@ -24,45 +31,43 @@ def write(params, residuals, inventories, fluxes):
         print('+++++++++++++++++++++++++++', file=f)
         print('Tracer Inventories', file=f)
         print('+++++++++++++++++++++++++++', file=f)
-        for z in ('EZ', 'UMZ'):
+        for z in ZONE_LAYERS:
             print(f'--------{z}--------', file=f)
             for i in inventories:
-                est = inventories[i][z]
-                err = inventories[i][f'{z}_e']
-                print(f'{i}: {est:.2f} ± {err:.2f}', file=f)
-        for j, l in enumerate(LAYERS):
-            print(f'--------{l}--------', file=f)
-            for i in inventories:
-                est = inventories[i]['posterior'][j]
-                err = inventories[i]['posterior_e'][j]
+                est, err = inventories[i][z]
                 print(f'{i}: {est:.2f} ± {err:.2f}', file=f)
         print('+++++++++++++++++++++++++++', file=f)
         print('Integrated Fluxes', file=f)
         print('+++++++++++++++++++++++++++', file=f)
-        for z in ('EZ', 'UMZ'):
+        for z in ZONE_LAYERS:
             print(f'--------{z}--------', file=f)
             for flx in fluxes:
-                est = fluxes[flx][z]
-                err = fluxes[flx][f'{z}_e']
+                est, err = fluxes[flx][z]
                 print(f'{flx}: {est:.2f} ± {err:.2f}', file=f)
-        for i, l in enumerate(LAYERS):
-            print(f'--------{l}--------', file=f)
-            for r in fluxes:
-                est = fluxes[r]['posterior'][i]
-                err = fluxes[r]['posterior_e'][i]
-                print(f'{r}: {est:.2f} ± {err:.2f}', file=f)
         print('+++++++++++++++++++++++++++', file=f)
         print('Integrated Residuals', file=f)
         print('+++++++++++++++++++++++++++', file=f)
-        for z in ('EZ', 'UMZ'):
+        for z in ZONE_LAYERS:
             print(f'--------{z}--------', file=f)
             for r in residuals:
-                est = residuals[r][z]
-                err = residuals[r][f'{z}_e']
+                est, err = residuals[r][z]
                 print(f'{r}: {est:.2f} ± {err:.2f}', file=f)
-        for i, l in enumerate(LAYERS):
-            print(f'--------{l}--------', file=f)
-            for r in residuals:
-                est = residuals[r]['posterior'][i]
-                err = residuals[r]['posterior_e'][i]
-                print(f'{r}: {est:.2f} ± {err:.2f}', file=f)
+        print('+++++++++++++++++++++++++++', file=f)
+        print('Residence Times', file=f)
+        print('+++++++++++++++++++++++++++', file=f)
+        for z in ZONE_LAYERS:
+            print(f'--------{z}--------', file=f)
+            for t in inventories:
+                est, err = residence_times[t][z]
+                print(f'{t}: {est:.1f} ± {err:.1f}', file=f)
+        print('+++++++++++++++++++++++++++', file=f)
+        print('Turnover Timescales', file=f)
+        print('+++++++++++++++++++++++++++', file=f)
+        for z in ZONE_LAYERS:
+            print(f'--------{z}--------', file=f)
+            for t in turnover_times:
+                print(f'***{t}***', file=f)
+                for flx in turnover_times[t][z]:
+                    est, err = turnover_times[t][z][flx]
+                    print(f'{flx}: {est:.3f} ± {err:.3f}',
+                            file=f)

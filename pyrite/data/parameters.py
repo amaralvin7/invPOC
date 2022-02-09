@@ -10,32 +10,26 @@ def define_params(npp_data, priors_from):
     B2p_prior, B2p_error, Bm2_prior, Bm2_error = contextual_priors(priors_from)
     P30_prior, P30_error, Lp_prior, Lp_error = npp_priors(npp_data)
 
-    params['ws'] = set_prior(2, 2*RE, '$w_S$', 'm d$^{-1}$')
-    params['wl'] = set_prior(20, 20*RE, '$w_L$', 'm d$^{-1}$')
-    params['B2p'] = set_prior(B2p_prior*MMC/DPY, B2p_error*MMC/DPY,
-                              'B2p', '$\\beta^,_2$',
-                              'm$^{3}$ mmol$^{-1}$ d$^{-1}$')
-    params['Bm2'] = set_prior(Bm2_prior/DPY, Bm2_error/DPY, 'Bm2',
-                              '$\\beta_{-2}$', 'd$^{-1}$')
-    params['Bm1s'] = set_prior(0.1, 0.1*RE, '$\\beta_{-1,S}$', 'd$^{-1}$')
-    params['Bm1l'] = set_prior(0.15, 0.15*RE, '$\\beta_{-1,L}$', 'd$^{-1}$')
-    params['P30'] = set_prior(P30_prior, P30_error, '$\.P_{S,ML}$',
-                              'mmol m$^{-3}$ d$^{-1}$', False)
-    params['Lp']= set_prior(Lp_prior, Lp_error, '$L_P$', 'm', False)
-    params['B3'] = set_prior(0.06, 0.06*RE, '$\\beta_3$', 'd$^{-1}$', False)
-    params['a'] = set_prior(0.3, 0.15, '$\\alpha$', None, False)
-    params['zm'] = set_prior(500, 250, '$z_m$', 'm', False)        
+    params['ws'] = set_prior(2, 2*RE)
+    params['wl'] = set_prior(20, 20*RE)
+    params['B2p'] = set_prior(B2p_prior*MMC/DPY, B2p_error*MMC/DPY)
+    params['Bm2'] = set_prior(Bm2_prior/DPY, Bm2_error/DPY)
+    params['Bm1s'] = set_prior(0.1, 0.1*RE)
+    params['Bm1l'] = set_prior(0.15, 0.15*RE)
+    params['P30'] = set_prior(P30_prior, P30_error, depth_varying=False)
+    params['Lp']= set_prior(Lp_prior, Lp_error, depth_varying=False)
+    params['B3'] = set_prior(0.06, 0.06*RE, depth_varying=False)
+    params['a'] = set_prior(0.3, 0.15, depth_varying=False)
+    params['zm'] = set_prior(500, 250, depth_varying=False)        
     
     return params
 
-def set_prior(prior, error, label, units, depth_varying=True):
+def set_prior(prior, error, depth_varying=True):
     
     data = {}
     
     data['prior'] = prior
     data['prior_e'] = error
-    data['label'] = label
-    data['units'] = units
     data['dv'] = depth_varying
     
     return data

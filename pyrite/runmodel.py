@@ -7,8 +7,8 @@ from unpacking import unpack_state_estimates
 from ati import find_solution
 import output
 import budgets
-from tools import merge_by_keys
 import fluxes
+import timescales
 
 start_time = time.time()
 
@@ -27,25 +27,32 @@ xhat, Ckp1, convergence_evolution, cost_evolution = ati_results
 estimates = unpack_state_estimates(tracers, params, state_elements, xhat, Ckp1)
 tracer_estimates, residual_estimates, param_estimates = estimates
 
-merge_by_keys(tracer_estimates, tracers)
-merge_by_keys(param_estimates, params)
-merge_by_keys(residual_estimates, residuals)
+output.merge_by_keys(tracer_estimates, tracers)
+output.merge_by_keys(param_estimates, params)
+output.merge_by_keys(residual_estimates, residuals)
 
 residuals_sym = budgets.get_symbolic_residuals(residuals)
 residual_estimates_by_zone = budgets.integrate_by_zone(
     residuals_sym, state_elements, Ckp1, residuals=residuals)
-merge_by_keys(residual_estimates_by_zone, residuals)
+output.merge_by_keys(residual_estimates_by_zone, residuals)
 
 inventories_sym = budgets.get_symbolic_inventories(tracers)
 inventories = budgets.integrate_by_zone_and_layer(
     inventories_sym, state_elements, Ckp1, tracers=tracers)
 
-int_fluxes = fluxes.define_int_fluxes()
-int_fluxes_sym = fluxes.get_symbolic_int_fluxes(int_fluxes)
-int_flux_estimates = budgets.integrate_by_zone_and_layer(
+int_fluxes_sym = fluxes.get_symbolic_int_fluxes()
+int_fluxes = budgets.integrate_by_zone_and_layer(
     int_fluxes_sym, state_elements, Ckp1, tracers=tracers, params=params)
-merge_by_keys(int_flux_estimates, int_fluxes)
 
-output.write(params, residuals, inventories, int_fluxes)
+residence_times = timescales.calculate_residence_times(
+    inventories_sym, int_fluxes_sym, int_fluxes, residuals_sym, residuals,
+    tracers, params, state_elements, Ckp1)
+
+turnover_times = timescales.calculate_turnover_times(
+    inventories_sym, int_fluxes_sym, int_fluxes, tracers, params,
+    state_elements, Ckp1)
+
+output.write_output(
+    params, residuals, inventories, int_fluxes,residence_times, turnover_times)
 
 print(f'--- {(time.time() - start_time)/60} minutes ---')

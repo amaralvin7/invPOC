@@ -2,41 +2,19 @@
 import sympy as sym
 import numpy as np
 from constants import LAYERS, GRID, MLD, ZG, THICK
+"""
+todo: combine for loop statements in get_symbolic_int_fluxes
+        (it is the way it is to preserve order in original output file)
+"""
 
-def define_int_fluxes():
-    
-    fluxes = {}
+def get_symbolic_int_fluxes():
 
-    fluxes['sinkdiv_S'] = initialize_flux('$\\frac{d}{dz}w_SP_S$',
-                                          wrt=('POCS',))
-    fluxes['sinkdiv_L'] = initialize_flux('$\\frac{d}{dz}w_LP_L$',
-                                          wrt=('POCL',))
-    fluxes['remin_S'] = initialize_flux('$\\beta_{-1,S}P_S$', wrt=('POCS',))
-    fluxes['remin_L'] = initialize_flux('$\\beta_{-1,L}P_L$', wrt=('POCL',))
-    fluxes['aggregation'] = initialize_flux('$\\beta^,_2P^2_S$',
-                                            wrt=('POCS', 'POCL'))
-    fluxes['disaggregation'] = initialize_flux('$\\beta_{-2}P_L$',
-                                               wrt=('POCS', 'POCL'))
-    fluxes['production'] = initialize_flux('${\.P_S}$', wrt=('POCS',))
-    fluxes['dvm'] = initialize_flux('$\\beta_3P_S$', wrt=('POCS', 'POCL'))
-    
-    return fluxes
-
-def initialize_flux(label, wrt=None):
-    
-    data = {}
-    
-    data['label'] = label
-    data['wrt'] = wrt
-    
-    return data
-
-def get_symbolic_int_fluxes(fluxes):
-    
-    int_fluxes_sym = {f: {} for f in fluxes}
+    int_fluxes_sym = {}
     
     for size in ('S', 'L'):
         int_fluxes_sym[f'sinkdiv_{size}'] = get_symbolic_sinkdiv(size)
+        
+    for size in ('S', 'L'):    
         int_fluxes_sym[f'remin_{size}'] = get_symbolic_remin(size)
     
     int_fluxes_sym['aggregation'] = get_symbolic_agg()
@@ -48,9 +26,9 @@ def get_symbolic_int_fluxes(fluxes):
 
 def profile_to_dict(profile):
     
-    dictionary =  {'profile': profile,
-                   'EZ': np.sum(profile[:3]),
-                   'UMZ': np.sum(profile[3:])}
+    dictionary = {layer: value for layer, value in enumerate(profile)}
+    dictionary['EZ'] = np.sum(profile[:3])
+    dictionary['UMZ'] = np.sum(profile[3:])
 
     return dictionary
 
