@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 from itertools import product
-from budgets import eval_sym_expression
-from constants import ZONE_LAYERS
+
+from src.budgets import eval_sym_expression
+from src.constants import ZONE_LAYERS
 
 def calculate_residence_times(
     inventories_sym, int_fluxes_sym, int_fluxes, residuals_sym, residuals,

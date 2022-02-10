@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-from modelequations import evaluate_model_equations
 import numpy as np
+
+from src.modelequations import evaluate_model_equations
 
 def calculate_xkp1(Co, xo, xk, f, F):
 

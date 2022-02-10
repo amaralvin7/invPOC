@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
 import time
-import data.data as data
-import data.parameters as parameters
-import framework
-from unpacking import unpack_state_estimates
-from ati import find_solution
-import output
-import budgets
-import fluxes
-import timescales
+
+import src.exports.data as data
+import src.state as state
+import src.framework as framework
+from src.unpacking import unpack_state_estimates
+from src.ati import find_solution
+import src.output as output
+import src.budgets as budgets
+import src.fluxes as fluxes
+import src.timescales as timescales
 
 start_time = time.time()
 
 all_data = data.load_data()
 poc_data = data.process_poc_data(all_data['POC'])
-tracers = data.define_tracers(poc_data)
-params = parameters.define_params(all_data['NPP'], 'NA')
-residuals = data.define_residuals(params['P30']['prior'])
+tracers = state.define_tracers(poc_data)
+params = state.define_params(all_data['NPP'], 'NA')
+residuals = state.define_residuals(params['P30']['prior'])
 state_elements = framework.define_state_elements(tracers, params)
 equation_elements = framework.define_equation_elements(tracers)
 xo = framework.define_prior_vector(tracers, residuals, params)

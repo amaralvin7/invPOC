@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 import pandas as pd
 import numpy as np
-from constants import MLD, GRID, GAMMA
 from os import path
 
+from src.constants import GRID
+import sys
 def load_data():
     
     module_path = path.abspath(__file__)
-    pkg_path = path.dirname(module_path)
-    data_file_path = path.join(pkg_path,'data.xlsx')
-
+    src_parent_path = module_path.split('src')[0]
+    data_file_path = path.join(src_parent_path,'data/exports.xlsx')
+    
     return pd.read_excel(data_file_path, sheet_name=None)
 
 def process_poc_data(to_process):
@@ -42,24 +43,4 @@ def calculate_mean_and_sd(to_process, tracer):
     sd[0] = mean[0] * relative_sd_50m  # 30m is the first grid depth
 
     return mean, sd
-
-def define_tracers(data):
-    
-    tracers = {'POCS': {}, 'POCL': {}}
-    
-    for t in tracers:
-        tracers[t]['prior'] = data[t]
-        tracers[t]['prior_e'] = data[f'{t}_se']
-    
-    return tracers
-
-def define_residuals(proportional_to):
-    
-    residuals = {'POCS': {}, 'POCL': {}}
-    
-    for tracer in residuals:
-        residuals[tracer]['prior'] = 0
-        residuals[tracer]['prior_e'] = GAMMA * proportional_to * MLD
-    
-    return residuals
     

@@ -1,7 +1,29 @@
 #!/usr/bin/env python3
-from constants import MMC, DPY, RE
-import statsmodels.formula.api as smf
 import numpy as np
+
+import statsmodels.formula.api as smf
+
+from src.constants import MMC, DPY, RE, GAMMA, MLD
+
+def define_tracers(data):
+    
+    tracers = {'POCS': {}, 'POCL': {}}
+    
+    for t in tracers:
+        tracers[t]['prior'] = data[t]
+        tracers[t]['prior_e'] = data[f'{t}_se']
+    
+    return tracers
+
+def define_residuals(proportional_to):
+    
+    residuals = {'POCS': {}, 'POCL': {}}
+    
+    for tracer in residuals:
+        residuals[tracer]['prior'] = 0
+        residuals[tracer]['prior_e'] = GAMMA * proportional_to * MLD
+    
+    return residuals
 
 def define_params(npp_data, priors_from):
     

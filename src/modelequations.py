@@ -1,6 +1,7 @@
 import numpy as np
 import sympy as sym
-from constants import LAYERS, THICK, GRID, MLD, ZG
+
+from src.constants import LAYERS, THICK, GRID, MLD, ZG
 
 def evaluate_model_equations(tracers, state_elements, equation_elements, xk):
     

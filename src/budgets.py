@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-from constants import THICK, LAYERS
-from itertools import product
 import sympy as sym
 import numpy as np
+from itertools import product
+
+from src.constants import THICK, LAYERS
 
 def eval_sym_expression(
     y, state_elements, Ckp1, tracers=[], residuals=[], params=[]):

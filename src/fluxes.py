@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 import sympy as sym
 import numpy as np
-from constants import LAYERS, GRID, MLD, ZG, THICK
+
+from src.constants import LAYERS, GRID, MLD, ZG, THICK
 """
 todo: combine for loop statements in get_symbolic_int_fluxes
         (it is the way it is to preserve order in original output file)

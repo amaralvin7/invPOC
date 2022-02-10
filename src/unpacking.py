@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import numpy as np
-from constants import LAYERS
+
+from src.constants import LAYERS
 
 def unpack_state_estimates(tracers, params, state_elements, xhat, Ckp1):
 

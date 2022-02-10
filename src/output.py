@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from constants import LAYERS, ZONE_LAYERS
+from src.constants import LAYERS, ZONE_LAYERS
 
 def merge_by_keys(merge_this, into_this):
     
@@ -10,7 +10,7 @@ def merge_by_keys(merge_this, into_this):
 def write_output(
     params, residuals, inventories, fluxes, residence_times, turnover_times):
 
-    file = f'out/out.txt'
+    file = f'../results/out.txt'
     with open(file, 'w') as f:
         print('#################################', file=f)
         print(f'GAMMA = {0.5}, RE = {0.5}', file=f)

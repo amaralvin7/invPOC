@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-from constants import GRID, LAYERS
-from itertools import product
 import numpy as np
+from itertools import product
+
+from src.constants import GRID, LAYERS
 
 def define_state_elements(tracers, params):
 

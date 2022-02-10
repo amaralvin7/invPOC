@@ -1,5 +1,4 @@
-# OS generated files #
-######################
+# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -9,8 +8,7 @@ ehthumbs.db
 Thumbs.db
 __pycache__/
 
-#PNG images
 *.png
-
-#output file
-/pyrite/out
+*.egg-info
+results
+data
