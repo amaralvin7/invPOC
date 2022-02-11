@@ -10,7 +10,7 @@ def merge_by_keys(merge_this, into_this):
 def write_output(
     params, residuals, inventories, fluxes, residence_times, turnover_times):
 
-    file = f'../results/out.txt'
+    file = f'../../results/exports/out.txt'
     with open(file, 'w') as f:
         print('#################################', file=f)
         print(f'GAMMA = {0.5}, RE = {0.5}', file=f)
