@@ -1,7 +1,10 @@
 import pandas as pd
+import numpy as np
 from os import path
 
 import netCDF4 as nc
+
+from src.constants import MMC
 
 def get_src_parent_path():
     
@@ -30,6 +33,9 @@ def load_poc_data():
     
     merged = merge_poc_data(metadata, values, errors, flags)
     merged.dropna(inplace=True)
+
+    depth_cutoff = 1000
+    merged = merged.loc[merged['depth'] < depth_cutoff]
     
     return merged
 
@@ -58,9 +64,6 @@ def get_super_station_data(data):
     supers = (8., 14., 23., 29., 35., 39.)
     super_data = data.loc[data['station'].isin(supers)].copy()
 
-    depth_cutoff = 1000
-    super_data = super_data.loc[super_data['depth'] < depth_cutoff]
-
     # super_data.to_csv('poc_data_to_invert.csv', index=False)
     return super_data
 
@@ -72,14 +75,14 @@ def load_modis_data():
     
     return modis_data
 
-def get_lp_by_station(poc_data):
+def get_Lp_priors(poc_data):
 
     modis_data = load_modis_data()
     modis_lat = modis_data.variables['lat'][:]
     modis_lon = modis_data.variables['lon'][:]
     kd = modis_data.variables['MODISA_L3m_KD_8d_4km_2018_Kd_490'][:,:]
 
-    lp_by_station = {}
+    Lp_priors = {}
     
     for s in poc_data['station'].unique():
         
@@ -91,11 +94,40 @@ def get_lp_by_station(poc_data):
             range(len(modis_lat)), key=lambda i: abs(modis_lat[i] - pump_lat))
         modis_lon_index = min(
             range(len(modis_lon)), key=lambda i: abs(modis_lon[i] - pump_lon))
-        
-        lp_by_station[s] = (pump_lat, 1/kd[modis_lat_index, modis_lon_index])
-        
-    return lp_by_station
+     
+        Lp_priors[s] = 1/kd[modis_lat_index, modis_lon_index]
 
+    Lp_prior_error = np.std(list(Lp_priors.values()), ddof=1)
+        
+    return Lp_priors, Lp_prior_error
+
+def load_npp_data():
+    
+    src_parent_path = get_src_parent_path()
+    
+    npp_df = pd.read_csv(path.join(src_parent_path,'data/npp.csv'))
+    npp_df['npp'] = npp_df['mgC_m2_ d']/MMC
+    npp_df.drop('mgC_m2_ d', axis=1, inplace=True)
+    
+    npp_dict = dict(zip(npp_df['station'], npp_df['npp']))
+    npp_std = np.std(list(npp_dict.values()), ddof=1)
+
+    return npp_dict, npp_std
+
+def get_Po_priors(Lp_priors, Lp_error):
+    
+    npp, npp_error = load_npp_data()
+
+    Po_priors = {}
+    
+    for s in Lp_priors:
+        Po_estimate = npp[s] / Lp_priors[s]
+        Po_error = np.sqrt((npp_error / Lp_priors[s])**2
+                           + (-npp[s] / Lp_priors[s]**2 * Lp_error)**2)
+        Po_priors[s] = (Po_estimate, Po_error)
+    
+    return Po_priors
+    
 
 
 
