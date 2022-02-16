@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 import numpy as np
 
-from src.constants import LAYERS
-
-def unpack_state_estimates(tracers, params, state_elements, xhat, Ckp1):
+def unpack_state_estimates(
+    tracers, params, state_elements, xhat, Ckp1, layers):
 
     xhat_e = np.sqrt(np.diag(Ckp1))
     
     tracer_estimates = unpack_tracers(tracers, state_elements, xhat, xhat_e)
-    residual_estimates = unpack_resids(tracers, state_elements, xhat, xhat_e)
+    residual_estimates = unpack_resids(tracers, state_elements, xhat, xhat_e,
+                                       layers)
     param_estimates = unpack_params(params, state_elements, xhat, xhat_e)
     
     return tracer_estimates, residual_estimates, param_estimates
@@ -20,7 +20,7 @@ def slice_by_species(to_slice, species, state_elements):
     
     return sliced
 
-def unpack_tracers(tracers, state_elements, xhat, xhat_e, prefix=''):
+def unpack_tracers(tracers, state_elements, xhat, xhat_e):
     
     tracer_estimates = {t: {} for t in tracers}
     
@@ -32,14 +32,14 @@ def unpack_tracers(tracers, state_elements, xhat, xhat_e, prefix=''):
         
     return tracer_estimates
 
-def unpack_resids(tracers, state_elements, xhat, xhat_e, prefix=''):
+def unpack_resids(tracers, state_elements, xhat, xhat_e, layers):
     
     resid_estimates = {t: {} for t in tracers}
     
     for t in resid_estimates:
         posterior = slice_by_species(xhat, f'R{t}', state_elements)
         posterior_e = slice_by_species(xhat_e, f'R{t}', state_elements)
-        for l in LAYERS:
+        for l in layers:
             resid_estimates[t][l] = (posterior[l], posterior_e[l])
         
     return resid_estimates

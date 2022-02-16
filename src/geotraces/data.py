@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 from os import path
+from itertools import product
+from scipy.interpolate import interp1d
 
 import netCDF4 as nc
 
@@ -22,7 +24,8 @@ def load_poc_data():
                                     'Latitudedegrees_north', 
                                     'Longitudedegrees_east'))
 
-    cols = ('POC_SPT_uM', 'POC_LPT_uM')
+    # Sr_SPT_pM has NaN for intercal samples, useful for dropping later
+    cols = ('SPM_SPT_ugL', 'POC_SPT_uM', 'POC_LPT_uM')
     
     values = pd.read_csv(path.join(src_parent_path, 'data/values_v9.csv'),
                          usecols=cols)
@@ -33,6 +36,7 @@ def load_poc_data():
     
     merged = merge_poc_data(metadata, values, errors, flags)
     merged.dropna(inplace=True)
+    merged.drop('SPM_SPT_ugL', axis=1, inplace=True)
 
     depth_cutoff = 1000
     merged = merged.loc[merged['depth'] < depth_cutoff]
@@ -59,13 +63,30 @@ def merge_poc_data(metadata, values, errors, flags):
     
     return data
 
-def get_super_station_data(data):
+def get_station_poc(data, station):
 
-    supers = (8., 14., 23., 29., 35., 39.)
-    super_data = data.loc[data['station'].isin(supers)].copy()
+    raw_station_data = data[data['station'] == station].copy()
+    raw_station_data.sort_values('depth', inplace=True, ignore_index=True)
 
-    # super_data.to_csv('poc_data_to_invert.csv', index=False)
-    return super_data
+    clean_station_data = clean_by_flags(raw_station_data)
+    
+    return clean_station_data
+
+def clean_by_flags(raw):
+    
+    cleaned = raw.copy()
+    flags_to_clean = (3, 4)
+
+    tracers = ('POCS', 'POCL')
+    for ((i, row), t) in product(cleaned.iterrows(), tracers):
+        if row[f'{t}_flag'] in flags_to_clean:
+            poc = cleaned.at[i - 1, t], cleaned.at[i + 1, t]
+            depth = cleaned.at[i - 1, 'depth'], cleaned.at[i + 1, 'depth']
+            interp = interp1d(depth, poc)
+            cleaned.at[i, t] = interp(row['depth'])
+            cleaned.at[i, f'{t}_unc'] = cleaned.at[i, t]
+
+    return cleaned
 
 def load_modis_data():
     
@@ -86,9 +107,9 @@ def get_Lp_priors(poc_data):
     
     for s in poc_data['station'].unique():
         
-        station_data = poc_data.loc[poc_data['station'] == s]
-        pump_lat = round(station_data.iloc[0]['latitude'], 1)
-        pump_lon = round(station_data.iloc[0]['longitude'], 1)
+        raw_station_data = poc_data.loc[poc_data['station'] == s]
+        pump_lat = round(raw_station_data.iloc[0]['latitude'], 1)
+        pump_lon = round(raw_station_data.iloc[0]['longitude'], 1)
         
         modis_lat_index = min(
             range(len(modis_lat)), key=lambda i: abs(modis_lat[i] - pump_lat))
@@ -96,35 +117,49 @@ def get_Lp_priors(poc_data):
             range(len(modis_lon)), key=lambda i: abs(modis_lon[i] - pump_lon))
      
         Lp_priors[s] = 1/kd[modis_lat_index, modis_lon_index]
-
-    Lp_prior_error = np.std(list(Lp_priors.values()), ddof=1)
         
-    return Lp_priors, Lp_prior_error
+    return Lp_priors
 
 def load_npp_data():
     
     src_parent_path = get_src_parent_path()
     
     npp_df = pd.read_csv(path.join(src_parent_path,'data/npp.csv'))
-    npp_df['npp'] = npp_df['mgC_m2_ d']/MMC
-    npp_df.drop('mgC_m2_ d', axis=1, inplace=True)
+    npp_df['npp'] = npp_df['mgC_m2_d']/MMC
+    npp_df.drop('mgC_m2_d', axis=1, inplace=True)
     
     npp_dict = dict(zip(npp_df['station'], npp_df['npp']))
-    npp_std = np.std(list(npp_dict.values()), ddof=1)
+    # npp_std = np.std(list(npp_dict.values()), ddof=1)
 
-    return npp_dict, npp_std
+    return npp_dict
 
-def get_Po_priors(Lp_priors, Lp_error):
+def load_mixed_layer_depths():
     
-    npp, npp_error = load_npp_data()
+    src_parent_path = get_src_parent_path()
+    mld_df = pd.read_excel(path.join(src_parent_path,'data/gp15_mld.xlsx'))
+    mld_dict = dict(zip(mld_df['Station No'], mld_df['MLD JAK']))
+    # npp_std = np.std(list(npp_dict.values()), ddof=1)
 
+    return mld_dict
+
+def load_ppz_data():
+    
+    src_parent_path = get_src_parent_path()
+    ppz_df = pd.read_excel(path.join(src_parent_path,'data/gp15_ppz.xlsx'))
+    ppz_dict = {}
+    
+    for s in ppz_df['Station'].unique():
+        ppz_dict[s] = ppz_df[ppz_df['Station'] == s]['PPZ Depth'].mean()
+
+    return ppz_dict
+
+def get_Po_priors(Lp_priors):
+    
+    npp = load_npp_data()
     Po_priors = {}
     
     for s in Lp_priors:
-        Po_estimate = npp[s] / Lp_priors[s]
-        Po_error = np.sqrt((npp_error / Lp_priors[s])**2
-                           + (-npp[s] / Lp_priors[s]**2 * Lp_error)**2)
-        Po_priors[s] = (Po_estimate, Po_error)
+        Po_priors[s] = npp[s] / Lp_priors[s]
     
     return Po_priors
     

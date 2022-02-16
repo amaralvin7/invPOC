@@ -1,11 +1,12 @@
 import numpy as np
 import sympy as sym
 
-from src.constants import LAYERS, THICK, GRID, MLD, ZG
+from src.constants import MLD
 
-def evaluate_model_equations(tracers, state_elements, equation_elements, xk):
+def evaluate_model_equations(
+    tracers, state_elements, equation_elements, xk, grid, ppz, productionbool):
     
-    n_tracer_elements = len(tracers) * len(LAYERS)
+    n_tracer_elements = len(tracers) * len(grid)
     n_state_elements = len(state_elements)
 
     f = np.zeros(n_tracer_elements)
@@ -13,7 +14,8 @@ def evaluate_model_equations(tracers, state_elements, equation_elements, xk):
 
     for i, element in enumerate(equation_elements):
         tracer, layer = element.split('_')
-        y = equation_builder(tracer, int(layer))
+        y = equation_builder(
+            tracer, int(layer), grid, ppz, productionbool)
         x_sym, x_num, x_ind = extract_equation_variables(state_elements, y, xk)
         f[i] = sym.lambdify(x_sym, y)(*x_num)
         for j, x in enumerate(x_sym):
@@ -37,11 +39,13 @@ def extract_equation_variables(state_elements, y, xk):
 
     return x_symbolic, x_numerical, x_indices
 
-def equation_builder(tracer, layer):
+def equation_builder(tracer, layer, grid, ppz, productionbool):
 
-    zi = GRID[layer]
-    zim1 = zi - THICK[layer]
+    zi = grid[layer]
+    zim1 = grid[grid.index(zi) - 1] if layer > 0 else 0
     h = zi - zim1
+    zg = min(grid, key=lambda x:abs(x - ppz))  # grazing depth
+    in_EZ = zi <= zg
     
     t_syms = get_tracer_symbols(layer)
     p_syms = get_param_symbols(layer)
@@ -54,29 +58,52 @@ def equation_builder(tracer, layer):
         wsm1, wlm1 = p_syms[11:]        
 
     if tracer == 'POCS':
+        eq = production(productionbool, layer, P30, Lp, zi, zim1)
         if layer == 0:
-            eq = (-ws*Psi + Bm2*Pli*h - (B2p*Psi + Bm1s)*Psi*h + RPsi
-                  - B3*Psi*h) + P30*MLD
+            eq += (-ws*Psi + Bm2*Pli*h - (B2p*Psi + Bm1s)*Psi*h + RPsi
+                   - B3*Psi*h)
         else:
-            eq = (-ws*Psi + wsm1*Psim1 + Bm2*Pla*h - (B2p*Psa + Bm1s)*Psa*h 
-                  + RPsi + Lp*P30*(sym.exp(-(zim1 - MLD)/Lp) 
-                                   - sym.exp(-(zi - MLD)/Lp)))
-            if layer in (1, 2):
+            eq += (-ws*Psi + wsm1*Psim1 + Bm2*Pla*h - (B2p*Psa + Bm1s)*Psa*h 
+                   + RPsi)
+            if in_EZ:
                 eq += -B3*Psa*h
     else:
         if layer == 0:
             eq = -wl*Pli + B2p*Psi**2*h - (Bm2 + Bm1l)*Pli*h + RPli
         else:
-            eq = -wl*Pli + wlm1*Plim1 + B2p*Psa**2*h - (Bm2 + Bm1l)*Pla*h + RPli
-            if layer in (3, 4, 5, 6):
-                Ps_0, Ps_1, Ps_2 = sym.symbols('POCS_0 POCS_1 POCS_2')
-                B3Ps_av = (B3/ZG)*(Ps_0*30 + (Ps_0 + Ps_1)/2*20
-                                   + (Ps_1 + Ps_2)/2*50)
-                co = np.pi/(2*(zm - ZG))*a*ZG
-                eq += B3Ps_av*co*((zm - ZG)/np.pi*(
-                        sym.cos(np.pi*(zim1 - ZG)/(zm - ZG))
-                        - sym.cos(np.pi*(zi - ZG)/(zm - ZG))))
+            eq = (-wl*Pli + wlm1*Plim1 + B2p*Psa**2*h - (Bm2 + Bm1l)*Pla*h
+                  + RPli)
+            if not in_EZ:
+                eq += dvm_excretion(B3, a, zm, zg, zi, zim1, grid)
+
     return eq
+
+def production(productionbool, layer, P30, Lp, zi, zim1):
+    
+    if productionbool:
+        if layer == 0:
+            return P30*MLD
+        else:
+            return Lp*P30*(sym.exp(-(zim1 - MLD)/Lp)- sym.exp(-(zi - MLD)/Lp))
+        
+    return Lp*P30*(sym.exp(-zim1/Lp) - sym.exp(-zi/Lp))
+
+def dvm_excretion(B3, a, zm, zg, zi, zim1, grid):
+    
+    EZ_layers = list(range(grid.index(zg) + 1))
+    thick_EZ_layers = np.diff((0,) + grid[:len(EZ_layers)])
+    ps_syms = [sym.symbols(f'POCS_{l}') for l in EZ_layers]
+
+    Ps_avg = ps_syms[0] * thick_EZ_layers[0]
+    for i, thick in enumerate(thick_EZ_layers[1:]):
+        Ps_avg += (ps_syms[i+1] + ps_syms[i])/2 * thick
+
+    B3Ps_a = (B3/zg)*Ps_avg
+    co = np.pi/(2*(zm - zg))*a*zg
+    result = B3Ps_a*co*((zm - zg)/np.pi*(sym.cos(np.pi*(zim1 - zg)/(zm - zg))
+                                         - sym.cos(np.pi*(zi - zg)/(zm - zg))))
+    
+    return result
 
 def get_tracer_symbols(layer):
     
