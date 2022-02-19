@@ -17,20 +17,21 @@ poc_data = data.load_poc_data()
 mixed_layer_depths = data.load_mixed_layer_depths()
 ppz_data = data.load_ppz_data()
 
-Lp_prior = data.get_Lp_priors(poc_data)
-P30_prior = data.get_Po_priors(Lp_prior)
+Lp_priors = data.get_Lp_priors(poc_data)
+P30_priors = data.get_Po_priors(Lp_priors)
+resid_prior_err = data.get_residual_prior_error(P30_priors, mixed_layer_depths)
 
 super_stations = (8.0, 14.0, 23.0, 29.0, 35.0, 39.0)
 priors_from = ('NA', 'SP')
 
 for s, p in product(super_stations, priors_from):
-
+    print(f'-------{s}, {p}-------')
     mld = mixed_layer_depths[s]
     ppz = ppz_data[s]
     station_poc = data.get_station_poc(poc_data, s)
     tracers = state.define_tracers(station_poc)
-    residuals = state.define_residuals(P30_prior[s], mld)
-    params = state.define_params(Lp_prior[s], P30_prior[s], p)
+    residuals = state.define_residuals(resid_prior_err)
+    params = state.define_params(Lp_priors[s], P30_priors[s], p)
 
     grid = tuple(station_poc['depth'].values)
     layers = tuple(range(len(grid)))
@@ -51,7 +52,8 @@ for s, p in product(super_stations, priors_from):
     output.merge_by_keys(param_estimates, params)
     output.merge_by_keys(residual_estimates, residuals)
 
-    to_pickle = (tracers, params, residuals, grid, ppz, mld, layers)
+    to_pickle = (tracers, params, residuals, grid, ppz, mld, layers,
+                 convergence_evolution, cost_evolution)
     save_path = f'../../results/geotraces/stn{int(s)}_{p}.pkl'
     with open(save_path, 'wb') as file:
                 pickle.dump(to_pickle, file)

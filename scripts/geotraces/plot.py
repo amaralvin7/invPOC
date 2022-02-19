@@ -14,7 +14,7 @@ for s, pf in product(super_stations, priors_from):
     save_path = f'../../results/geotraces/stn{int(s)}_{pf}.pkl'
     with open(save_path, 'rb') as file:
                 unpickled = pickle.load(file)
-                tracers, params, residuals, grid, ppz, mld, layers = unpickled
+                tracers, params, residuals, grid, ppz, mld, layers, convergence_evolution, cost_evolution = unpickled
     
     #####################
     #POC
@@ -49,7 +49,7 @@ for s, pf in product(super_stations, priors_from):
 
     for ax in (ax1, ax2):
         ax.invert_yaxis()
-        ax.set_ylim(top=0, bottom=1100)
+        ax.set_ylim(top=0, bottom=610)
         ax.tick_params(axis='both', which='major', labelsize=12)
         ax.axhline(ppz, c=green)
         ax.axhline(mld, c=black)
@@ -130,7 +130,7 @@ for s, pf in product(super_stations, priors_from):
         if i not in (0,3):
             ax.tick_params(labelleft=False)
         ax.invert_yaxis()
-        ax.set_ylim(top=0, bottom=1100)
+        ax.set_ylim(top=0, bottom=610)
         ax.tick_params(axis='both', which='major', labelsize=12)
         ax.axvline(params[p]['prior'], c=blue, lw=1.5, ls=':')
         ax.axvline(
@@ -190,4 +190,25 @@ for s, pf in product(super_stations, priors_from):
     plt.close(dc)
     plt.close(dv)
     
+    #####################
+    #CONVERGENCE AND COST EVOLUTION
+    #####################   
+    
+    k = len(cost_evolution)
+
+    fig, ax = plt.subplots(1, tight_layout=True)
+    ax.plot(np.arange(2, k+1), convergence_evolution, marker='o', ms=3, c=blue)
+    ax.set_yscale('log')
+    ax.set_xlabel('Iteration, $k$', fontsize=16)
+    ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',
+                  fontsize=16)
+    plt.savefig(f'../../results/geotraces/stn{int(s)}_conv_{pf}')
+    plt.close()
+    
+    fig, ax = plt.subplots(1, tight_layout=True)
+    ax.plot(np.arange(1, k+1), cost_evolution, marker='o', ms=3, c=blue)
+    ax.set_xlabel('Iteration, $k$', fontsize=16)
+    ax.set_ylabel('Cost, $J$', fontsize=16)
+    plt.savefig(f'../../results/geotraces/stn{int(s)}_cost_{pf}')
+    plt.close()
     

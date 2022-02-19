@@ -38,7 +38,7 @@ def load_poc_data():
     merged.dropna(inplace=True)
     merged.drop('SPM_SPT_ugL', axis=1, inplace=True)
 
-    depth_cutoff = 1000
+    depth_cutoff = 600
     merged = merged.loc[merged['depth'] < depth_cutoff]
     
     return merged
@@ -162,7 +162,15 @@ def get_Po_priors(Lp_priors):
         Po_priors[s] = npp[s] / Lp_priors[s]
     
     return Po_priors
+
+def get_residual_prior_error(P30_priors, mixed_layer_depths):
     
+    products = []
 
-
-
+    for s in P30_priors:
+        if s not in mixed_layer_depths:
+            continue
+        products.append(P30_priors[s]*mixed_layer_depths[s])
+    
+    return np.mean(products)
+    
