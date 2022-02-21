@@ -18,8 +18,8 @@ mixed_layer_depths = data.load_mixed_layer_depths()
 ppz_data = data.load_ppz_data()
 
 Lp_priors = data.get_Lp_priors(poc_data)
-P30_priors = data.get_Po_priors(Lp_priors)
-resid_prior_err = data.get_residual_prior_error(P30_priors, mixed_layer_depths)
+Po_priors = data.get_Po_priors(Lp_priors)
+resid_prior_err = data.get_residual_prior_error(Po_priors, mixed_layer_depths)
 
 super_stations = (8.0, 14.0, 23.0, 29.0, 35.0, 39.0)
 priors_from = ('NA', 'SP')
@@ -31,7 +31,7 @@ for s, p in product(super_stations, priors_from):
     station_poc = data.get_station_poc(poc_data, s)
     tracers = state.define_tracers(station_poc)
     residuals = state.define_residuals(resid_prior_err)
-    params = state.define_params(Lp_priors[s], P30_priors[s], p)
+    params = state.define_params(Lp_priors[s], Po_priors[s], p)
 
     grid = tuple(station_poc['depth'].values)
     layers = tuple(range(len(grid)))

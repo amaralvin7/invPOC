@@ -104,7 +104,7 @@ for s, pf in product(super_stations, priors_from):
                   'Bm2': ('$\\beta_{-2}$', 'd$^{-1}$'),
                   'Bm1s': ('$\\beta_{-1,S}$', 'd$^{-1}$'),
                   'Bm1l': ('$\\beta_{-1,L}$', 'd$^{-1}$'),
-                  'P30': ('$\.P_{S,ML}$', 'mmol m$^{-3}$ d$^{-1}$'),
+                  'Po': ('$\.P_{S,ML}$', 'mmol m$^{-3}$ d$^{-1}$'),
                   'Lp': ('$L_P$', 'm'), 'B3': ('$\\beta_3$', 'd$^{-1}$'),
                   'a': ('$\\alpha$', None), 'zm': ('$z_m$', 'm')}
 

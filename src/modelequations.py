@@ -52,13 +52,13 @@ def equation_builder(tracer, layer, grid, ppz, productionbool):
     RPsi, RPli = get_residual_symbols(layer)
     
     Psi, Pli = t_syms[:2]
-    Bm2, B2p, Bm1s, Bm1l, ws, wl, P30, Lp, B3, a, zm = p_syms[:11]
+    Bm2, B2p, Bm1s, Bm1l, ws, wl, Po, Lp, B3, a, zm = p_syms[:11]
     if layer != 0:
         Psim1, Plim1, Psa, Pla = t_syms[2:]
         wsm1, wlm1 = p_syms[11:]        
 
     if tracer == 'POCS':
-        eq = production(productionbool, layer, P30, Lp, zi, zim1)
+        eq = production(productionbool, layer, Po, Lp, zi, zim1)
         if layer == 0:
             eq += (-ws*Psi + Bm2*Pli*h - (B2p*Psi + Bm1s)*Psi*h + RPsi
                    - B3*Psi*h)
@@ -78,15 +78,15 @@ def equation_builder(tracer, layer, grid, ppz, productionbool):
 
     return eq
 
-def production(productionbool, layer, P30, Lp, zi, zim1):
+def production(productionbool, layer, Po, Lp, zi, zim1):
     
     if productionbool:
         if layer == 0:
-            return P30*MLD
+            return Po*MLD
         else:
-            return Lp*P30*(sym.exp(-(zim1 - MLD)/Lp)- sym.exp(-(zi - MLD)/Lp))
+            return Lp*Po*(sym.exp(-(zim1 - MLD)/Lp)- sym.exp(-(zi - MLD)/Lp))
         
-    return Lp*P30*(sym.exp(-zim1/Lp) - sym.exp(-zi/Lp))
+    return Lp*Po*(sym.exp(-zim1/Lp) - sym.exp(-zi/Lp))
 
 def dvm_excretion(B3, a, zm, zg, zi, zim1, grid):
     
@@ -126,13 +126,13 @@ def get_param_symbols(layer):
     Bm1l = sym.symbols(f'Bm1l_{layer}')
     ws = sym.symbols(f'ws_{layer}')
     wl = sym.symbols(f'wl_{layer}')
-    P30 = sym.symbols('P30')
+    Po = sym.symbols('Po')
     Lp = sym.symbols('Lp')
     B3 = sym.symbols('B3')
     a = sym.symbols('a')
     zm = sym.symbols('zm')
     
-    params = [Bm2, B2p, Bm1s, Bm1l, ws, wl, P30, Lp, B3, a, zm]
+    params = [Bm2, B2p, Bm1s, Bm1l, ws, wl, Po, Lp, B3, a, zm]
     
     if layer != 0:
         wsm1 = sym.symbols(f'ws_{layer - 1}')

@@ -95,13 +95,13 @@ def get_symbolic_production():
     profile = []
     
     for l in LAYERS:
-        P30, Lp = sym.symbols('P30 Lp')
+        Po, Lp = sym.symbols('Po Lp')
         if l == 0:
-            profile.append(P30*MLD)
+            profile.append(Po*MLD)
         else:
             zi = GRID[l]
             zim1 = GRID[l - 1]
-            profile.append(Lp*P30*(sym.exp(-(zim1 - MLD)/Lp)
+            profile.append(Lp*Po*(sym.exp(-(zim1 - MLD)/Lp)
                                    - sym.exp(-(zi - MLD)/Lp)))
     
     return profile_to_dict(profile)

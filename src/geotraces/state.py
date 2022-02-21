@@ -25,7 +25,7 @@ def define_residuals(prior_error):
     
     return residuals
 
-def define_params(Lp_prior, P30_prior, priors_from):
+def define_params(Lp_prior, Po_prior, priors_from):
     
     params = {}
     
@@ -37,7 +37,7 @@ def define_params(Lp_prior, P30_prior, priors_from):
     params['Bm2'] = set_prior(Bm2_prior/DPY, Bm2_error/DPY)
     params['Bm1s'] = set_prior(0.1, 0.1*RE)
     params['Bm1l'] = set_prior(0.15, 0.15*RE)
-    params['P30'] = set_prior(P30_prior, P30_prior*0.25, depth_varying=False)
+    params['Po'] = set_prior(Po_prior, Po_prior*0.25, depth_varying=False)
     params['Lp']= set_prior(Lp_prior, Lp_prior*0.25, depth_varying=False)
     params['B3'] = set_prior(0.06, 0.06*RE, depth_varying=False)
     params['a'] = set_prior(0.3, 0.3*RE, depth_varying=False)

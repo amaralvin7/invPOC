@@ -10,5 +10,5 @@ GRID = (30, 50, 100, 150, 200, 330, 500)
 LAYERS = tuple(range(len(GRID)))
 ZONE_LAYERS = ('EZ', 'UMZ') + LAYERS
 THICK = np.diff((0,) + GRID)
-RE = 1  # relative error for (some) priors
+RE = 0.5  # relative error for (some) priors
 GAMMA = 0.5
