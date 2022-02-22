@@ -59,5 +59,5 @@ def find_solution(
 
     Ckp1 = Co - CoFT @ FCoFTi @ F @ Co
     xhat = xkp1
-    print(converged, len(convergence_evolution))
+    # print(converged, len(convergence_evolution))
     return xhat, Ckp1, convergence_evolution, cost_evolution

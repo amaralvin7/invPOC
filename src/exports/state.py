@@ -3,7 +3,7 @@ import numpy as np
 
 import statsmodels.formula.api as smf
 
-from src.constants import MMC, DPY, RE, GAMMA, MLD
+from src.constants import MMC, DPY, MLD
 
 def define_tracers(data):
     
@@ -15,32 +15,32 @@ def define_tracers(data):
     
     return tracers
 
-def define_residuals(proportional_to):
+def define_residuals(proportional_to, gamma):
     
     residuals = {'POCS': {}, 'POCL': {}}
     
     for tracer in residuals:
         residuals[tracer]['prior'] = 0
-        residuals[tracer]['prior_e'] = GAMMA * proportional_to * MLD
+        residuals[tracer]['prior_e'] = gamma * proportional_to * MLD
     
     return residuals
 
-def define_params(npp_data, priors_from):
+def define_params(npp_data, priors_from, rel_err):
     
     params = {}
     
     B2p_prior, B2p_error, Bm2_prior, Bm2_error = contextual_priors(priors_from)
     Po_prior, Po_error, Lp_prior, Lp_error = npp_priors(npp_data)
 
-    params['ws'] = set_prior(2, 2*RE)
-    params['wl'] = set_prior(20, 20*RE)
+    params['ws'] = set_prior(2, 2*rel_err)
+    params['wl'] = set_prior(20, 20*rel_err)
     params['B2p'] = set_prior(B2p_prior*MMC/DPY, B2p_error*MMC/DPY)
     params['Bm2'] = set_prior(Bm2_prior/DPY, Bm2_error/DPY)
-    params['Bm1s'] = set_prior(0.1, 0.1*RE)
-    params['Bm1l'] = set_prior(0.15, 0.15*RE)
+    params['Bm1s'] = set_prior(0.1, 0.1*rel_err)
+    params['Bm1l'] = set_prior(0.15, 0.15*rel_err)
     params['Po'] = set_prior(Po_prior, Po_error, depth_varying=False)
     params['Lp']= set_prior(Lp_prior, Lp_error, depth_varying=False)
-    params['B3'] = set_prior(0.06, 0.06*RE, depth_varying=False)
+    params['B3'] = set_prior(0.06, 0.06*rel_err, depth_varying=False)
     params['a'] = set_prior(0.3, 0.15, depth_varying=False)
     params['zm'] = set_prior(500, 250, depth_varying=False)        
     
