@@ -38,6 +38,9 @@ def load_poc_data():
     merged.dropna(inplace=True)
     merged.drop('SPM_SPT_ugL', axis=1, inplace=True)
 
+    # station 1 only has upper 100m, 18.3 excludes upper 500m
+    merged = merged[~merged['station'].isin([1., 18.3])]
+
     depth_cutoff = 600
     merged = merged.loc[merged['depth'] < depth_cutoff]
     
@@ -173,4 +176,3 @@ def get_residual_prior_error(Po_priors, mixed_layer_depths):
         products.append(Po_priors[s]*mixed_layer_depths[s])
     
     return np.mean(products)
-    
