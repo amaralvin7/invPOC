@@ -3,18 +3,24 @@ import matplotlib.pyplot as plt
 from itertools import product
 import pickle
 import numpy as np
+import os
+import sys
 
 from src.colors import *
 
-super_stations = (8.0, 14.0, 23.0, 29.0, 35.0, 39.0)
-priors_from = ('NA', 'SP')
+results_path = f'../../results/geotraces/'
+pickled_files = [f for f in os.listdir(results_path) if f.endswith('.pkl')]
 
-for s, pf in product(super_stations, priors_from):
+for f in pickled_files:
     
-    save_path = f'../../results/geotraces/stn{int(s)}_{pf}.pkl'
-    with open(save_path, 'rb') as file:
-                unpickled = pickle.load(file)
-                tracers, params, residuals, grid, ppz, mld, layers, convergence_evolution, cost_evolution = unpickled
+    station, priors_from = f.split('_')
+    s = station[3:]
+    pf = priors_from[:2]
+    file_path = os.path.join(results_path, f)
+
+    with open(file_path, 'rb') as file:
+        unpickled = pickle.load(file)
+        tracers, params, residuals, grid, ppz, mld, layers, convergence_evolution, cost_evolution = unpickled
     
     #####################
     #POC
@@ -56,7 +62,7 @@ for s, pf in product(super_stations, priors_from):
     ax2.tick_params(labelleft=False)
     ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
                 loc='lower right')
-    plt.savefig(f'../../results/geotraces/stn{int(s)}_POC_{pf}')
+    plt.savefig(f'../../results/geotraces/stn{s}_POC_{pf}')
     plt.close()
 
     #####################
@@ -92,7 +98,7 @@ for s, pf in product(super_stations, priors_from):
         ax.invert_yaxis()
         ax.tick_params(axis='both', which='major', labelsize=12)
     ax2.tick_params(labelleft=False)
-    plt.savefig(f'../../results/geotraces/stn{int(s)}_residuals_{pf}')
+    plt.savefig(f'../../results/geotraces/stn{s}_residuals_{pf}')
     plt.close()
 
     #####################
@@ -185,8 +191,8 @@ for s, pf in product(super_stations, priors_from):
     ax12.legend(*zip(*unique), fontsize=12, loc='center', frameon=False,
                 ncol=1, labelspacing=2, bbox_to_anchor=(0.35, 0.5))
 
-    dv.savefig(f'../../results/geotraces/stn{int(s)}_DVparams_{pf}')
-    dc.savefig(f'../../results/geotraces/stn{int(s)}_DCparams_{pf}')
+    dv.savefig(f'../../results/geotraces/stn{s}_DVparams_{pf}')
+    dc.savefig(f'../../results/geotraces/stn{s}_DCparams_{pf}')
     plt.close(dc)
     plt.close(dv)
     
@@ -202,13 +208,13 @@ for s, pf in product(super_stations, priors_from):
     ax.set_xlabel('Iteration, $k$', fontsize=16)
     ax.set_ylabel('max'+r'$(\frac{|x_{i,k+1}-x_{i,k}|}{x_{i,k}})$',
                   fontsize=16)
-    plt.savefig(f'../../results/geotraces/stn{int(s)}_conv_{pf}')
+    plt.savefig(f'../../results/geotraces/stn{s}_conv_{pf}')
     plt.close()
     
     fig, ax = plt.subplots(1, tight_layout=True)
     ax.plot(np.arange(1, k+1), cost_evolution, marker='o', ms=3, c=blue)
     ax.set_xlabel('Iteration, $k$', fontsize=16)
     ax.set_ylabel('Cost, $J$', fontsize=16)
-    plt.savefig(f'../../results/geotraces/stn{int(s)}_cost_{pf}')
+    plt.savefig(f'../../results/geotraces/stn{s}_cost_{pf}')
     plt.close()
     
