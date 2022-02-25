@@ -38,7 +38,6 @@ def invert_station(priors_from, station):
 
     grid = tuple(station_poc['depth'].values)
     layers = tuple(range(len(grid)))
-    thick = diff((0,) + grid)
 
     state_elements = framework.define_state_elements(tracers, params, layers)
     equation_elements = framework.define_equation_elements(tracers, layers)

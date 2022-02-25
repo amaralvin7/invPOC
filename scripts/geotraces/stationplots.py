@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 import matplotlib.pyplot as plt
-from itertools import product
 import pickle
 import numpy as np
 import os
-import sys
 
 from src.colors import *
 
@@ -143,14 +141,14 @@ for f in pickled_files:
             params[p]['prior'] - params[p]['prior_e'], c=blue, lw=1.5, ls='--')
         ax.axvline(
             params[p]['prior'] + params[p]['prior_e'], c=blue, lw=1.5, ls='--')
-        for j, l in enumerate(layers):
-            if params[p]['posterior'][j] < 0:
-                print(s, pf, p, l, params[p]['posterior'][j])
+        for l in layers:
+            if params[p]['posterior'][l] < 0:
+                print(s, pf, p, l, params[p]['posterior'][l])
             if 'w' in p:
                 depth = grid[l]
                 ax.errorbar(
-                    params[p]['posterior'][j], depth, fmt='o', ms=8,
-                    xerr=params[p]['posterior_e'][j],
+                    params[p]['posterior'][l], depth, fmt='o', ms=8,
+                    xerr=params[p]['posterior_e'][l],
                     ecolor=orange, elinewidth=1, c=orange,
                     capsize=6, fillstyle='none', zorder=3,
                     markeredgewidth=1)
@@ -160,12 +158,12 @@ for f in pickled_files:
                 depths = (zi, zim1)
                 depth = np.mean(depths)
                 ax.scatter(
-                    params[p]['posterior'][j], depth, marker='o',
+                    params[p]['posterior'][l], depth, marker='o',
                     c=orange, s=14, zorder=3)
                 ax.fill_betweenx(
                     depths,
-                    (params[p]['posterior'][j] - params[p]['posterior_e'][j]),
-                    (params[p]['posterior'][j] + params[p]['posterior_e'][j]),
+                    (params[p]['posterior'][l] - params[p]['posterior_e'][l]),
+                    (params[p]['posterior'][l] + params[p]['posterior_e'][l]),
                     color=orange, alpha=0.25)
 
     for i, p in enumerate(dc_params):
