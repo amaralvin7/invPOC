@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
 import pandas as pd
 import numpy as np
 from os import path
 
-from src.constants import GRID
 import sys
 def load_data():
     
@@ -13,14 +11,14 @@ def load_data():
     
     return pd.read_excel(data_file_path, sheet_name=None)
 
-def process_poc_data(to_process):
+def process_poc_data(to_process, grid):
 
-    processed = pd.DataFrame(GRID, columns=['depth'])
+    processed = pd.DataFrame(grid, columns=['depth'])
     processed['n_casts'] = [
-        get_number_of_casts(to_process, depth) for depth in GRID]
+        get_number_of_casts(to_process, depth) for depth in grid]
 
     for tracer in ('POCS', 'POCL'):
-        mean, sd = calculate_mean_and_sd(to_process, tracer)
+        mean, sd = calculate_mean_and_sd(to_process, tracer, grid)
         processed[tracer] = mean
         processed[f'{tracer}_se'] = (sd  / np.sqrt(processed['n_casts']))
         
@@ -30,11 +28,11 @@ def get_number_of_casts(to_process, depth):
 
     return len(to_process[to_process['mod_depth'] == depth])
 
-def calculate_mean_and_sd(to_process, tracer):
+def calculate_mean_and_sd(to_process, tracer, grid):
 
     mean, sd = [], []
 
-    for depth in GRID:
+    for depth in grid:
         at_depth = to_process[to_process['mod_depth'] == depth][tracer]
         mean.append(at_depth.mean())
         sd.append(at_depth.std())

@@ -2,15 +2,14 @@
 from itertools import product
 
 from src.budgets import eval_sym_expression
-from src.constants import ZONE_LAYERS
 
 def calculate_residence_times(
     inventories_sym, int_fluxes_sym, int_fluxes, residuals_sym, residuals,
-    tracers, params, state_elements, Ckp1):
+    tracers, params, state_elements, Ckp1, zone_layers):
     
     res_times = {tracer:{} for tracer in inventories_sym}
 
-    for (tracer, z) in product(res_times, ZONE_LAYERS):
+    for (tracer, z) in product(res_times, zone_layers):
         inventory = inventories_sym[tracer][z]
         fluxes = sum_of_fluxes(
             tracer, z, int_fluxes_sym, int_fluxes, residuals_sym, residuals)
@@ -41,7 +40,7 @@ def sum_of_fluxes(
 
 def calculate_turnover_times(
     inventories_sym, int_fluxes_sym, int_fluxes, tracers, params,
-    state_elements, Ckp1):
+    state_elements, Ckp1, zone_layers):
     
     flux_tracers = {'sinkdiv_S': ('POCS',), 'sinkdiv_L': ('POCL',),
                     'remin_S': ('POCS',), 'remin_L': ('POCL',),
@@ -49,9 +48,9 @@ def calculate_turnover_times(
                     'disaggregation': ('POCS', 'POCL'),
                     'production': ('POCS',), 'dvm': ('POCS', 'POCL')}
     
-    turnover = {t: {z: {} for z in ZONE_LAYERS} for t in tracers}
+    turnover = {t: {z: {} for z in zone_layers} for t in tracers}
     
-    for (t, z, f) in product(tracers, ZONE_LAYERS, int_fluxes):
+    for (t, z, f) in product(tracers, zone_layers, int_fluxes):
         if t in flux_tracers[f]:
             inventory = inventories_sym[t][z]
             flux = int_fluxes_sym[f][z]

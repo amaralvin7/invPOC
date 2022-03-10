@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import numpy as np
 
 from src.modelequations import evaluate_model_equations
@@ -32,7 +31,7 @@ def calculate_cost(Co, xo, x):
     return cost
 
 def find_solution(
-    tracers, state_elements, equation_elements, xo, Co, grid, zg,
+    tracers, state_elements, equation_elements, xo, Co, grid, zg, mld,
     productionbool, priors_from, station):
 
     max_iterations = 200
@@ -43,7 +42,7 @@ def find_solution(
     xkp1 = np.ones(len(xk))  # at iteration k+1
     for count in range(max_iterations):
         f, F = evaluate_model_equations(
-            tracers, state_elements, equation_elements, xk, grid, zg,
+            tracers, state_elements, equation_elements, xk, grid, zg, mld,
             productionbool)
 
         xkp1, CoFT, FCoFTi = calculate_xkp1(Co, xo, xk, f, F)

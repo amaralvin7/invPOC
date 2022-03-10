@@ -1,9 +1,8 @@
-#!/usr/bin/env python3
 import numpy as np
 
 import statsmodels.formula.api as smf
 
-from src.constants import MMC, DPY, MLD
+from src.constants import MMC, DPY
 
 def define_tracers(data):
     
@@ -15,13 +14,13 @@ def define_tracers(data):
     
     return tracers
 
-def define_residuals(proportional_to, gamma):
+def define_residuals(proportional_to, gamma, mld):
     
     residuals = {'POCS': {}, 'POCL': {}}
     
     for tracer in residuals:
         residuals[tracer]['prior'] = 0
-        residuals[tracer]['prior_e'] = gamma * proportional_to * MLD
+        residuals[tracer]['prior_e'] = gamma * proportional_to * mld
     
     return residuals
 
@@ -75,14 +74,14 @@ def npp_priors(npp_data):
     
         npp_data_clean = npp_data.loc[(npp_data['NPP'] > 0)]
 
-        MIXED_LAYER_UPPER_BOUND, MIXED_LAYER_LOWER_BOUND = 28, 35
+        mixed_layer_upper_bound, mixed_layer_lower_bound = 28, 35
 
         npp_mixed_layer = npp_data_clean.loc[
-            (npp_data_clean['target_depth'] >= MIXED_LAYER_UPPER_BOUND) &
-            (npp_data_clean['target_depth'] <= MIXED_LAYER_LOWER_BOUND)]
+            (npp_data_clean['target_depth'] >= mixed_layer_upper_bound) &
+            (npp_data_clean['target_depth'] <= mixed_layer_lower_bound)]
 
         npp_below_mixed_layer = npp_data_clean.loc[
-            npp_data_clean['target_depth'] >= MIXED_LAYER_UPPER_BOUND]
+            npp_data_clean['target_depth'] >= mixed_layer_upper_bound]
 
         Po_prior = npp_mixed_layer['NPP'].mean()/MMC
         Po_prior_e = npp_mixed_layer['NPP'].sem()/MMC

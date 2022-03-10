@@ -1,10 +1,9 @@
 import numpy as np
 import sympy as sym
 
-from src.constants import MLD
-
 def evaluate_model_equations(
-    tracers, state_elements, equation_elements, xk, grid, zg, productionbool):
+    tracers, state_elements, equation_elements, xk, grid, zg, mld,
+    productionbool):
     
     n_tracer_elements = len(tracers) * len(grid)
     n_state_elements = len(state_elements)
@@ -14,7 +13,7 @@ def evaluate_model_equations(
 
     for i, element in enumerate(equation_elements):
         tracer, layer = element.split('_')
-        y = equation_builder(tracer, int(layer), grid, zg, productionbool)
+        y = equation_builder(tracer, int(layer), grid, zg, mld, productionbool)
         x_sym, x_num, x_ind = extract_equation_variables(state_elements, y, xk)
         f[i] = sym.lambdify(x_sym, y)(*x_num)
         for j, x in enumerate(x_sym):
@@ -38,7 +37,7 @@ def extract_equation_variables(state_elements, y, xk):
 
     return x_symbolic, x_numerical, x_indices
 
-def equation_builder(tracer, layer, grid, zg, productionbool):
+def equation_builder(tracer, layer, grid, zg, mld, productionbool):
 
     zi = grid[layer]
     zim1 = grid[grid.index(zi) - 1] if layer > 0 else 0
@@ -56,7 +55,7 @@ def equation_builder(tracer, layer, grid, zg, productionbool):
         wsm1, wlm1 = p_syms[11:]        
 
     if tracer == 'POCS':
-        eq = production(productionbool, layer, Po, Lp, zi, zim1)
+        eq = production(productionbool, layer, Po, Lp, zi, zim1, mld)
         if layer == 0:
             eq += (-ws*Psi + Bm2*Pli*h - (B2p*Psi + Bm1s)*Psi*h + RPsi
                    - B3*Psi*h)
@@ -76,13 +75,13 @@ def equation_builder(tracer, layer, grid, zg, productionbool):
 
     return eq
 
-def production(productionbool, layer, Po, Lp, zi, zim1):
+def production(productionbool, layer, Po, Lp, zi, zim1, mld):
     
     if productionbool:
         if layer == 0:
-            return Po*MLD
+            return Po*mld
         else:
-            return Lp*Po*(sym.exp(-(zim1 - MLD)/Lp)- sym.exp(-(zi - MLD)/Lp))
+            return Lp*Po*(sym.exp(-(zim1 - mld)/Lp)- sym.exp(-(zi - mld)/Lp))
         
     return Lp*Po*(sym.exp(-zim1/Lp) - sym.exp(-zi/Lp))
 

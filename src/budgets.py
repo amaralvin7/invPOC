@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
 import sympy as sym
 import numpy as np
 from itertools import product
-
-from src.constants import THICK, LAYERS
+import sys
 
 def eval_sym_expression(
     y, state_elements, Ckp1, tracers=[], residuals=[], params=[]):
@@ -47,32 +45,32 @@ def eval_sym_expression(
 
     return result, error
 
-def get_symbolic_residuals(residuals):
+def get_symbolic_residuals(residuals, umz_start, layers):
     
     resids_sym = {r: {} for r in residuals}
     
     for r in resids_sym:
-        profile = [sym.symbols(f'R{r}_{l}') for l in LAYERS]
-        resids_sym[r]['EZ'] = np.sum(profile[:3])
-        resids_sym[r]['UMZ'] = np.sum(profile[3:])
-        for l in LAYERS:
+        profile = [sym.symbols(f'R{r}_{l}') for l in layers]
+        resids_sym[r]['EZ'] = np.sum(profile[:umz_start])
+        resids_sym[r]['UMZ'] = np.sum(profile[umz_start:])
+        for l in layers:
             resids_sym[r][l] = profile[l]
     
     return resids_sym
        
-def get_symbolic_inventories(tracers):
+def get_symbolic_inventories(tracers, umz_start, layers, thick):
     
     inventories_sym = {t: {} for t in tracers}
     
     for t in tracers:  
-        concentrations = [sym.symbols(f'{t}_{l}') for l in LAYERS]
-        profile = [concentrations[0] * THICK[0]]  # mixed layer 
-        for i, h in enumerate(THICK[1:], 1):  # all other layers
+        concentrations = [sym.symbols(f'{t}_{l}') for l in layers]
+        profile = [concentrations[0] * thick[0]]  # mixed layer 
+        for i, h in enumerate(thick[1:], 1):  # all other layers
             avg_conc = np.mean([concentrations[i], concentrations[i-1]])
             profile.append(avg_conc * h)
-        inventories_sym[t]['EZ'] = np.sum(profile[:3])
-        inventories_sym[t]['UMZ'] = np.sum(profile[3:])
-        for l in LAYERS:
+        inventories_sym[t]['EZ'] = np.sum(profile[:umz_start])
+        inventories_sym[t]['UMZ'] = np.sum(profile[umz_start:])
+        for l in layers:
             inventories_sym[t][l] = profile[l]
         
     return inventories_sym
@@ -89,12 +87,12 @@ def integrate_by_zone(symbolic, state_elements, Ckp1, **state_element_types):
     return integrated
 
 def integrate_by_zone_and_layer(
-    symbolic, state_elements, Ckp1, **state_element_types):
+    symbolic, state_elements, Ckp1, layers, **state_element_types):
     
     integrated = integrate_by_zone(
         symbolic, state_elements, Ckp1, **state_element_types)
 
-    for (k, l) in product(integrated, LAYERS):
+    for (k, l) in product(integrated, layers):
         y = symbolic[k][l]
         integrated[k][l] = eval_sym_expression(
             y, state_elements, Ckp1, **state_element_types)

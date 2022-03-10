@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 def merge_by_keys(merge_this, into_this):
     
     for i in into_this:

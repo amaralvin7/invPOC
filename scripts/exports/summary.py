@@ -1,11 +1,13 @@
 import pickle
 from itertools import product
 
-from src.constants import LAYERS, ZONE_LAYERS
-
 priors_from = ('NA', 'SP')
 gammas = (0.5, 1, 5, 10)
 rel_errs = (0.1, 0.2, 0.5, 1)
+
+grid = (30, 50, 100, 150, 200, 330, 500)
+layers = tuple(range(len(grid)))
+zone_layers = ('EZ', 'UMZ') + layers
 
 output_file = '../../results/exports/out.txt'
 with open(output_file, 'w') as f:
@@ -25,7 +27,7 @@ with open(output_file, 'w') as f:
         print('+++++++++++++++++++++++++++', file=f)
         for p in params:
             if params[p]['dv']:
-                for l in LAYERS:
+                for l in layers:
                     est = params[p]['posterior'][l]
                     err = params[p]['posterior_e'][l]
                     print(f'{p} ({l}): {est:.8f} ± {err:.8f}', file=f)
@@ -36,7 +38,7 @@ with open(output_file, 'w') as f:
         print('+++++++++++++++++++++++++++', file=f)
         print('Tracer Inventories', file=f)
         print('+++++++++++++++++++++++++++', file=f)
-        for z in ZONE_LAYERS:
+        for z in zone_layers:
             print(f'--------{z}--------', file=f)
             for i in inventories:
                 est, err = inventories[i][z]
@@ -44,7 +46,7 @@ with open(output_file, 'w') as f:
         print('+++++++++++++++++++++++++++', file=f)
         print('Integrated Fluxes', file=f)
         print('+++++++++++++++++++++++++++', file=f)
-        for z in ZONE_LAYERS:
+        for z in zone_layers:
             print(f'--------{z}--------', file=f)
             for flx in int_fluxes:
                 est, err = int_fluxes[flx][z]
@@ -52,7 +54,7 @@ with open(output_file, 'w') as f:
         print('+++++++++++++++++++++++++++', file=f)
         print('Integrated Residuals', file=f)
         print('+++++++++++++++++++++++++++', file=f)
-        for z in ZONE_LAYERS:
+        for z in zone_layers:
             print(f'--------{z}--------', file=f)
             for r in residuals:
                 est, err = residuals[r][z]
@@ -60,7 +62,7 @@ with open(output_file, 'w') as f:
         print('+++++++++++++++++++++++++++', file=f)
         print('Residence Times', file=f)
         print('+++++++++++++++++++++++++++', file=f)
-        for z in ZONE_LAYERS:
+        for z in zone_layers:
             print(f'--------{z}--------', file=f)
             for t in inventories:
                 est, err = residence_times[t][z]
@@ -68,7 +70,7 @@ with open(output_file, 'w') as f:
         print('+++++++++++++++++++++++++++', file=f)
         print('Turnover Timescales', file=f)
         print('+++++++++++++++++++++++++++', file=f)
-        for z in ZONE_LAYERS:
+        for z in zone_layers:
             print(f'--------{z}--------', file=f)
             for t in turnover_times:
                 print(f'***{t}***', file=f)
