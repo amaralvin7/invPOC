@@ -28,7 +28,8 @@ def run_model(priors_from, gamma, rel_err):
     Co = framework.define_cov_matrix(tracers, residuals, params, LAYERS)
 
     ati_results = find_solution(
-        tracers, state_elements, equation_elements, xo, Co, GRID, ZG, True)
+        tracers, state_elements, equation_elements, xo, Co, GRID, ZG, True,
+        priors_from, 0)  # last 2 args just for debugging GT inversions, delete later
     xhat, Ckp1, _, _ = ati_results
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, LAYERS)
@@ -74,8 +75,8 @@ if __name__ == '__main__':
     gammas = (0.5, 1, 5, 10)
     rel_errs = (0.1, 0.2, 0.5, 1)
 
-    n_cores = 8
-    pool = Pool(n_cores)
+    processes = 2
+    pool = Pool(processes)
     pool.starmap(run_model, product(study_sites, gammas, rel_errs))
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')

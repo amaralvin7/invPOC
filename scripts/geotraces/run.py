@@ -4,7 +4,7 @@ import pickle
 from numpy import diff
 from itertools import product
 from multiprocessing import Pool
-
+import sys
 import src.geotraces.data as data
 import src.geotraces.state as state
 import src.framework as framework
@@ -13,7 +13,7 @@ from src.unpacking import unpack_state_estimates
 from src.ati import find_solution
 
 relative_err = 1
-gamma = 0.15
+gamma = 0.2
 
 poc_data = data.load_poc_data()
 mixed_layer_depths = data.load_mixed_layer_depths()
@@ -23,7 +23,7 @@ Lp_priors = data.get_Lp_priors(poc_data)
 Po_priors = data.get_Po_priors(Lp_priors)
 resid_prior_err = data.get_residual_prior_error(Po_priors, mixed_layer_depths)
 
-priors_from = ('NA', 'SP')
+priors_from_tuple = ('NA', 'SP')
 stations = poc_data['station'].unique()
 
 def invert_station(priors_from, station):
@@ -38,6 +38,7 @@ def invert_station(priors_from, station):
 
     grid = tuple(station_poc['depth'].values)
     layers = tuple(range(len(grid)))
+    zg = min(grid, key=lambda x:abs(x - ppz))  # grazing depth
 
     state_elements = framework.define_state_elements(tracers, params, layers)
     equation_elements = framework.define_equation_elements(tracers, layers)
@@ -45,7 +46,7 @@ def invert_station(priors_from, station):
     Co = framework.define_cov_matrix(tracers, residuals, params, layers)
 
     xhat, Ckp1, convergence_evolution, cost_evolution = find_solution(
-        tracers, state_elements, equation_elements, xo, Co, grid, ppz, False,
+        tracers, state_elements, equation_elements, xo, Co, grid, zg, False,
         priors_from, station)
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, layers)
@@ -55,6 +56,8 @@ def invert_station(priors_from, station):
     output.merge_by_keys(param_estimates, params)
     output.merge_by_keys(residual_estimates, residuals)
 
+    # note: PPZ only passed for plotting purposes, isn't actually used
+    # in inversions
     to_pickle = (tracers, params, residuals, grid, ppz, mld, layers,
                  convergence_evolution, cost_evolution)
     save_path = f'../../results/geotraces/stn{int(station)}_{priors_from}.pkl'
@@ -65,8 +68,8 @@ if __name__ == '__main__':
 
     start_time = time.time()
 
-    n_cores = 32
-    pool = Pool(n_cores)
-    pool.starmap(invert_station, product(priors_from, stations))
+    processes = 2
+    pool = Pool(processes)
+    pool.starmap(invert_station, product(priors_from_tuple, stations))
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')

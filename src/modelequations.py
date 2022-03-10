@@ -4,7 +4,7 @@ import sympy as sym
 from src.constants import MLD
 
 def evaluate_model_equations(
-    tracers, state_elements, equation_elements, xk, grid, ppz, productionbool):
+    tracers, state_elements, equation_elements, xk, grid, zg, productionbool):
     
     n_tracer_elements = len(tracers) * len(grid)
     n_state_elements = len(state_elements)
@@ -14,8 +14,7 @@ def evaluate_model_equations(
 
     for i, element in enumerate(equation_elements):
         tracer, layer = element.split('_')
-        y = equation_builder(
-            tracer, int(layer), grid, ppz, productionbool)
+        y = equation_builder(tracer, int(layer), grid, zg, productionbool)
         x_sym, x_num, x_ind = extract_equation_variables(state_elements, y, xk)
         f[i] = sym.lambdify(x_sym, y)(*x_num)
         for j, x in enumerate(x_sym):
@@ -39,12 +38,11 @@ def extract_equation_variables(state_elements, y, xk):
 
     return x_symbolic, x_numerical, x_indices
 
-def equation_builder(tracer, layer, grid, ppz, productionbool):
+def equation_builder(tracer, layer, grid, zg, productionbool):
 
     zi = grid[layer]
     zim1 = grid[grid.index(zi) - 1] if layer > 0 else 0
     h = zi - zim1
-    zg = min(grid, key=lambda x:abs(x - ppz))  # grazing depth
     in_EZ = zi <= zg
     
     t_syms = get_tracer_symbols(layer)

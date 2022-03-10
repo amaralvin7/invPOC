@@ -3,7 +3,8 @@ import numpy as np
 from os import path
 from itertools import product
 from scipy.interpolate import interp1d
-
+from datetime import datetime
+import sys
 import netCDF4 as nc
 
 from src.constants import MMC
@@ -38,11 +39,10 @@ def load_poc_data():
     merged.dropna(inplace=True)
     merged.drop('SPM_SPT_ugL', axis=1, inplace=True)
 
-    # station 1 only has upper 100m, 18.3 excludes upper 500m
-    merged = merged[~merged['station'].isin([1., 18.3])]
+    # station 18.3 excludes upper 500m
+    merged = merged[merged['station'] != 18.3]
 
-    depth_cutoff = 600
-    merged = merged.loc[merged['depth'] < depth_cutoff]
+    merged = merged.loc[merged['depth'] < 1000]
     
     return merged
 
@@ -72,8 +72,9 @@ def get_station_poc(data, station):
     raw_station_data.sort_values('depth', inplace=True, ignore_index=True)
 
     clean_station_data = clean_by_flags(raw_station_data)
+    cleaned = clean_station_data.loc[clean_station_data['depth'] < 600]
     
-    return clean_station_data
+    return cleaned
 
 def clean_by_flags(raw):
     
@@ -127,12 +128,22 @@ def load_npp_data():
     
     src_parent_path = get_src_parent_path()
     
-    npp_df = pd.read_csv(path.join(src_parent_path,'data/npp.csv'))
+    df = pd.read_csv(path.join(src_parent_path,'data/npp.csv'))
+    dates = list(df.columns[2:])
+
+    npp_df = df[['Station', 'Sampling Date']].copy()
+    npp_df['mgC_m2_d'] = 0.0
+    for i, r in npp_df.iterrows():
+        date = datetime.strptime(r['Sampling Date'], '%m/%d/%y')
+        closest = min(
+            dates, key=lambda x: abs(datetime.strptime(x, '%d-%b-%y') - date))
+        npp_df.at[i, 'mgC_m2_d'] = df.at[i, closest]
+
     npp_df['npp'] = npp_df['mgC_m2_d']/MMC
     npp_df.drop('mgC_m2_d', axis=1, inplace=True)
-    
-    npp_dict = dict(zip(npp_df['station'], npp_df['npp']))
-    # npp_std = np.std(list(npp_dict.values()), ddof=1)
+    npp_df.drop('Sampling Date', axis=1, inplace=True)
+
+    npp_dict = dict(zip(npp_df['Station'], npp_df['npp']))
 
     return npp_dict
 
@@ -140,7 +151,7 @@ def load_mixed_layer_depths():
     
     src_parent_path = get_src_parent_path()
     mld_df = pd.read_excel(path.join(src_parent_path,'data/gp15_mld.xlsx'))
-    mld_dict = dict(zip(mld_df['Station No'], mld_df['MLD JAK']))
+    mld_dict = dict(zip(mld_df['Station No'], mld_df['MLD']))
     # npp_std = np.std(list(npp_dict.values()), ddof=1)
 
     return mld_dict
