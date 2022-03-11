@@ -18,7 +18,7 @@ for f in pickled_files:
 
     with open(file_path, 'rb') as file:
         unpickled = pickle.load(file)
-        tracers, params, residuals, grid, ppz, mld, layers, convergence_evolution, cost_evolution = unpickled
+        tracers, params, residuals, inventories, int_fluxes, residence_times, turnover_times, grid, zg, mld, layers, convergence_evolution, cost_evolution = unpickled
     
     #####################
     #POC
@@ -55,7 +55,7 @@ for f in pickled_files:
         ax.invert_yaxis()
         ax.set_ylim(top=0, bottom=610)
         ax.tick_params(axis='both', which='major', labelsize=12)
-        ax.axhline(ppz, c=green)
+        ax.axhline(zg, c=green)
         ax.axhline(mld, c=black)
     ax2.tick_params(labelleft=False)
     ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,

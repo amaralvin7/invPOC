@@ -1,8 +1,8 @@
 import time
 import pickle
-import numpy as np
 from itertools import product
 from multiprocessing import Pool
+from numpy import diff
 import sys
 import src.exports.data as data
 import src.exports.state as state
@@ -19,7 +19,7 @@ zg = 100  # grazing zone depth
 grid = (30, 50, 100, 150, 200, 330, 500)
 layers = tuple(range(len(grid)))
 zone_layers = ('EZ', 'UMZ') + layers
-thick = np.diff((0,) + grid)
+thick = diff((0,) + grid)
 
 def run_model(priors_from, gamma, rel_err):
 

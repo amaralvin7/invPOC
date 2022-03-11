@@ -9,6 +9,9 @@ import src.geotraces.data as data
 import src.geotraces.state as state
 import src.framework as framework
 import src.output as output
+import src.budgets as budgets
+import src.fluxes as fluxes
+import src.timescales as timescales
 from src.unpacking import unpack_state_estimates
 from src.ati import find_solution
 
@@ -39,6 +42,8 @@ def invert_station(priors_from, station):
     grid = tuple(station_poc['depth'].values)
     layers = tuple(range(len(grid)))
     zg = min(grid, key=lambda x:abs(x - ppz))  # grazing depth
+    zone_layers = ('EZ', 'UMZ') + layers
+    thick = diff((0,) + grid)
 
     state_elements = framework.define_state_elements(tracers, params, layers)
     equation_elements = framework.define_equation_elements(tracers, layers)
@@ -46,8 +51,8 @@ def invert_station(priors_from, station):
     Co = framework.define_cov_matrix(tracers, residuals, params, layers)
 
     xhat, Ckp1, convergence_evolution, cost_evolution = find_solution(
-        tracers, state_elements, equation_elements, xo, Co, grid, zg, False,
-        priors_from, station)
+        tracers, state_elements, equation_elements, xo, Co, grid, zg, mld,
+        False, priors_from, station)
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, layers)
     tracer_estimates, residual_estimates, param_estimates = estimates
@@ -56,9 +61,35 @@ def invert_station(priors_from, station):
     output.merge_by_keys(param_estimates, params)
     output.merge_by_keys(residual_estimates, residuals)
 
-    # note: PPZ only passed for plotting purposes, isn't actually used
-    # in inversions
-    to_pickle = (tracers, params, residuals, grid, ppz, mld, layers,
+    umz_start = grid.index(zg) + 1
+
+    residuals_sym = budgets.get_symbolic_residuals(
+        residuals, umz_start, layers)
+    residual_estimates_by_zone = budgets.integrate_by_zone(
+        residuals_sym, state_elements, Ckp1, residuals=residuals)
+    output.merge_by_keys(residual_estimates_by_zone, residuals)
+
+    inventories_sym = budgets.get_symbolic_inventories(
+        tracers, umz_start, layers, thick)
+    inventories = budgets.integrate_by_zone_and_layer(
+        inventories_sym, state_elements, Ckp1, layers, tracers=tracers)
+
+    int_fluxes_sym = fluxes.get_symbolic_int_fluxes(
+        umz_start, layers, thick, grid, mld, zg)
+    int_fluxes = budgets.integrate_by_zone_and_layer(
+        int_fluxes_sym, state_elements, Ckp1, layers, tracers=tracers,
+        params=params)
+
+    residence_times = timescales.calculate_residence_times(
+        inventories_sym, int_fluxes_sym, int_fluxes, residuals_sym, residuals,
+        tracers, params, state_elements, Ckp1, zone_layers)
+
+    turnover_times = timescales.calculate_turnover_times(
+        inventories_sym, int_fluxes_sym, int_fluxes, tracers, params,
+        state_elements, Ckp1, zone_layers)
+
+    to_pickle = (tracers, params, residuals, inventories, int_fluxes,
+                 residence_times, turnover_times, grid, zg, mld, layers,
                  convergence_evolution, cost_evolution)
     save_path = f'../../results/geotraces/stn{int(station)}_{priors_from}.pkl'
     with open(save_path, 'wb') as file:
@@ -68,7 +99,7 @@ if __name__ == '__main__':
 
     start_time = time.time()
 
-    processes = 2
+    processes = 22
     pool = Pool(processes)
     pool.starmap(invert_station, product(priors_from_tuple, stations))
 
