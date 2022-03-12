@@ -17,7 +17,7 @@ with open(output_file, 'w') as f:
         save_path = f'../../results/exports/{pf}_{re}_{g}.pkl'
         with open(save_path, 'rb') as pickled:
                     unpickled = pickle.load(pickled)
-                    tracers, params, residuals, inventories, int_fluxes, residence_times, turnover_times = unpickled
+                    tracers, params, residuals, inventories, int_fluxes, _, residence_times, turnover_times = unpickled
 
         print('#################################', file=f)
         print(f'GAMMA = {g}, RE = {re}, {pf}', file=f)

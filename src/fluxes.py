@@ -1,5 +1,7 @@
 import sympy as sym
 import numpy as np
+
+from src.budgets import eval_sym_expression
 """
 todo: combine for loop statements in get_symbolic_int_fluxes
         (it is the way it is to preserve order in original output file)
@@ -135,5 +137,24 @@ def get_symbolic_dvm(umz_start, layers, thick, grid, zg):
             - sym.cos(np.pi*(zi - zg)/(zm - zg)))))
     
     return profile_to_dict(profile, umz_start)
+
+def calculate_sinking_fluxes(layers, state_elements, Ckp1, tracers, params):
+    
+    sink_fluxes = {'S': [], 'L': [], 'T': []}
+
+    for l in layers:
+        ws, ps, wl, pl = sym.symbols(f'ws_{l} POCS_{l} wl_{l} POCL_{l}')
+        sink_fluxes['S'].append(
+            eval_sym_expression(ws*ps, state_elements, Ckp1, tracers=tracers,
+            params=params))
+        sink_fluxes['L'].append(
+            eval_sym_expression(wl*pl, state_elements, Ckp1, tracers=tracers,
+            params=params))
+        sink_fluxes['T'].append(
+            eval_sym_expression(ws*ps + wl*pl, state_elements, Ckp1,
+            tracers=tracers, params=params))
+    
+    return sink_fluxes
+
         
         

@@ -18,7 +18,7 @@ for f in pickled_files:
 
     with open(file_path, 'rb') as file:
         unpickled = pickle.load(file)
-        tracers, params, residuals, inventories, int_fluxes, residence_times, turnover_times, grid, zg, mld, layers, convergence_evolution, cost_evolution = unpickled
+        tracers, params, residuals, inventories, int_fluxes, sink_fluxes, residence_times, turnover_times, grid, zg, mld, layers, convergence_evolution, cost_evolution = unpickled
     
     #####################
     #POC

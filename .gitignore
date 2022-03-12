@@ -10,4 +10,5 @@ __pycache__/
 
 *.pkl
 *.png
+*.pdf
 *.egg-info

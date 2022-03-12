@@ -64,6 +64,9 @@ def run_model(priors_from, gamma, rel_err):
         int_fluxes_sym, state_elements, Ckp1, layers, tracers=tracers,
         params=params)
 
+    sink_fluxes = fluxes.calculate_sinking_fluxes(
+        layers, state_elements, Ckp1, tracers, params)
+
     residence_times = timescales.calculate_residence_times(
         inventories_sym, int_fluxes_sym, int_fluxes, residuals_sym, residuals,
         tracers, params, state_elements, Ckp1, zone_layers)
@@ -73,7 +76,7 @@ def run_model(priors_from, gamma, rel_err):
         state_elements, Ckp1, zone_layers)
 
     to_pickle = (tracers, params, residuals, inventories, int_fluxes,
-                 residence_times, turnover_times)
+                 sink_fluxes, residence_times, turnover_times)
     
     save_path = f'../../results/exports/{priors_from}_{rel_err}_{gamma}.pkl'
     with open(save_path, 'wb') as file:
