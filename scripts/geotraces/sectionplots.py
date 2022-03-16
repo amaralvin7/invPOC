@@ -11,8 +11,8 @@ import sys
 import src.geotraces.data as data
 from src.colors import *
 
-text = {'ws': ('Settling speed, 1-51 µm (m d$^{-1}$)'),
-        'wl': ('Settling speed, > 51 µm (m d$^{-1}$)'),
+text = {'ws': ('Settling speed, 1-51 µm (m d$^{-1}$)',),
+        'wl': ('Settling speed, > 51 µm (m d$^{-1}$)',),
         'B2p': ('Aggregation (m$^{3}$ mmol$^{-1}$ d$^{-1}$)',),
         'Bm2': ('Disaggregation (d$^{-1}$)',),
         'Bm1s': ('Remineralization, 1-51 µm (d$^{-1}$)',),
@@ -22,8 +22,8 @@ text = {'ws': ('Settling speed, 1-51 µm (m d$^{-1}$)'),
         'remin_S': ('Remineralization, 1-51 µm (mmol m$^{-2}$ d$^{-1}$)', (2, 5)),
         'remin_L': ('Remineralization, > 51 µm (mmol m$^{-2}$ d$^{-1}$)'),
         'aggregation': ('Aggregation (mmol m$^{-2}$ d$^{-1}$)', (0, 0.1)),
-        'disaggregation': ('Disaggregation (mmol m$^{-2}$ d$^{-1}$)'),
-        'production': ('Production (mmol m$^{-2}$ d$^{-1}$)'),
+        'disaggregation': ('Disaggregation (mmol m$^{-2}$ d$^{-1}$)',),
+        'production': ('Production (mmol m$^{-2}$ d$^{-1}$)',),
         'dvm': ('Diel vertical migration (mmol m$^{-2}$ d$^{-1}$)', (-2, 2)),
         'sink_S': ('Sinking flux, 1-51 µm (mmol m$^{-2}$ d$^{-1}$)', (0, 8)),
         'sink_L': ('Sinking flux, > 51 µm (mmol m$^{-2}$ d$^{-1}$)', (0, 8)),
@@ -68,7 +68,7 @@ def plot_section(df, suffix, lims=False):
     ax.set_ylabel('Depth (m)', fontsize=14)
     ax.set_xlabel('Latitude (°N)', fontsize=14)
     fig.suptitle(text[suffix][0], fontsize=16)
-    plt.savefig(f'../../results/geotraces/section_{suffix}{postsuffix}')
+    plt.savefig(f'../../results/geotraces/section_{suffix}{postsuffix}.pdf')
     plt.close()
 
 def get_path(filename):
@@ -165,7 +165,7 @@ for i in int_fluxes:
 
         file_path, s, pf = get_path(f)
         latitude = get_station_latitude(s)
-        print(s)
+
         with open(file_path, 'rb') as file:
             unpickled = pickle.load(file)
             _, _, _, _, int_fluxes, _, _, _, grid, zg, _, layers, *_ = unpickled
