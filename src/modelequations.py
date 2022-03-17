@@ -71,7 +71,7 @@ def equation_builder(tracer, layer, grid, zg, mld, productionbool):
             eq = (-wl*Pli + wlm1*Plim1 + B2p*Psa**2*h - (Bm2 + Bm1l)*Pla*h
                   + RPli)
             if not in_EZ:
-                eq += dvm_excretion(B3, a, zm, zg, zi, zim1, grid)
+                eq += dvm_egestion(B3, a, zm, zg, zi, zim1, grid)
 
     return eq
 
@@ -85,7 +85,7 @@ def production(productionbool, layer, Po, Lp, zi, zim1, mld):
         
     return Lp*Po*(sym.exp(-zim1/Lp) - sym.exp(-zi/Lp))
 
-def dvm_excretion(B3, a, zm, zg, zi, zim1, grid):
+def dvm_egestion(B3, a, zm, zg, zi, zim1, grid):
     
     EZ_layers = list(range(grid.index(zg) + 1))
     thick_EZ_layers = np.diff((0,) + grid[:len(EZ_layers)])

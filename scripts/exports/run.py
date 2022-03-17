@@ -78,6 +78,12 @@ def run_model(priors_from, gamma, rel_err):
     to_pickle = (tracers, params, residuals, inventories, int_fluxes,
                  sink_fluxes, residence_times, turnover_times)
     
+    to_pickle = {'tracers': tracers, 'params': params, 'residuals': residuals,
+                 'inventories': inventories, 'int_fluxes': int_fluxes,
+                 'sink_fluxes': sink_fluxes,
+                 'residence_times': residence_times,
+                 'turnover_times': turnover_times}
+    
     save_path = f'../../results/exports/{priors_from}_{rel_err}_{gamma}.pkl'
     with open(save_path, 'wb') as file:
                 pickle.dump(to_pickle, file)

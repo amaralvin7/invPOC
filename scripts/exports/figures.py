@@ -2,19 +2,23 @@ import pickle
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import mpl_toolkits.axisartist as AA
+from mpl_toolkits.axes_grid1 import host_subplot
 import sys
 from src.colors import *
 
 grid = (30, 50, 100, 150, 200, 330, 500)
+thick = np.diff((0,) + grid)
+
+with open('../../results/exports/NA_0.5_0.5.pkl', 'rb') as pickled:
+            NA_results = pickle.load(pickled)
+with open('../../results/exports/SP_0.5_0.5.pkl', 'rb') as pickled:
+            SP_results = pickle.load(pickled)
 
 ############################
-#FIGURE 10
+#FIGURE 10, sinking fluxes
 ############################
-with open('../../results/exports/NA_0.5_0.5.pkl', 'rb') as pickled:
-            _, _, _, _, _, NA_fluxes, *_ = pickle.load(pickled)
-with open('../../results/exports/SP_0.5_0.5.pkl', 'rb') as pickled:
-            _, _, _, _, _, SP_fluxes, *_ = pickle.load(pickled)
-flux_dict = {'NA': NA_fluxes, 'SP': SP_fluxes}
+flux_dict = {'NA': NA_results['sink_fluxes'], 'SP': SP_results['sink_fluxes']}
 
 datapath = '../../data/exports.xlsx'
 th_fluxes = pd.read_excel(datapath, sheet_name='POC_fluxes_thorium')
@@ -90,4 +94,102 @@ for inversion in flux_dict:
                         handletextpad=0.01)
 
 fig.savefig('../../results/exports/figures/Figure10.pdf')
+plt.close()
+
+############################
+#FIGURE 12, DVM comparisons
+############################
+flux_dict = {'NA': NA_results['int_fluxes'], 'SP': SP_results['int_fluxes']}
+
+fig = plt.figure()
+fig.text(0.025, 0.5, 'Depth (m)', fontsize=14, ha='center',
+            va='center', rotation='vertical')
+fig.subplots_adjust(wspace=0.3, hspace=0.1)
+
+for inversion in flux_dict:
+    if inversion == 'NA':
+        i = 0
+    else:
+        i = 1
+
+    hostL = host_subplot(2, 2, 1+2*i, axes_class=AA.Axes, figure=fig)
+    parL = hostL.twiny()
+    parL.axis['top'].toggle(all=True)
+    hostL.set_xlim(0, 0.3)
+    parL.set_xlim(0, 0.3)
+
+    hostR = host_subplot(2, 2, 2*(1+i), axes_class=AA.Axes, figure=fig)
+    hostR.yaxis.set_ticklabels([])
+    parR = hostR.twiny()
+    parR.axis['top'].toggle(all=True)
+    hostR.set_xlim(-0.02, 0.02)
+    parR.set_xlim(0.02, -0.02)
+    hostR.axvline(c=black, alpha=0.3)
+
+    if inversion == 'SP':
+        hostL.set_xlabel('Ingestion flux (mmol m$^{-3}$ d$^{-1}$)')
+        hostR.set_xlabel('Egestion flux (mmol m$^{-3}$ d$^{-1}$)')
+        hostR.text(1.05, 0.2, 'SP inversion' , fontsize=14,
+                    rotation=270, transform=hostR.transAxes)
+        parR.xaxis.set_ticklabels([])
+        parL.xaxis.set_ticklabels([])
+    else:
+        parL.set_xlabel('$P_S$ remin. flux (mmol m$^{-3}$ d$^{-1}$)')
+        parR.set_xlabel('$P_L$ SFD (mmol m$^{-3}$ d$^{-1}$)')
+        hostR.xaxis.set_ticklabels([])
+        hostL.xaxis.set_ticklabels([])
+        hostR.text(1.05, 0.2, 'NA inversion' , fontsize=14,
+                    rotation=270, transform=hostR.transAxes)
+
+    for host, par in ((hostL, parL), (hostR, parR)):
+        host.axis['right'].toggle(all=False)
+        host.axis['left', 'top', 'bottom'].major_ticks.set_tick_out(
+            'out')
+        par.axis['left', 'top', 'bottom'].major_ticks.set_tick_out(
+            'out')
+        host.axis['bottom'].label.set_color(blue)
+        par.axis['top'].label.set_color(orange)
+        host.axis['left'].label.set_fontsize(14)
+        host.axis['bottom'].label.set_fontsize(12)
+        host.axis['bottom', 'left'].major_ticklabels.set_size(12)
+        par.axis['top'].label.set_fontsize(12)
+        par.axis['top'].major_ticklabels.set_size(12)
+
+    for j, _ in enumerate(grid):
+        if j < 3:
+            host = hostL
+            par = parL
+            par_flux = 'remin_S'
+        else:
+            host = hostR
+            par = parR
+            par_flux = 'sinkdiv_L'
+        if j == 0:
+            depths = 0, grid[j]
+        else:
+            depths = grid[j-1], grid[j]
+
+        host.scatter(
+            flux_dict[inversion]['dvm'][j][0]/thick[j], np.mean(depths),
+            marker='o', c=blue, s=14, zorder=3, lw=0.7)
+        host.fill_betweenx(
+            depths,
+            (flux_dict[inversion]['dvm'][j][0] - flux_dict[inversion]['dvm'][j][1])/thick[j],
+            (flux_dict[inversion]['dvm'][j][0] + flux_dict[inversion]['dvm'][j][1])/thick[j],
+            color=blue, alpha=0.25)
+        par.scatter(
+            flux_dict[inversion][par_flux][j][0]/thick[j], np.mean(depths),
+            marker='o', c=orange, s=14, zorder=3, lw=0.7)
+        par.fill_betweenx(
+            depths,
+            (flux_dict[inversion][par_flux][j][0] - flux_dict[inversion][par_flux][j][1])/thick[j],
+            (flux_dict[inversion][par_flux][j][0] + flux_dict[inversion][par_flux][j][1])/thick[j],
+            color=orange, alpha=0.25)
+    for ax in (hostL, hostR):
+        ax.set_yticks([0, 100, 200, 300, 400, 500])
+        ax.invert_yaxis()
+        ax.set_ylim(top=0, bottom=510)
+        ax.axhline(100, ls=':', c=black)
+
+fig.savefig('../../results/exports/figures/Figure12.pdf')
 plt.close()
