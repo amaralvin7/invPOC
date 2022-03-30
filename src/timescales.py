@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 from itertools import product
+from sympy import symbols
 
 from src.budgets import eval_sym_expression
 
 def calculate_residence_times(
     inventories_sym, int_fluxes_sym, int_fluxes, residuals_sym, residuals,
-    tracers, params, state_elements, Ckp1, zone_layers):
+    tracers, params, state_elements, Ckp1, zone_layers, umz_start):
     
     res_times = {tracer:{} for tracer in inventories_sym}
 
     for (tracer, z) in product(res_times, zone_layers):
         inventory = inventories_sym[tracer][z]
         fluxes = sum_of_fluxes(
-            tracer, z, int_fluxes_sym, int_fluxes, residuals_sym, residuals)
+            tracer, z, int_fluxes_sym, int_fluxes, residuals_sym, residuals,
+            umz_start)
         res_times[tracer][z] = eval_sym_expression(
             inventory / fluxes, state_elements, Ckp1, tracers=tracers,
             residuals=residuals, params=params)
@@ -20,12 +22,13 @@ def calculate_residence_times(
     return res_times
 
 def sum_of_fluxes(
-    tracer, z, int_fluxes_sym, int_fluxes, residuals_sym, residuals):
+    tracer, z, int_fluxes_sym, int_fluxes, residuals_sym, residuals,
+    umz_start):
     
     fluxes_in = {'POCS': ['production', 'disaggregation'],
                  'POCL': ['aggregation']}
-    
     sum_of_fluxes = 0
+    in_umz = (z == 'UMZ' or (isinstance(z, int) and z >= umz_start))
     
     for f in fluxes_in[tracer]:
         sum_of_fluxes += int_fluxes_sym[f][z]
@@ -33,7 +36,7 @@ def sum_of_fluxes(
         sum_of_fluxes += -int_fluxes_sym[f'sinkdiv_{tracer[-1]}'][z]
     if residuals[tracer][z][0] > 0:
         sum_of_fluxes += residuals_sym[tracer][z]
-    if tracer == 'POCL' and z in ('UMZ', 3, 4, 5, 6):
+    if tracer == 'POCL' and in_umz:
         sum_of_fluxes += int_fluxes_sym['dvm'][z]
     
     return sum_of_fluxes
@@ -57,5 +60,5 @@ def calculate_turnover_times(
             turnover[t][z][f] = eval_sym_expression(
                 inventory / flux, state_elements, Ckp1, tracers=tracers,
                 params=params)
-    
+
     return turnover

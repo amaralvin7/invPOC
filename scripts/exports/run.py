@@ -69,7 +69,7 @@ def run_model(priors_from, gamma, rel_err):
 
     residence_times = timescales.calculate_residence_times(
         inventories_sym, int_fluxes_sym, int_fluxes, residuals_sym, residuals,
-        tracers, params, state_elements, Ckp1, zone_layers)
+        tracers, params, state_elements, Ckp1, zone_layers, umz_start)
 
     turnover_times = timescales.calculate_turnover_times(
         inventories_sym, int_fluxes_sym, int_fluxes, tracers, params,
@@ -96,7 +96,7 @@ if __name__ == '__main__':
     gammas = (0.5, 1, 5, 10)
     rel_errs = (0.1, 0.2, 0.5, 1)
 
-    processes = 16
+    processes = 32
     pool = Pool(processes)
     pool.starmap(run_model, product(study_sites, gammas, rel_errs))
 
