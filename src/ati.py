@@ -32,7 +32,7 @@ def calculate_cost(Co, xo, x):
 
 def find_solution(
     tracers, state_elements, equation_elements, xo, Co, grid, zg, mld,
-    productionbool, priors_from, station):
+    productionbool, umz_start, priors_from, station):
 
     max_iterations = 200
     convergence_evolution = []
@@ -43,7 +43,7 @@ def find_solution(
     for count in range(max_iterations):
         f, F = evaluate_model_equations(
             tracers, state_elements, equation_elements, xk, grid, zg, mld,
-            productionbool)
+            productionbool, umz_start)
 
         xkp1, CoFT, FCoFTi = calculate_xkp1(Co, xo, xk, f, F)
         cost = calculate_cost(Co, xo, xkp1)

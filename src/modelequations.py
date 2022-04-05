@@ -3,7 +3,7 @@ import sympy as sym
 
 def evaluate_model_equations(
     tracers, state_elements, equation_elements, xk, grid, zg, mld,
-    productionbool):
+    productionbool, umz_start):
     
     n_tracer_elements = len(tracers) * len(grid)
     n_state_elements = len(state_elements)
@@ -13,7 +13,8 @@ def evaluate_model_equations(
 
     for i, element in enumerate(equation_elements):
         tracer, layer = element.split('_')
-        y = equation_builder(tracer, int(layer), grid, zg, mld, productionbool)
+        y = equation_builder(tracer, int(layer), grid, zg, mld, productionbool,
+                             umz_start)
         x_sym, x_num, x_ind = extract_equation_variables(state_elements, y, xk)
         f[i] = sym.lambdify(x_sym, y)(*x_num)
         for j, x in enumerate(x_sym):
@@ -37,7 +38,7 @@ def extract_equation_variables(state_elements, y, xk):
 
     return x_symbolic, x_numerical, x_indices
 
-def equation_builder(tracer, layer, grid, zg, mld, productionbool):
+def equation_builder(tracer, layer, grid, zg, mld, productionbool, umz_start):
 
     zi = grid[layer]
     zim1 = grid[grid.index(zi) - 1] if layer > 0 else 0
@@ -71,7 +72,7 @@ def equation_builder(tracer, layer, grid, zg, mld, productionbool):
             eq = (-wl*Pli + wlm1*Plim1 + B2p*Psa**2*h - (Bm2 + Bm1l)*Pla*h
                   + RPli)
             if not in_EZ:
-                eq += dvm_egestion(B3, a, zm, zg, zi, zim1, grid)
+                eq += dvm_egestion(B3, a, zm, zg, zi, zim1, grid, umz_start)
 
     return eq
 
@@ -85,11 +86,10 @@ def production(productionbool, layer, Po, Lp, zi, zim1, mld):
         
     return Lp*Po*(sym.exp(-zim1/Lp) - sym.exp(-zi/Lp))
 
-def dvm_egestion(B3, a, zm, zg, zi, zim1, grid):
+def dvm_egestion(B3, a, zm, zg, zi, zim1, grid, umz_start):
     
-    EZ_layers = list(range(grid.index(zg) + 1))
-    thick_EZ_layers = np.diff((0,) + grid[:len(EZ_layers)])
-    ps_syms = [sym.symbols(f'POCS_{l}') for l in EZ_layers]
+    thick_EZ_layers = np.diff((0,) + grid[:umz_start])
+    ps_syms = [sym.symbols(f'POCS_{l}') for l in list(range(umz_start))]
 
     Ps_avg = ps_syms[0] * thick_EZ_layers[0]
     for i, thick in enumerate(thick_EZ_layers[1:]):

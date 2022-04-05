@@ -17,6 +17,7 @@ from src.ati import find_solution
 mld = 30  # mixed layer depth
 zg = 100  # grazing zone depth
 grid = (30, 50, 100, 150, 200, 330, 500)
+umz_start = grid.index(zg) + 1
 layers = tuple(range(len(grid)))
 zone_layers = ('EZ', 'UMZ') + layers
 thick = diff((0,) + grid)
@@ -35,7 +36,7 @@ def run_model(priors_from, gamma, rel_err):
 
     ati_results = find_solution(
         tracers, state_elements, equation_elements, xo, Co, grid, zg, mld,
-        True, priors_from, None)  # last 2 args just for debugging GT inversions, delete later
+        True, umz_start, priors_from, None)  # last 2 args just for debugging GT inversions, delete later
     xhat, Ckp1, _, _ = ati_results
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, layers)
@@ -44,8 +45,6 @@ def run_model(priors_from, gamma, rel_err):
     output.merge_by_keys(tracer_estimates, tracers)
     output.merge_by_keys(param_estimates, params)
     output.merge_by_keys(residual_estimates, residuals)
-
-    umz_start = grid.index(zg) + 1
 
     residuals_sym = budgets.get_symbolic_residuals(
         residuals, umz_start, layers)

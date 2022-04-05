@@ -2,9 +2,11 @@ import sympy as sym
 import numpy as np
 
 from src.budgets import eval_sym_expression
+from src.modelequations import dvm_egestion
 """
-todo: combine for loop statements in get_symbolic_int_fluxes
-        (it is the way it is to preserve order in original output file)
+todo:
+- combine for loop statements in get_symbolic_int_fluxes
+(it is the way it is to preserve order in original output file)
 """
 
 def get_symbolic_int_fluxes(umz_start, layers, thick, grid, mld, zg):
@@ -128,13 +130,7 @@ def get_symbolic_dvm(umz_start, layers, thick, grid, zg):
     for l in layers[umz_start:]:
         zi = grid[l]
         zim1 = grid[l - 1]
-        ps_0, ps_1, ps_2 = sym.symbols('POCS_0 POCS_1 POCS_2')
-        B3Ps_av = (B3/zg)*(ps_0*thick[0] + (ps_0 + ps_1)/2*thick[1]
-                           + (ps_1 + ps_2)/2*thick[2])
-        co = np.pi/(2*(zm - zg))*a*zg
-        profile.append(B3Ps_av*co*((zm - zg)/np.pi*(
-            sym.cos(np.pi*(zim1 - zg)/(zm - zg))
-            - sym.cos(np.pi*(zi - zg)/(zm - zg)))))
+        profile.append(dvm_egestion(B3, a, zm, zg, zi, zim1, grid, umz_start))
     
     return profile_to_dict(profile, umz_start)
 
