@@ -25,7 +25,7 @@ def load_poc_data():
                                     'Latitudedegrees_north', 
                                     'Longitudedegrees_east'))
 
-    # Sr_SPT_pM has NaN for intercal samples, useful for dropping later
+    # SPM_SPT_pM has NaN for intercal samples, useful for dropping later
     cols = ('SPM_SPT_ugL', 'POC_SPT_uM', 'POC_LPT_uM')
     
     values = pd.read_csv(path.join(src_parent_path, 'data/values_v9.csv'),
@@ -34,16 +34,15 @@ def load_poc_data():
                          usecols=cols)
     flags = pd.read_csv(path.join(src_parent_path, 'data/flag_v9.csv'),
                         usecols=cols)
-    
+
     merged = merge_poc_data(metadata, values, errors, flags)
     merged.dropna(inplace=True)
-    merged.drop('SPM_SPT_ugL', axis=1, inplace=True)
+    merged = merged.loc[:, ~merged.columns.str.startswith('SPM_SPT_ugL')]
 
     # station 18.3 excludes upper 500m
     merged = merged[merged['station'] != 18.3]
+    merged = merged[merged['depth'] < 1000]
 
-    merged = merged.loc[merged['depth'] < 1000]
-    
     return merged
 
 
