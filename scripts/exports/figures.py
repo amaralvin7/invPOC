@@ -6,6 +6,7 @@ import mpl_toolkits.axisartist as AA
 from mpl_toolkits.axes_grid1 import host_subplot
 import sys
 from src.colors import *
+import src.exports.data as data
 
 grid = (30, 50, 100, 150, 200, 330, 500)
 thick = np.diff((0,) + grid)
@@ -14,6 +15,119 @@ with open('../../results/exports/NA_0.5_0.5.pkl', 'rb') as pickled:
             NA_results = pickle.load(pickled)
 with open('../../results/exports/SP_0.5_0.5.pkl', 'rb') as pickled:
             SP_results = pickle.load(pickled)
+
+############################
+#FIGURE 1, hydrography data
+############################
+hydro_df = data.load_data()['hydrography']
+    
+fig = plt.figure(figsize=(7,5))
+host1 = host_subplot(121, axes_class=AA.Axes, figure=fig)
+host1.axis['right'].toggle(all=False)
+plt.subplots_adjust(top=0.75, right=0.7, bottom=0.1)
+par1 = host1.twiny()
+par2 = host1.twiny()
+
+par1.axis['top'].toggle(all=True)
+offset = 40
+new_fixed_axis = par2.get_grid_helper().new_fixed_axis
+par2.axis['top'] = new_fixed_axis(loc='top',axes=par2,offset=(0, offset))
+par2.axis['top'].toggle(all=True)
+
+host1.set_ylim(0, 520)
+host1.invert_yaxis()
+host1.set_xlim(23.7, 27.2)
+par1.set_xlim(3, 15)
+par2.set_xlim(31.5, 34.5)
+
+host1.set_ylabel('Depth (m)')
+host1.set_xlabel('$\sigma_{\\theta}$ (kg m$^{-3}$)')
+par1.set_xlabel('Temperature (°C)')
+par2.set_xlabel('Salinity')
+
+host1.plot(hydro_df['sigtheta_mean'],hydro_df['depth'],c=orange,marker='o',ms=2,ls='none')
+par1.plot(hydro_df['temp_mean'],hydro_df['depth'],c=vermillion,marker='o',ms=2,ls='none')
+par2.plot(hydro_df['sal_mean'],hydro_df['depth'],c=blue,marker='o',ms=2,ls='none')
+
+host1.fill_betweenx(hydro_df['depth'], hydro_df['sigtheta_mean']-hydro_df['sigtheta_sd'],
+                    hydro_df['sigtheta_mean']+hydro_df['sigtheta_sd'], alpha=0.3, color=orange)
+par1.fill_betweenx(hydro_df['depth'], hydro_df['temp_mean']-hydro_df['temp_sd'],
+                    hydro_df['temp_mean']+hydro_df['temp_sd'], alpha=0.3, color=vermillion)
+par2.fill_betweenx(hydro_df['depth'], hydro_df['sal_mean']-hydro_df['sal_sd'],
+                    hydro_df['sal_mean']+hydro_df['sal_sd'], alpha=0.3, color=blue)
+
+host1.axis['bottom'].label.set_color(orange)
+par1.axis['top'].label.set_color(vermillion)
+par2.axis['top'].label.set_color(blue)
+
+host1.axis['bottom', 'left'].label.set_fontsize(14)
+par1.axis['top'].label.set_fontsize(14)
+par2.axis['top'].label.set_fontsize(14)
+
+host1.axis['bottom','left'].major_ticklabels.set_fontsize(11)
+par1.axis['top'].major_ticklabels.set_fontsize(11)
+par2.axis['top'].major_ticklabels.set_fontsize(11)
+
+host1.axis['bottom', 'left'].major_ticks.set_ticksize(6)
+host1.axis['left'].major_ticks.set_tick_out('out')
+par1.axis['top'].major_ticks.set_ticksize(6)
+par2.axis['top'].major_ticks.set_ticksize(6)
+
+host2 = host_subplot(122, axes_class=AA.Axes, figure=fig)
+host2.axis['right'].toggle(all=False)
+plt.subplots_adjust(right=0.95)
+par3 = host2.twiny()
+par4 = host2.twiny()
+
+par3.axis['top'].toggle(all=True)
+offset = 40
+new_fixed_axis = par4.get_grid_helper().new_fixed_axis
+par4.axis['top'] = new_fixed_axis(loc='top',axes=par4,offset=(0, offset))
+par4.axis['top'].toggle(all=True)
+
+host2.set_ylim(0, 520)
+host2.invert_yaxis()
+host2.yaxis.set_ticklabels([])
+par3.set_xlim(-0.02, 0.4)
+par4.set_xlim(0, 320)
+
+host2.set_xlabel('$c_P$ (m$^{-1}$)')
+par3.set_xlabel('Chlorophyll (mg m$^{-3}$)')
+par4.set_xlabel('Dissolved O$_2$ (µmol kg$^{-1}$)')
+
+host2.plot(hydro_df['cp_mean'],hydro_df['depth'],c=radish,marker='o',ms=2,ls='none',zorder=10)
+par3.plot(hydro_df['chl_mean'],hydro_df['depth'],c=green,marker='o',ms=2,ls='none')
+par4.plot(hydro_df['o2_mean'],hydro_df['depth'],c=sky,marker='o',ms=2,ls='none')
+
+host2.fill_betweenx(hydro_df['depth'], hydro_df['cp_mean']-hydro_df['cp_sd'],
+                    hydro_df['cp_mean']+hydro_df['cp_sd'], alpha=0.3, color=radish,zorder=10)
+par3.fill_betweenx(hydro_df['depth'], hydro_df['chl_mean']-hydro_df['chl_sd'],
+                    hydro_df['chl_mean']+hydro_df['chl_sd'], alpha=0.3, color=green)
+par4.fill_betweenx(hydro_df['depth'], hydro_df['o2_mean']-hydro_df['o2_sd'],
+                    hydro_df['o2_mean']+hydro_df['o2_sd'], alpha=0.3, color=blue)
+
+host2.axis['bottom'].label.set_color(radish)
+par3.axis['top'].label.set_color(green)
+par4.axis['top'].label.set_color(sky)
+
+host2.axis['bottom', 'left'].label.set_fontsize(14)
+par3.axis['top'].label.set_fontsize(14)
+par4.axis['top'].label.set_fontsize(14)
+
+host2.axis['bottom','left'].major_ticklabels.set_fontsize(11)
+par3.axis['top'].major_ticklabels.set_fontsize(11)
+par4.axis['top'].major_ticklabels.set_fontsize(11)
+
+host2.axis['bottom', 'left'].major_ticks.set_ticksize(6)
+host2.axis['left'].major_ticks.set_tick_out('out')
+par3.axis['top'].major_ticks.set_ticksize(6)
+par4.axis['top'].major_ticks.set_ticksize(6)
+
+for ax in (host1, host2):
+    for d in [30, 50, 100, 150, 200, 330, 500]:
+        ax.axhline(d, c='k', ls=':', zorder=1)
+fig.savefig('../../results/exports/figures/Figure1.pdf')
+plt.close()
 
 ############################
 #FIGURE 10, sinking fluxes
