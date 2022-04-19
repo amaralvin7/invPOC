@@ -128,15 +128,15 @@ def load_npp_data():
     src_parent_path = get_src_parent_path()
     
     df = pd.read_csv(path.join(src_parent_path,'data/npp.csv'))
-    dates = list(df.columns[2:])
+    dates = [datetime.strptime(d, '%d-%b-%y') for d in df.columns[2:]]
 
     npp_df = df[['Station', 'Sampling Date']].copy()
     npp_df['mgC_m2_d'] = 0.0
     for i, r in npp_df.iterrows():
         date = datetime.strptime(r['Sampling Date'], '%m/%d/%y')
-        closest = min(
-            dates, key=lambda x: abs(datetime.strptime(x, '%d-%b-%y') - date))
-        npp_df.at[i, 'mgC_m2_d'] = df.at[i, closest]
+        prior_dates = [d for d in dates if d <= date]
+        closest = min(prior_dates, key=lambda x: abs(x - date))
+        npp_df.at[i, 'mgC_m2_d'] = df.at[i, closest.strftime('%-d-%b-%y')]
 
     npp_df['npp'] = npp_df['mgC_m2_d']/MMC
     npp_df.drop('mgC_m2_d', axis=1, inplace=True)
