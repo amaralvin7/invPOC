@@ -65,13 +65,13 @@ def merge_poc_data(metadata, values, errors, flags):
     
     return data
 
-def get_station_poc(data, station):
+def get_station_poc(data, station, maxdepth):
 
     raw_station_data = data[data['station'] == station].copy()
     raw_station_data.sort_values('depth', inplace=True, ignore_index=True)
 
     clean_station_data = clean_by_flags(raw_station_data)
-    cleaned = clean_station_data.loc[clean_station_data['depth'] < 600]
+    cleaned = clean_station_data.loc[clean_station_data['depth'] < maxdepth]
     
     return cleaned
 

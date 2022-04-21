@@ -17,6 +17,7 @@ from src.ati import find_solution
 
 relative_err = 1
 gamma = 0.2
+maxdepth = 600
 
 poc_data = data.load_poc_data()
 mixed_layer_depths = data.load_mixed_layer_depths()
@@ -33,7 +34,7 @@ def invert_station(priors_from, station):
 
     mld = mixed_layer_depths[station]
     ppz = ppz_data[station]
-    station_poc = data.get_station_poc(poc_data, station)
+    station_poc = data.get_station_poc(poc_data, station, maxdepth)
     tracers = state.define_tracers(station_poc)
     residuals = state.define_residuals(resid_prior_err, gamma)
     params = state.define_params(
