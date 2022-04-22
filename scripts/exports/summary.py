@@ -25,6 +25,8 @@ with open(output_file, 'w') as f:
         print('Parameter Estimates', file=f)
         print('+++++++++++++++++++++++++++', file=f)
         for p in results['params']:
+            if p == 'B2':
+                continue
             if results['params'][p]['dv']:
                 for l in layers:
                     est = results['params'][p]['posterior'][l]

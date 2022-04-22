@@ -73,6 +73,8 @@ def run_model(priors_from, gamma, rel_err):
     turnover_times = timescales.calculate_turnover_times(
         inventories_sym, int_fluxes_sym, int_fluxes, tracers, params,
         state_elements, Ckp1, zone_layers)
+    
+    output.calculate_B2(grid, state_elements, Ckp1, tracers, params)
 
     to_pickle = (tracers, params, residuals, inventories, int_fluxes,
                  sink_fluxes, residence_times, turnover_times)
@@ -95,8 +97,7 @@ if __name__ == '__main__':
     gammas = (0.5, 1, 5, 10)
     rel_errs = (0.1, 0.2, 0.5, 1)
 
-    processes = 32
-    pool = Pool(processes)
+    pool = Pool()
     pool.starmap(run_model, product(study_sites, gammas, rel_errs))
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
