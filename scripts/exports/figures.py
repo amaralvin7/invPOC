@@ -711,7 +711,15 @@ plt.close()
 #FIGURE 11, volumetric fluxes
 ######################################################
 
-flux_dict = {'NA': NA_results['int_fluxes'], 'SP': SP_results['int_fluxes']}
+text = {'sinkdiv_S': '$\\frac{d}{dz}w_SP_S$',
+        'sinkdiv_L': '$\\frac{d}{dz}w_LP_L$',
+        'remin_S': '$\\beta_{-1,S}P_S$',
+        'remin_L': '$\\beta_{-1,L}P_L$',
+        'aggregation': '$\\beta^,_2P^2_S$',
+        'disaggregation': '$\\beta_{-2}P_L$',
+        'production': '${\.P_S}$'}
+
+results_dict = {'NA': NA_results, 'SP': SP_results}
 
 fig, (na_axs, sp_axs) = plt.subplots(2, 4, figsize=(7, 6))
 fig.subplots_adjust(left=0.14, right=0.95, top=0.85, bottom=0.17, wspace=0.1)
@@ -727,7 +735,7 @@ xlims = {'sinkdiv_S': (-0.2, 0.2), 'remin_S': (-0.05, 0.3),
          'production':(-0.01, 0.25)}
 
 
-for inversion, result in flux_dict.items():
+for inversion, inv_result in results_dict.items():
     
     if inversion == 'NA':
         axs = na_axs
@@ -750,6 +758,8 @@ for inversion, result in flux_dict.items():
             ax.set_xlim(xlims[pr[0]])
             
         if pr[0] != 'production':
+
+            result = inv_result['int_fluxes']
             
             for j in range(len(grid)):
 
@@ -761,7 +771,7 @@ for inversion, result in flux_dict.items():
                 ax.scatter(
                     result[pr[0]][j][0]/thick[j], np.mean(depths),
                     marker='o', c=blue, s=14, zorder=3, lw=0.7,
-                    label='')
+                    label=text[pr[0]])
                 ax.fill_betweenx(
                     depths,
                     (result[pr[0]][j][0] - result[pr[0]][j][1])/thick[j],
@@ -770,7 +780,7 @@ for inversion, result in flux_dict.items():
                 ax.scatter(
                     result[pr[1]][j][0]/thick[j], np.mean(depths),
                     marker='o', c=orange, s=14, zorder=3, lw=0.7,
-                    label='')
+                    label=text[pr[1]])
                 ax.fill_betweenx(
                     depths,
                     (result[pr[1]][j][0] - result[pr[1]][j][1])/thick[j],
@@ -780,23 +790,22 @@ for inversion, result in flux_dict.items():
                 ax.axvline(0, ls=':', c=black, zorder=1)
 
         else:
+            result = inv_result['production_profile']
             depths = grid
             df = all_data['NPP']
             H = 30
             npp = df.loc[df['target_depth'] >= H]['NPP']
             depth = df.loc[df['target_depth'] >= H]['target_depth']
-            ax.scatter(npp/MMC, depth, c=orange,
-                        alpha=0.5, label='NPP', s=10)
-            # ax.scatter(
-            #     run.flux_profiles[pr[0]]['est'], depths, marker='o',
-            #     c=blue, s=14, label=eval(f'model.{pr[0]}.label'),
-            #     zorder=3, lw=0.7)
-            # ax.errorbar(
-            #     run.flux_profiles[pr[0]]['est'], depths, fmt='o',
-            #     xerr=run.flux_profiles[pr[0]]['err'], ecolor=blue,
-            #     elinewidth=0.5, c=blue, ms=1.5, capsize=2,
-            #     label=eval(f'model.{pr[0]}.label'), fillstyle='none',
-            #     markeredgewidth=0.5)
+            ax.scatter(npp/MMC, depth, c=orange, alpha=0.5, label='NPP', s=10)
+            ax.scatter(
+                [x[0] for x in result], depths, marker='o', c=blue, s=14,
+                label=text[pr[0]], zorder=3, lw=0.7)
+            ax.errorbar(
+                [x[0] for x in result], grid, fmt='o',
+                xerr=[x[1] for x in result], ecolor=blue, elinewidth=0.5,
+                c=blue, ms=1.5, capsize=2, fillstyle='full',
+                markeredgewidth=0.5)
+
         if ylabel == 'NA inversion':
             handles, labels = ax.get_legend_handles_labels()
             unique = [
@@ -814,6 +823,8 @@ plt.close()
 ######################################################
 #FIGURE 12, DVM comparisons
 ######################################################
+
+flux_dict = {'NA': NA_results['int_fluxes'], 'SP': SP_results['int_fluxes']}
 
 fig = plt.figure()
 fig.text(0.025, 0.5, 'Depth (m)', fontsize=14, ha='center',

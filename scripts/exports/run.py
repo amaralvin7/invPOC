@@ -63,8 +63,11 @@ def run_model(priors_from, gamma, rel_err):
         int_fluxes_sym, state_elements, Ckp1, layers, tracers=tracers,
         params=params)
 
-    sink_fluxes = fluxes.calculate_sinking_fluxes(
+    sink_fluxes = fluxes.sinking_fluxes(
         layers, state_elements, Ckp1, tracers, params)
+    
+    production_profile = fluxes.production_prof(
+        layers, state_elements, Ckp1, tracers, params, mld, grid)
 
     residence_times = timescales.calculate_residence_times(
         inventories_sym, int_fluxes_sym, int_fluxes, residuals_sym, residuals,
@@ -82,6 +85,7 @@ def run_model(priors_from, gamma, rel_err):
     to_pickle = {'tracers': tracers, 'params': params, 'residuals': residuals,
                  'inventories': inventories, 'int_fluxes': int_fluxes,
                  'sink_fluxes': sink_fluxes,
+                 'production_profile': production_profile,
                  'residence_times': residence_times,
                  'turnover_times': turnover_times}
     

@@ -134,7 +134,7 @@ def get_symbolic_dvm(umz_start, layers, thick, grid, zg):
     
     return profile_to_dict(profile, umz_start)
 
-def calculate_sinking_fluxes(layers, state_elements, Ckp1, tracers, params):
+def sinking_fluxes(layers, state_elements, Ckp1, tracers, params):
     
     sink_fluxes = {'S': [], 'L': [], 'T': []}
 
@@ -152,5 +152,16 @@ def calculate_sinking_fluxes(layers, state_elements, Ckp1, tracers, params):
     
     return sink_fluxes
 
-        
-        
+def production_prof(layers, state_elements, Ckp1, tracers, params, mld, grid):
+
+    profile = []
+    Po, Lp = sym.symbols('Po Lp')
+
+    for l in layers:
+        z = grid[l]
+        y = Po*sym.exp(-(z - mld)/Lp)
+        profile.append(
+            eval_sym_expression(y, state_elements, Ckp1, tracers=tracers,
+            params=params))
+    
+    return profile
