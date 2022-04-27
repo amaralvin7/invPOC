@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from os import path
+import os
 from itertools import product
 from scipy.interpolate import interp1d
 from datetime import datetime
@@ -11,7 +11,7 @@ from src.constants import MMC
 
 def get_src_parent_path():
     
-    module_path = path.abspath(__file__)
+    module_path = os.path.abspath(__file__)
     src_parent_path = module_path.split('src')[0]
     
     return src_parent_path
@@ -20,19 +20,20 @@ def load_poc_data():
     
     src_parent_path = get_src_parent_path()
     
-    metadata = pd.read_csv(path.join(src_parent_path,'data/values_v9.csv'),
+    metadata = pd.read_csv(os.path.join(src_parent_path,'data/values_v9.csv'),
                            usecols=('GTNum', 'GTStn', 'CorrectedMeanDepthm',
                                     'Latitudedegrees_north', 
-                                    'Longitudedegrees_east'))
+                                    'Longitudedegrees_east',
+                                    'DateatMidcastGMTyyyymmdd'))
 
     # SPM_SPT_pM has NaN for intercal samples, useful for dropping later
     cols = ('SPM_SPT_ugL', 'POC_SPT_uM', 'POC_LPT_uM')
     
-    values = pd.read_csv(path.join(src_parent_path, 'data/values_v9.csv'),
+    values = pd.read_csv(os.path.join(src_parent_path, 'data/values_v9.csv'),
                          usecols=cols)
-    errors = pd.read_csv(path.join(src_parent_path, 'data/error_v9.csv'),
+    errors = pd.read_csv(os.path.join(src_parent_path, 'data/error_v9.csv'),
                          usecols=cols)
-    flags = pd.read_csv(path.join(src_parent_path, 'data/flag_v9.csv'),
+    flags = pd.read_csv(os.path.join(src_parent_path, 'data/flag_v9.csv'),
                         usecols=cols)
 
     merged = merge_poc_data(metadata, values, errors, flags)
@@ -51,7 +52,8 @@ def merge_poc_data(metadata, values, errors, flags):
     rename_cols = {'GTStn': 'station', 'CorrectedMeanDepthm': 'depth',
                    'POC_SPT_uM': 'POCS', 'POC_LPT_uM': 'POCL',
                    'Latitudedegrees_north': 'latitude',
-                   'Longitudedegrees_east': 'longitude'}
+                   'Longitudedegrees_east': 'longitude',
+                   'DateatMidcastGMTyyyymmdd': 'datetime'}
     
     
     for df in (metadata, values, errors, flags):
@@ -94,40 +96,67 @@ def clean_by_flags(raw):
 def load_modis_data():
     
     src_parent_path = get_src_parent_path()
-    # 8-day averages, 4km resolution, averaged over 20180926-20181122
-    modis_data = nc.Dataset(path.join(src_parent_path,'data/modis_kd.nc'))
-    
+    modis_path = os.path.join(src_parent_path,'data/modis')
+    filenames = [f for f in os.listdir(modis_path) if '.nc' in f]
+
+    modis_data = {}
+
+    for f in filenames:
+        date = f.split('.')[3]
+        modis_data[date] = nc.Dataset(os.path.join(modis_path, f))
+  
     return modis_data
 
 def get_Lp_priors(poc_data):
 
-    modis_data = load_modis_data()
-    modis_lat = modis_data.variables['lat'][:]
-    modis_lon = modis_data.variables['lon'][:]
-    kd = modis_data.variables['MODISA_L3m_KD_8d_4km_2018_Kd_490'][:,:]
-
     Lp_priors = {}
+    df = poc_data.copy()
+    df = df[df['depth'] < 50]
+    df = df[['station', 'latitude', 'longitude', 'datetime']]
+    df.drop_duplicates(subset=['station'], inplace=True)
+    df.reset_index(inplace=True, drop=True)
+
+    modis_data = load_modis_data()
+    modis_dates = [datetime.strptime(d,'%Y%m%d') for d in modis_data]
     
-    for s in poc_data['station'].unique():
+    for i, row in df.iterrows(): 
         
-        raw_station_data = poc_data.loc[poc_data['station'] == s]
-        pump_lat = round(raw_station_data.iloc[0]['latitude'], 1)
-        pump_lon = round(raw_station_data.iloc[0]['longitude'], 1)
+        date = datetime.strptime(row['datetime'], '%m/%d/%y %H:%M')
+        prev_modis_dates = [d for d in modis_dates if d <= date]
+        df.at[i, 'modis_date'] = min(
+            prev_modis_dates, key=lambda x: abs(x - date))
+        modis_8day = modis_data[df.at[i, 'modis_date'].strftime('%Y%m%d')]
+        kd_8day = modis_8day.variables['MODISA_L3m_KD_8d_4km_2018_Kd_490'][0]
+
+        station_coord = np.array((row['latitude'], row['longitude']))       
+        modis_lats = list(modis_8day.variables['lat'][:])
+        modis_lons = list(modis_8day.variables['lon'][:])
+        modis_coords = list(product(modis_lats, modis_lons))
+        distances = np.linalg.norm(modis_coords - station_coord, axis=1)
+        modis_coords_sorted = [
+            x for _, x in sorted(zip(distances, modis_coords))]
         
-        modis_lat_index = min(
-            range(len(modis_lat)), key=lambda i: abs(modis_lat[i] - pump_lat))
-        modis_lon_index = min(
-            range(len(modis_lon)), key=lambda i: abs(modis_lon[i] - pump_lon))
-     
-        Lp_priors[s] = 1/kd[modis_lat_index, modis_lon_index]
-        
+        j = 0
+        while True:
+            modis_lat_index = modis_lats.index(modis_coords_sorted[j][0])
+            modis_lon_index = modis_lons.index(modis_coords_sorted[j][1])
+            station_kd = kd_8day[modis_lat_index, modis_lon_index]
+            if station_kd:
+                break
+            j += 1
+
+        df.at[i, 'modis_lat'] = modis_coords_sorted[j][0]
+        df.at[i, 'modis_lon'] = modis_coords_sorted[j][1]
+        df.at[i, 'Lp'] = 1/station_kd
+        Lp_priors[row['station']] = 1/station_kd
+    
     return Lp_priors
 
 def load_npp_data():
     
     src_parent_path = get_src_parent_path()
     
-    df = pd.read_csv(path.join(src_parent_path,'data/npp.csv'))
+    df = pd.read_csv(os.path.join(src_parent_path,'data/npp.csv'))
     dates = [datetime.strptime(d, '%d-%b-%y') for d in df.columns[2:]]
 
     npp_df = df[['Station', 'Sampling Date']].copy()
@@ -149,7 +178,7 @@ def load_npp_data():
 def load_mixed_layer_depths():
     
     src_parent_path = get_src_parent_path()
-    mld_df = pd.read_excel(path.join(src_parent_path,'data/gp15_mld.xlsx'))
+    mld_df = pd.read_excel(os.path.join(src_parent_path,'data/gp15_mld.xlsx'))
     mld_dict = dict(zip(mld_df['Station No'], mld_df['MLD']))
     # npp_std = np.std(list(npp_dict.values()), ddof=1)
 
@@ -158,7 +187,7 @@ def load_mixed_layer_depths():
 def load_ppz_data():
     
     src_parent_path = get_src_parent_path()
-    ppz_df = pd.read_excel(path.join(src_parent_path,'data/gp15_ppz.xlsx'))
+    ppz_df = pd.read_excel(os.path.join(src_parent_path,'data/gp15_ppz.xlsx'))
     ppz_dict = {}
     
     for s in ppz_df['Station'].unique():
