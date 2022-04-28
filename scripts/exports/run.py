@@ -38,6 +38,7 @@ def run_model(priors_from, gamma, rel_err):
         tracers, state_elements, equation_elements, xo, Co, grid, zg, mld,
         True, umz_start, priors_from, None)  # last 2 args just for debugging GT inversions, delete later
     xhat, Ckp1, _, _ = ati_results
+    x_resids = output.normalized_state_residuals(xhat, xo, Co)
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, layers)
     tracer_estimates, residual_estimates, param_estimates = estimates
@@ -78,16 +79,19 @@ def run_model(priors_from, gamma, rel_err):
         state_elements, Ckp1, zone_layers)
     
     output.calculate_B2(grid, state_elements, Ckp1, tracers, params)
-
-    to_pickle = (tracers, params, residuals, inventories, int_fluxes,
-                 sink_fluxes, residence_times, turnover_times)
     
-    to_pickle = {'tracers': tracers, 'params': params, 'residuals': residuals,
-                 'inventories': inventories, 'int_fluxes': int_fluxes,
+    to_pickle = {'tracers': tracers,
+                 'params': params,
+                 'residuals': residuals,
+                 'inventories': inventories,
+                 'int_fluxes': int_fluxes,
                  'sink_fluxes': sink_fluxes,
                  'production_profile': production_profile,
                  'residence_times': residence_times,
-                 'turnover_times': turnover_times}
+                 'turnover_times': turnover_times,
+                 'state_elements': state_elements,
+                 'x_resids': x_resids
+                 }
     
     save_path = f'../../results/exports/{priors_from}_{rel_err}_{gamma}.pkl'
     with open(save_path, 'wb') as file:

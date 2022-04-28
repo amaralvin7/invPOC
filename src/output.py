@@ -1,3 +1,4 @@
+import numpy as np
 from sympy import symbols
 
 from src.budgets import eval_sym_expression
@@ -26,4 +27,10 @@ def calculate_B2(grid, state_elements, Ckp1, tracers, params):
         
         params['B2']['posterior'].append(est)
         params['B2']['posterior_e'].append(err)
+
+def normalized_state_residuals(xhat, xo, Co):
+
+        x_resids = list((xhat - xo)/np.sqrt(np.diag(Co)))
+
+        return x_resids
             

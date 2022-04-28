@@ -916,3 +916,109 @@ for inversion, result in flux_dict.items():
 
 fig.savefig('../../results/exports/figures/Figure12.pdf')
 plt.close()
+
+######################################################
+#FIGURES 13 & 14, budgets
+######################################################
+
+for z, fig_label in (('EZ', 13), ('UMZ', 14)):
+
+    fig, (na_axs, sp_axs) = plt.subplots(2, 2)
+    fig.subplots_adjust(hspace=0.02, wspace=0.1, bottom=0.2, top=0.9)
+    sp_axs[0].set_ylabel('Integrated flux (mmol m$^{-2}$ d$^{-1}$)',
+                            fontsize=14)
+    sp_axs[0].yaxis.set_label_coords(-0.2, 1)
+
+    for inversion, inv_result in results_dict.items():
+        
+        if inversion == 'NA':
+            axs = na_axs
+            [ax.axes.xaxis.set_visible(False) for ax in axs]
+        else:
+            axs = sp_axs
+        ylabel = f'{inversion} inversion'
+
+        int_fluxes = inv_result['int_fluxes']
+        residuals = inv_result['residuals']
+
+        ax1, ax2 = axs
+        ax2.set_ylabel(ylabel, fontsize=14, rotation=270, labelpad=20)
+        ax2.yaxis.set_label_position('right')
+
+        for group in ((ax1, 'S', -1, 1), (ax2, 'L', 1, -1)):
+            ax, sf, agg_sign, dagg_sign = group
+            ax.axhline(0, c='k', lw=1)
+            ax.set_ylim([-16, 15])
+            ax.set_xlabel(f'$P_{sf}$ fluxes', fontsize=14)
+            labels = ['SFD', 'Remin.', 'Agg.', 'Disagg.', 'Resid.']
+            fluxes = [-int_fluxes[f'sinkdiv_{sf}'][z][0],
+                      -int_fluxes[f'remin_{sf}'][z][0],
+                      agg_sign*int_fluxes['aggregation'][z][0],
+                      dagg_sign*int_fluxes['disaggregation'][z][0],
+                      residuals[f'POC{sf}'][z][0]]
+            flux_errs = [int_fluxes[f'sinkdiv_{sf}'][z][1],
+                         int_fluxes[f'remin_{sf}'][z][1],
+                         int_fluxes['aggregation'][z][1],
+                         int_fluxes['disaggregation'][z][1],
+                         residuals[f'POC{sf}'][z][1]]
+
+            if sf == 'S':
+                labels.insert(-1, 'Prod.')
+                fluxes.insert(-1, int_fluxes['production'][z][0])
+                flux_errs.insert(-1, int_fluxes['production'][z][1])
+            else:
+                ax.tick_params(labelleft=False)
+
+            if sf == 'S' and z == 'EZ':
+                labels.insert(-1, 'DVM')
+                fluxes.insert(-1, -int_fluxes['dvm'][z][0])
+                flux_errs.insert(-1, int_fluxes['dvm'][z][1])
+            elif sf == 'L' and z == 'UMZ':
+                labels.insert(-1, 'DVM')
+                fluxes.insert(-1, int_fluxes['dvm'][z][0])
+                flux_errs.insert(-1, int_fluxes['dvm'][z][1])
+
+            ax.bar(list(range(len(fluxes))), fluxes, yerr=flux_errs,
+                    tick_label=labels, color=blue)
+            for tick in ax.get_xticklabels():
+                tick.set_rotation(45)
+
+    fig.savefig(f'../../results/exports/figures/Figure{fig_label}.pdf')
+    plt.close()
+
+######################################################
+#FIGURES S1 & S2, state element residuals
+######################################################
+
+state_elements = NA_results['state_elements']
+eq_resids = []
+
+def normalized_state_residual_plots(x_resids, fig_label):
+
+    eq_resids = []
+
+    j = 0
+    for x in state_elements:
+        if 'R' in x:
+            eq_resids.append(x_resids.pop(j))
+        else:
+            j += 1
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, tight_layout=True)
+    ax1.set_ylabel('Probability density', fontsize=16)
+    ax1.set_xlabel(r'$\frac{\^x_{i}-x_{o,i}}{\sigma_{o,i}}$', fontsize=14)
+    ax2.set_xlabel(r'$\frac{\^{\overline{\varepsilon}h}}'
+                   r'{\sigma_{\overline{\varepsilon}h}}$', fontsize=14)
+
+    ax1.hist(x_resids, density=True, color=blue)
+    ax2.hist(eq_resids, density=True, color=blue)
+
+    fig.savefig(f'../../results/exports/figures/Figure{fig_label}.pdf')
+    plt.close()
+
+normalized_state_residual_plots(NA_results['x_resids'], 'S1')
+normalized_state_residual_plots(SP_results['x_resids'], 'S2')
+
+######################################################
+#FIGURES S3 & S4, sensitivity tests
+######################################################
