@@ -64,6 +64,13 @@ def run_model(priors_from, gamma, rel_err):
         int_fluxes_sym, state_elements, Ckp1, layers, tracers=tracers,
         params=params)
 
+    prior_estimates = unpack_state_estimates(
+        tracers, params, state_elements, xo, Co, layers)
+    prior_tracers, _, prior_params = prior_estimates
+    prior_fluxes = budgets.integrate_by_zone_and_layer(
+        int_fluxes_sym, state_elements, Co, layers, tracers=prior_tracers,
+        params=prior_params)
+
     sink_fluxes = fluxes.sinking_fluxes(
         layers, state_elements, Ckp1, tracers, params)
     
@@ -90,8 +97,8 @@ def run_model(priors_from, gamma, rel_err):
                  'residence_times': residence_times,
                  'turnover_times': turnover_times,
                  'state_elements': state_elements,
-                 'x_resids': x_resids
-                 }
+                 'x_resids': x_resids,
+                 'prior_fluxes': prior_fluxes}
     
     save_path = f'../../results/exports/{priors_from}_{rel_err}_{gamma}.pkl'
     with open(save_path, 'wb') as file:

@@ -21,6 +21,9 @@ with open('../../results/exports/NA_0.5_0.5.pkl', 'rb') as pickled:
             NA_results = pickle.load(pickled)
 with open('../../results/exports/SP_0.5_0.5.pkl', 'rb') as pickled:
             SP_results = pickle.load(pickled)
+            
+results_dict = {'NA': NA_results, 'SP': SP_results}
+Po_prior = NA_results['params']['Po']['prior']
 
 ######################################################
 #FIGURE 1, hydrography data
@@ -298,8 +301,6 @@ text = {'ws': ('$w_S$', 'm d$^{-1}$'), 'wl': ('$w_L$', 'm d$^{-1}$'),
         'Lp': ('$L_P$', 'm'), 'B3': ('$\\beta_3$', 'd$^{-1}$'),
         'a': ('$\\alpha$', None), 'zm': ('$z_m$', 'm')}
 
-param_dict = {'NA': NA_results['params'], 'SP': SP_results['params']}
-
 fig, (na_axs, sp_axs) = plt.subplots(2, 4, figsize=(6.5,4))
 fig.subplots_adjust(left=0.14, right=0.95, top=0.95, bottom=0.15)
 fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center', va='center',
@@ -307,14 +308,14 @@ fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center', va='center',
 
 xlims = {'ws': (0.5, 3.2), 'wl': (9, 31), 'Bm1s': (0, 0.16), 'Bm2':(-1, 3)}
 
-for inversion in param_dict:
+for inversion, inv_result in results_dict.items():
     
     if inversion == 'NA':
         axs = na_axs
         [ax.axes.xaxis.set_ticklabels([]) for ax in axs]
     else:
         axs = sp_axs
-    results = param_dict[inversion]
+    results = inv_result['params']
     ylabel = f'{inversion} inversion'
     dv_params = [p for p in results if results[p]['dv'] and p in xlims]
     
@@ -415,15 +416,13 @@ plt.close()
 #FIGURE 8, residual profiles
 ######################################################
 
-resid_dict = {'NA': NA_results['residuals'], 'SP': SP_results['residuals']}
-
 fig, (na_axs, sp_axs) = plt.subplots(2, 2)
 fig.subplots_adjust(left=0.14, right=0.92, top=0.95, bottom=0.15, wspace=0.1,
                     hspace=0.1)
 fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center', va='center',
          rotation='vertical')
 
-for inversion in resid_dict:
+for inversion, inv_result in results_dict.items():
     
     if inversion == 'NA':
         axs = na_axs
@@ -437,7 +436,7 @@ for inversion in resid_dict:
             '$\\overline{\\varepsilon_{L}}h$ (mmol m$^{-2}$ d$^{-1}$)',
             fontsize=14)
     ylabel = f'{inversion} inversion'
-    results = resid_dict[inversion]
+    results = inv_result['residuals']
         
     for i, t in enumerate(results):
         
@@ -465,7 +464,7 @@ for inversion in resid_dict:
                              (results[t][j][0] - results[t][j][1]),
                              (results[t][j][0] + results[t][j][1]),
                              color=orange, alpha=0.25)
-        prior_err = 0.5*param_dict['NA']['Po']['prior']*30
+        prior_err = 0.5*Po_prior*30
         ax.axvline(prior_err, ls='--', c=blue)
         ax.axvline(-prior_err, ls='--', c=blue)
         ax.axvline(0, ls=':', c=blue)
@@ -508,14 +507,14 @@ capsize = 4
 fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center', va='center',
          rotation='vertical')
 
-for inversion in param_dict:
+for inversion, inv_result in results_dict.items():
     
     if inversion == 'NA':
         axs = na_axs
         [ax.axes.xaxis.set_ticklabels([]) for ax in axs]
     else:
         axs = sp_axs
-    results = param_dict[inversion]
+    results = inv_result['params']
     ylabel = f'{inversion} inversion'
 
     for i, ax in enumerate(axs):
@@ -624,8 +623,6 @@ plt.close()
 #FIGURE 10, sinking fluxes
 ######################################################
 
-flux_dict = {'NA': NA_results['sink_fluxes'], 'SP': SP_results['sink_fluxes']}
-
 datapath = '../../data/exports.xlsx'
 th_fluxes = pd.read_excel(datapath, sheet_name='POC_fluxes_thorium')
 th_depths = th_fluxes['depth']
@@ -644,14 +641,14 @@ fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center', va='center',
 fig.text(0.54, 0.03, 'POC flux (mmol m$^{-2}$ d$^{-1}$)',fontsize=14,
          ha='center', va='center')
 
-for inversion in flux_dict:
+for inversion, inv_result in results_dict.items():
     if inversion == 'NA':
         axs = na_axs
         [ax.axes.xaxis.set_ticklabels([]) for ax in axs]
     else:
         axs = sp_axs
     ylabel = f'{inversion} inversion'
-    result = flux_dict[inversion]
+    result = inv_result['sink_fluxes']
     
     for ax in axs:
         ax.invert_yaxis()
@@ -718,8 +715,6 @@ text = {'sinkdiv_S': '$\\frac{d}{dz}w_SP_S$',
         'aggregation': '$\\beta^,_2P^2_S$',
         'disaggregation': '$\\beta_{-2}P_L$',
         'production': '${\.P_S}$'}
-
-results_dict = {'NA': NA_results, 'SP': SP_results}
 
 fig, (na_axs, sp_axs) = plt.subplots(2, 4, figsize=(7, 6))
 fig.subplots_adjust(left=0.14, right=0.95, top=0.85, bottom=0.17, wspace=0.1)
@@ -824,18 +819,17 @@ plt.close()
 #FIGURE 12, DVM comparisons
 ######################################################
 
-flux_dict = {'NA': NA_results['int_fluxes'], 'SP': SP_results['int_fluxes']}
-
 fig = plt.figure()
 fig.text(0.025, 0.5, 'Depth (m)', fontsize=14, ha='center',
             va='center', rotation='vertical')
 fig.subplots_adjust(wspace=0.3, hspace=0.1)
 
-for inversion, result in flux_dict.items():
+for inversion, inv_result in results_dict.items():
     if inversion == 'NA':
         i = 0
     else:
         i = 1
+    result = inv_result['int_fluxes']
 
     hostL = host_subplot(2, 2, 1+2*i, axes_class=AA.Axes, figure=fig)
     parL = hostL.twiny()
@@ -1022,3 +1016,109 @@ normalized_state_residual_plots(SP_results['x_resids'], 'S2')
 ######################################################
 #FIGURES S3 & S4, sensitivity tests
 ######################################################
+
+width = 0.2
+# first (0.5, 0.5) is for prior_fluxes, second is for inverted fluxes
+combos = ((0.5, 0.5), (0.5, 0.5), (0.5, 1), (1, 0.5), (1, 1))
+run_colors = {0: blue, 1: orange, 2: green, 3: vermillion, 4: radish}
+basepath = '../../results/exports'
+
+for z, fig_label in (('EZ', 'S3'), ('UMZ', 'S4')):
+
+    fig, (na_axs, sp_axs) = plt.subplots(2, 2)
+    fig.subplots_adjust(hspace=0.05, bottom=0.2, top=0.9)
+    sp_axs[0].set_ylabel('Integrated flux (mmol m$^{-2}$ d$^{-1}$)',
+                            fontsize=14)
+    sp_axs[0].yaxis.set_label_coords(-0.2, 1)
+
+    for inversion in ('NA', 'SP'):
+        runs = []
+        gammas = []
+        for (g, re) in combos:
+            with open(f'{basepath}/{inversion}_{re}_{g}.pkl', 'rb') as pickled:
+                inv_result = pickle.load(pickled)
+                runs.append(inv_result)
+                gammas.append(g)
+        if inversion == 'NA':
+            axs = na_axs
+            [ax.axes.xaxis.set_visible(False) for ax in axs]
+        else:
+            axs = sp_axs
+            [ax.set_ylim([-20, 20]) for ax in axs]
+
+        ax1, ax2 = axs
+        ylabel = f'{inversion} inversions'
+        ax2.set_ylabel(ylabel, fontsize=14, rotation=270, labelpad=20)
+        ax2.yaxis.set_label_position('right')
+
+        for i, run in enumerate(runs):
+            if i > 0:
+                rfi = {**run['int_fluxes'], **run['residuals']}
+            else:
+                rfi = run['prior_fluxes']
+            color = run_colors[i]
+            for group in ((ax1, 'S', -1, 1), (ax2, 'L', 1, -1)):
+                ax, sf, agg_sign, dagg_sign = group
+                ax.axhline(0, c='k', lw=0.5)
+                ax.set_xlabel(f'$P_{sf}$ fluxes', fontsize=14)
+                ax_labels = ['SFD', 'Remin.', 'Agg.', 'Disagg.', 'Resid.']
+                fluxes = [-rfi[f'sinkdiv_{sf}'][z][0],
+                          -rfi[f'remin_{sf}'][z][0],
+                          agg_sign*rfi['aggregation'][z][0],
+                          dagg_sign*rfi['disaggregation'][z][0]]
+                flux_errs = [rfi[f'sinkdiv_{sf}'][z][1],
+                             rfi[f'remin_{sf}'][z][1],
+                             rfi['aggregation'][z][1],
+                             rfi['disaggregation'][z][1]]
+                if i > 0:
+                    fluxes.append(rfi[f'POC{sf}'][z][0])
+                    flux_errs.append(rfi[f'POC{sf}'][z][1])
+                else:
+                    fluxes.append(0)
+                    flux_errs.append(gammas[i]*Po_prior*30)
+                if sf == 'S':
+                    ax_labels.insert(-1, 'Prod.')
+                    fluxes.insert(-1, rfi['production'][z][0])
+                    flux_errs.insert(-1, rfi['production'][z][1])
+                    if z == 'EZ':
+                        ax_labels.insert(-1, 'DVM')
+                        fluxes.insert(-1, -rfi['dvm'][z][0])
+                        flux_errs.insert(-1, rfi['dvm'][z][1])
+                elif sf == 'L' and z == 'UMZ':
+                    ax_labels.insert(-1, 'DVM')
+                    fluxes.insert(-1, rfi['dvm'][z][0])
+                    flux_errs.insert(-1, rfi['dvm'][z][1])
+                x = np.arange(len(ax_labels))
+                if i == 0:
+                    positions = x - width*2
+                elif i == 1:
+                    positions = x - width
+                elif i == 2:
+                    positions = x
+                elif i == 3:
+                    positions = x + width
+                else:
+                    positions = x + width*2
+                ax.bar(positions, fluxes, width=width, yerr=flux_errs,
+                        tick_label=ax_labels, color=color,
+                        error_kw={'elinewidth': 1})
+                ax.set_xticks(x)
+                ax.set_xticklabels(ax_labels)
+                for tick in ax.get_xticklabels():
+                    tick.set_rotation(45)
+    leg_elements = [
+        Line2D([0], [0], c=blue, marker='s', ls='none', ms=6,
+                label='prior ($\gamma = 0.5, RE = 0.5$)'),
+        Line2D([0], [0], c=orange, marker='s', ls='none', ms=6,
+                label='$\gamma = 0.5, RE = 0.5$'),
+        Line2D([0], [0], c=green, marker='s', ls='none', ms=6,
+                label='$\gamma = 0.5, RE = 1$'),
+        Line2D([0], [0], c=vermillion, marker='s', ls='none', ms=6,
+                label='$\gamma = 1, RE = 0.5$'),
+        Line2D([0], [0], c=radish, marker='s', ls='none', ms=6,
+                label='$\gamma = 1, RE = 1$')]
+    na_axs[1].legend(handles=leg_elements, fontsize=9, frameon=False,
+                     handletextpad=-0.5, loc=(-0.04,0.54), labelspacing=0)
+
+    fig.savefig(f'../../results/exports/figures/Figure{fig_label}.pdf')
+    plt.close()

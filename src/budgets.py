@@ -4,7 +4,7 @@ from itertools import product
 import sys
 
 def eval_sym_expression(
-    y, state_elements, Ckp1, tracers=[], residuals=[], params=[]):
+    y, state_elements, C, tracers=[], residuals=[], params=[]):
 
     x_symbolic = list(y.free_symbols)
     x_numerical = []
@@ -28,7 +28,7 @@ def eval_sym_expression(
     derivs = [y.diff(x) for x in x_symbolic]
     
     # sub-CVM corresponding to state elements in y
-    cvm = Ckp1[np.ix_(x_indices, x_indices)]
+    cvm = C[np.ix_(x_indices, x_indices)]
     nrows, ncols = cvm.shape
        
     for (i, j) in product(range(nrows), range(ncols)):
@@ -75,26 +75,26 @@ def get_symbolic_inventories(tracers, umz_start, layers, thick):
         
     return inventories_sym
 
-def integrate_by_zone(symbolic, state_elements, Ckp1, **state_element_types):
+def integrate_by_zone(symbolic, state_elements, C, **state_element_types):
     
     integrated = {k: {} for k in symbolic}
 
     for (k, z) in product(integrated, ('EZ', 'UMZ')):
         y = symbolic[k][z]
         integrated[k][z] = eval_sym_expression(
-            y, state_elements, Ckp1, **state_element_types)
+            y, state_elements, C, **state_element_types)
     
     return integrated
 
 def integrate_by_zone_and_layer(
-    symbolic, state_elements, Ckp1, layers, **state_element_types):
+    symbolic, state_elements, C, layers, **state_element_types):
     
     integrated = integrate_by_zone(
-        symbolic, state_elements, Ckp1, **state_element_types)
+        symbolic, state_elements, C, **state_element_types)
 
     for (k, l) in product(integrated, layers):
         y = symbolic[k][l]
         integrated[k][l] = eval_sym_expression(
-            y, state_elements, Ckp1, **state_element_types)
+            y, state_elements, C, **state_element_types)
     
     return integrated
