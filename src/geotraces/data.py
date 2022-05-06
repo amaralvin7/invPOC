@@ -9,18 +9,9 @@ import netCDF4 as nc
 
 from src.constants import MMC
 
-def get_src_parent_path():
-    
-    module_path = os.path.abspath(__file__)
-    src_parent_path = module_path.split('src')[0]
-    
-    return src_parent_path
-
 def load_poc_data():
     
-    src_parent_path = get_src_parent_path()
-    
-    metadata = pd.read_csv(os.path.join(src_parent_path,'data/values_v9.csv'),
+    metadata = pd.read_csv('../../data/values_v9.csv',
                            usecols=('GTNum', 'GTStn', 'CorrectedMeanDepthm',
                                     'Latitudedegrees_north', 
                                     'Longitudedegrees_east',
@@ -29,12 +20,9 @@ def load_poc_data():
     # SPM_SPT_pM has NaN for intercal samples, useful for dropping later
     cols = ('SPM_SPT_ugL', 'POC_SPT_uM', 'POC_LPT_uM')
     
-    values = pd.read_csv(os.path.join(src_parent_path, 'data/values_v9.csv'),
-                         usecols=cols)
-    errors = pd.read_csv(os.path.join(src_parent_path, 'data/error_v9.csv'),
-                         usecols=cols)
-    flags = pd.read_csv(os.path.join(src_parent_path, 'data/flag_v9.csv'),
-                        usecols=cols)
+    values = pd.read_csv('../../data/values_v9.csv', usecols=cols)
+    errors = pd.read_csv('../../data/error_v9.csv', usecols=cols)
+    flags = pd.read_csv('../../data/flag_v9.csv', usecols=cols)
 
     merged = merge_poc_data(metadata, values, errors, flags)
     merged.dropna(inplace=True)
@@ -95,8 +83,7 @@ def clean_by_flags(raw):
 
 def load_modis_data():
     
-    src_parent_path = get_src_parent_path()
-    modis_path = os.path.join(src_parent_path,'data/modis')
+    modis_path = '../../data/modis'
     filenames = [f for f in os.listdir(modis_path) if '.nc' in f]
 
     modis_data = {}
@@ -132,6 +119,8 @@ def get_Lp_priors(poc_data):
         modis_lats = list(modis_8day.variables['lat'][:])
         modis_lons = list(modis_8day.variables['lon'][:])
         modis_coords = list(product(modis_lats, modis_lons))
+        
+        # list comp with geopy function to calculate distance
         distances = np.linalg.norm(modis_coords - station_coord, axis=1)
         modis_coords_sorted = [
             x for _, x in sorted(zip(distances, modis_coords))]
@@ -154,9 +143,7 @@ def get_Lp_priors(poc_data):
 
 def load_npp_data():
     
-    src_parent_path = get_src_parent_path()
-    
-    df = pd.read_csv(os.path.join(src_parent_path,'data/npp.csv'))
+    df = pd.read_csv('../../data/npp.csv')
     dates = [datetime.strptime(d, '%d-%b-%y') for d in df.columns[2:]]
 
     npp_df = df[['Station', 'Sampling Date']].copy()
@@ -177,8 +164,7 @@ def load_npp_data():
 
 def load_mixed_layer_depths():
     
-    src_parent_path = get_src_parent_path()
-    mld_df = pd.read_excel(os.path.join(src_parent_path,'data/gp15_mld.xlsx'))
+    mld_df = pd.read_excel('../../data/gp15_mld.xlsx')
     mld_dict = dict(zip(mld_df['Station No'], mld_df['MLD']))
     # npp_std = np.std(list(npp_dict.values()), ddof=1)
 
@@ -186,8 +172,7 @@ def load_mixed_layer_depths():
 
 def load_ppz_data():
     
-    src_parent_path = get_src_parent_path()
-    ppz_df = pd.read_excel(os.path.join(src_parent_path,'data/gp15_ppz.xlsx'))
+    ppz_df = pd.read_excel('../../data/gp15_ppz.xlsx')
     ppz_dict = {}
     
     for s in ppz_df['Station'].unique():

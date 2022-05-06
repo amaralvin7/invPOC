@@ -28,6 +28,7 @@ Po_priors = data.get_Po_priors(Lp_priors)
 resid_prior_err = data.get_residual_prior_error(Po_priors, mixed_layer_depths)
 
 priors_from_tuple = ('NA', 'SP')
+priors_from_tuple = ('NA',)
 stations = poc_data['station'].unique()
 
 def invert_station(priors_from, station):
@@ -43,6 +44,7 @@ def invert_station(priors_from, station):
     grid = tuple(station_poc['depth'].values)
     layers = tuple(range(len(grid)))
     zg = min(grid, key=lambda x:abs(x - ppz))  # grazing depth
+    umz_start = grid.index(zg) + 1
     zone_layers = ('EZ', 'UMZ') + layers
     thick = diff((0,) + grid)
 
@@ -53,7 +55,8 @@ def invert_station(priors_from, station):
 
     xhat, Ckp1, convergence_evolution, cost_evolution = find_solution(
         tracers, state_elements, equation_elements, xo, Co, grid, zg, mld,
-        False, priors_from, station)
+        False, umz_start, priors_from, station)
+
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, layers)
     tracer_estimates, residual_estimates, param_estimates = estimates
@@ -81,12 +84,12 @@ def invert_station(priors_from, station):
         int_fluxes_sym, state_elements, Ckp1, layers, tracers=tracers,
         params=params)
 
-    sink_fluxes = fluxes.calculate_sinking_fluxes(
+    sink_fluxes = fluxes.sinking_fluxes(
         layers, state_elements, Ckp1, tracers, params)
 
     residence_times = timescales.calculate_residence_times(
         inventories_sym, int_fluxes_sym, int_fluxes, residuals_sym, residuals,
-        tracers, params, state_elements, Ckp1, zone_layers)
+        tracers, params, state_elements, Ckp1, zone_layers, umz_start)
 
     turnover_times = timescales.calculate_turnover_times(
         inventories_sym, int_fluxes_sym, int_fluxes, tracers, params,
@@ -103,8 +106,9 @@ if __name__ == '__main__':
 
     start_time = time.time()
 
-    processes = 22
-    pool = Pool(processes)
+    n_processes = 32
+
+    pool = Pool(32)
     pool.starmap(invert_station, product(priors_from_tuple, stations))
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
