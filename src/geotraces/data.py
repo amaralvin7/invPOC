@@ -6,6 +6,7 @@ from scipy.interpolate import interp1d
 from datetime import datetime
 import sys
 import netCDF4 as nc
+from geopy.distance import distance
 
 from src.constants import MMC
 
@@ -107,7 +108,7 @@ def get_Lp_priors(poc_data):
     modis_dates = [datetime.strptime(d,'%Y%m%d') for d in modis_data]
     
     for i, row in df.iterrows(): 
-        
+
         date = datetime.strptime(row['datetime'], '%m/%d/%y %H:%M')
         prev_modis_dates = [d for d in modis_dates if d <= date]
         df.at[i, 'modis_date'] = min(
@@ -118,10 +119,12 @@ def get_Lp_priors(poc_data):
         station_coord = np.array((row['latitude'], row['longitude']))       
         modis_lats = list(modis_8day.variables['lat'][:])
         modis_lons = list(modis_8day.variables['lon'][:])
-        modis_coords = list(product(modis_lats, modis_lons))
-        
-        # list comp with geopy function to calculate distance
-        distances = np.linalg.norm(modis_coords - station_coord, axis=1)
+        close_modis_lats = [
+            l for l in modis_lats if abs(station_coord[0] - l) < 1]
+        close_modis_lons = [
+            l for l in modis_lons if abs(station_coord[1] - l) < 1]
+        modis_coords = list(product(close_modis_lats, close_modis_lons))
+        distances = [distance(mc, station_coord) for mc in modis_coords]
         modis_coords_sorted = [
             x for _, x in sorted(zip(distances, modis_coords))]
         
