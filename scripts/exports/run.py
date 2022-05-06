@@ -2,7 +2,7 @@ import time
 import pickle
 from itertools import product
 from multiprocessing import Pool
-from numpy import diff
+import pandas as pd
 import sys
 import src.exports.data as data
 import src.exports.state as state
@@ -13,34 +13,27 @@ import src.fluxes as fluxes
 import src.timescales as timescales
 from src.unpacking import unpack_state_estimates
 from src.ati import find_solution
-
-mld = 30  # mixed layer depth
-zg = 100  # grazing zone depth
-grid = (30, 50, 100, 150, 200, 330, 500)
-umz_start = grid.index(zg) + 1
-layers = tuple(range(len(grid)))
-zone_layers = ('EZ', 'UMZ') + layers
-thick = diff((0,) + grid)
+from src.exports.constants import *
 
 def run_model(priors_from, gamma, rel_err):
 
-    all_data = data.load_data()
-    poc_data = data.process_poc_data(all_data['POC'], grid)
+    all_data = pd.read_excel('../../data/exports.xlsx', sheet_name=None)
+    poc_data = data.process_poc_data(all_data['POC'])
     tracers = state.define_tracers(poc_data)
     params = state.define_params(all_data['NPP'], priors_from, rel_err)
-    residuals = state.define_residuals(params['Po']['prior'], gamma, mld)
-    state_elements = framework.define_state_elements(tracers, params, layers)
-    equation_elements = framework.define_equation_elements(tracers, layers)
-    xo = framework.define_prior_vector(tracers, residuals, params, layers)
-    Co = framework.define_cov_matrix(tracers, residuals, params, layers)
+    residuals = state.define_residuals(params['Po']['prior'], gamma)
+    state_elements = framework.define_state_elements(tracers, params, LAYERS)
+    equation_elements = framework.define_equation_elements(tracers, LAYERS)
+    xo = framework.define_prior_vector(tracers, residuals, params, LAYERS)
+    Co = framework.define_cov_matrix(tracers, residuals, params, LAYERS)
 
     ati_results = find_solution(
-        tracers, state_elements, equation_elements, xo, Co, grid, zg, mld,
-        True, umz_start, priors_from, None)  # last 2 args just for debugging GT inversions, delete later
+        tracers, state_elements, equation_elements, xo, Co, GRID, ZG, MLD,
+        True, UMZ_START, priors_from, None)  # last 2 args just for debugging GT inversions, delete later
     xhat, Ckp1, _, _ = ati_results
     x_resids = output.normalized_state_residuals(xhat, xo, Co)
     estimates = unpack_state_estimates(
-        tracers, params, state_elements, xhat, Ckp1, layers)
+        tracers, params, state_elements, xhat, Ckp1, LAYERS)
     tracer_estimates, residual_estimates, param_estimates = estimates
 
     output.merge_by_keys(tracer_estimates, tracers)
@@ -48,44 +41,44 @@ def run_model(priors_from, gamma, rel_err):
     output.merge_by_keys(residual_estimates, residuals)
 
     residuals_sym = budgets.get_symbolic_residuals(
-        residuals, umz_start, layers)
+        residuals, UMZ_START, LAYERS)
     residual_estimates_by_zone = budgets.integrate_by_zone(
         residuals_sym, state_elements, Ckp1, residuals=residuals)
     output.merge_by_keys(residual_estimates_by_zone, residuals)
 
     inventories_sym = budgets.get_symbolic_inventories(
-        tracers, umz_start, layers, thick)
+        tracers, UMZ_START, LAYERS, THICK)
     inventories = budgets.integrate_by_zone_and_layer(
-        inventories_sym, state_elements, Ckp1, layers, tracers=tracers)
+        inventories_sym, state_elements, Ckp1, LAYERS, tracers=tracers)
 
     int_fluxes_sym = fluxes.get_symbolic_int_fluxes(
-        umz_start, layers, thick, grid, mld, zg)
+        UMZ_START, LAYERS, THICK, GRID, MLD, ZG)
     int_fluxes = budgets.integrate_by_zone_and_layer(
-        int_fluxes_sym, state_elements, Ckp1, layers, tracers=tracers,
+        int_fluxes_sym, state_elements, Ckp1, LAYERS, tracers=tracers,
         params=params)
 
     prior_estimates = unpack_state_estimates(
-        tracers, params, state_elements, xo, Co, layers)
+        tracers, params, state_elements, xo, Co, LAYERS)
     prior_tracers, _, prior_params = prior_estimates
     prior_fluxes = budgets.integrate_by_zone_and_layer(
-        int_fluxes_sym, state_elements, Co, layers, tracers=prior_tracers,
+        int_fluxes_sym, state_elements, Co, LAYERS, tracers=prior_tracers,
         params=prior_params)
 
     sink_fluxes = fluxes.sinking_fluxes(
-        layers, state_elements, Ckp1, tracers, params)
+        LAYERS, state_elements, Ckp1, tracers, params)
     
     production_profile = fluxes.production_prof(
-        layers, state_elements, Ckp1, tracers, params, mld, grid)
+        LAYERS, state_elements, Ckp1, tracers, params, MLD, GRID)
 
     residence_times = timescales.calculate_residence_times(
         inventories_sym, int_fluxes_sym, int_fluxes, residuals_sym, residuals,
-        tracers, params, state_elements, Ckp1, zone_layers, umz_start)
+        tracers, params, state_elements, Ckp1, ZONE_LAYERS, UMZ_START)
 
     turnover_times = timescales.calculate_turnover_times(
         inventories_sym, int_fluxes_sym, int_fluxes, tracers, params,
-        state_elements, Ckp1, zone_layers)
+        state_elements, Ckp1, ZONE_LAYERS)
     
-    output.calculate_B2(grid, state_elements, Ckp1, tracers, params)
+    output.calculate_B2(GRID, state_elements, Ckp1, tracers, params)
     
     to_pickle = {'tracers': tracers,
                  'params': params,
@@ -97,6 +90,7 @@ def run_model(priors_from, gamma, rel_err):
                  'residence_times': residence_times,
                  'turnover_times': turnover_times,
                  'state_elements': state_elements,
+                 'equation_elements': equation_elements,
                  'x_resids': x_resids,
                  'prior_fluxes': prior_fluxes}
     

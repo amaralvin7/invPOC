@@ -3,18 +3,21 @@ import sympy as sym
 
 def evaluate_model_equations(
     tracers, state_elements, equation_elements, xk, grid, zg, mld,
-    productionbool, umz_start):
+    productionbool, umz_start, targets=None):
     
     n_tracer_elements = len(tracers) * len(grid)
     n_state_elements = len(state_elements)
 
     f = np.zeros(n_tracer_elements)
-    F = np.zeros((n_tracer_elements, n_state_elements))
+    if targets:
+        F = np.zeros((n_tracer_elements, n_tracer_elements))
+    else:
+        F = np.zeros((n_tracer_elements, n_state_elements))
 
     for i, element in enumerate(equation_elements):
         tracer, layer = element.split('_')
         y = equation_builder(tracer, int(layer), grid, zg, mld, productionbool,
-                             umz_start)
+                             umz_start, targets=targets)
         x_sym, x_num, x_ind = extract_equation_variables(state_elements, y, xk)
         f[i] = sym.lambdify(x_sym, y)(*x_num)
         for j, x in enumerate(x_sym):
@@ -38,25 +41,32 @@ def extract_equation_variables(state_elements, y, xk):
 
     return x_symbolic, x_numerical, x_indices
 
-def equation_builder(tracer, layer, grid, zg, mld, productionbool, umz_start):
+def equation_builder(
+    tracer, layer, grid, zg, mld, productionbool, umz_start, targets=None):
 
     zi = grid[layer]
     zim1 = grid[grid.index(zi) - 1] if layer > 0 else 0
     h = zi - zim1
     in_EZ = zi <= zg
     
-    t_syms = get_tracer_symbols(layer)
-    p_syms = get_param_symbols(layer)
-    RPsi, RPli = get_residual_symbols(layer)
+    tracers = get_tracer_symbols(layer)
+    if targets:
+        params = get_param_targets(layer, targets['params'])
+        RPsi, RPli = get_residual_targets(layer, targets['residuals'])
+    else:
+        params = get_param_symbols(layer)
+        RPsi, RPli = get_residual_symbols(layer)
     
-    Psi, Pli = t_syms[:2]
-    Bm2, B2p, Bm1s, Bm1l, ws, wl, Po, Lp, B3, a, zm = p_syms[:11]
+    Psi, Pli = tracers[:2]
+    Bm2, B2p, Bm1s, Bm1l, ws, wl, Po, Lp, B3, a, zm = params[:11]
     if layer != 0:
-        Psim1, Plim1, Psa, Pla = t_syms[2:]
-        wsm1, wlm1 = p_syms[11:]        
+        Psim1, Plim1, Psa, Pla = tracers[2:]
+        wsm1, wlm1 = params[11:]        
 
     if tracer == 'POCS':
-        eq = production(productionbool, layer, Po, Lp, zi, zim1, mld)
+        eq = 0
+        if targets == None:
+            eq += production(productionbool, layer, Po, Lp, zi, zim1, mld)
         if layer == 0:
             eq += (-ws*Psi + Bm2*Pli*h - (B2p*Psi + Bm1s)*Psi*h + RPsi
                    - B3*Psi*h)
@@ -82,7 +92,7 @@ def production(productionbool, layer, Po, Lp, zi, zim1, mld):
         if layer == 0:
             return Po*mld
         else:
-            return Lp*Po*(sym.exp(-(zim1 - mld)/Lp)- sym.exp(-(zi - mld)/Lp))
+            return Lp*Po*(sym.exp(-(zim1 - mld)/Lp) - sym.exp(-(zi - mld)/Lp))
         
     return Lp*Po*(sym.exp(-zim1/Lp) - sym.exp(-zi/Lp))
 
@@ -142,6 +152,36 @@ def get_residual_symbols(layer):
     
     RPsi = sym.symbols(f'RPOCS_{layer}')
     RPli = sym.symbols(f'RPOCL_{layer}')
+    
+    return RPsi, RPli
+
+def get_param_targets(layer, targets):
+    
+    Bm2 = targets['Bm2']['posterior'][layer]
+    B2p = targets['B2p']['posterior'][layer]
+    Bm1s = targets['Bm1s']['posterior'][layer]
+    Bm1l = targets['Bm1l']['posterior'][layer]
+    ws = targets['ws']['posterior'][layer]
+    wl = targets['wl']['posterior'][layer]
+    Po = None
+    Lp = None
+    B3 = targets['B3']['posterior']
+    a = targets['a']['posterior']
+    zm = targets['zm']['posterior']
+    
+    params = [Bm2, B2p, Bm1s, Bm1l, ws, wl, Po, Lp, B3, a, zm]
+    
+    if layer != 0:
+        wsm1 = targets['ws']['posterior'][layer -1]
+        wlm1 = targets['wl']['posterior'][layer -1]
+        params.extend([wsm1, wlm1])
+    
+    return params
+
+def get_residual_targets(layer, targets):
+    
+    RPsi = targets['POCS'][layer][0]
+    RPli = targets['POCL'][layer][0]
     
     return RPsi, RPli
     

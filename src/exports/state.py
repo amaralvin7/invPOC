@@ -3,6 +3,7 @@ import numpy as np
 import statsmodels.formula.api as smf
 
 from src.constants import MMC, DPY
+from src.exports.constants import MLD
 
 def define_tracers(data):
     
@@ -14,13 +15,13 @@ def define_tracers(data):
     
     return tracers
 
-def define_residuals(proportional_to, gamma, mld):
+def define_residuals(proportional_to, gamma):
     
     residuals = {'POCS': {}, 'POCL': {}}
     
     for tracer in residuals:
         residuals[tracer]['prior'] = 0
-        residuals[tracer]['prior_e'] = gamma * proportional_to * mld
+        residuals[tracer]['prior_e'] = gamma * proportional_to * MLD
     
     return residuals
 

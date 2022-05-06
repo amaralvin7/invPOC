@@ -9,13 +9,11 @@ import mpl_toolkits.axisartist as AA
 from mpl_toolkits.axes_grid1 import host_subplot
 from matplotlib.lines import Line2D
 
-import src.exports.data as data
 from src.colors import *
 from src.constants import DPY, MMC
+from src.exports.constants import *
 
-grid = (30, 50, 100, 150, 200, 330, 500)
-thick = np.diff((0,) + grid)
-all_data = data.load_data()
+all_data = pd.read_excel('../../data/exports.xlsx', sheet_name=None)
 
 with open('../../results/exports/NA_0.5_0.5.pkl', 'rb') as pickled:
             NA_results = pickle.load(pickled)
@@ -206,12 +204,12 @@ ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)', fontsize=14)
 ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
 ax1.set_ylabel('Depth (m)', fontsize=14)
 
-ax1.errorbar(NA_results['tracers']['POCS']['prior'], grid, fmt='^',
+ax1.errorbar(NA_results['tracers']['POCS']['prior'], GRID, fmt='^',
              xerr=NA_results['tracers']['POCS']['prior_e'], ecolor=blue,
              elinewidth=1, c=blue, ms=10, capsize=5, fillstyle='full')
 ax1.scatter(poc_data['POCS'], poc_data['mod_depth'], c=blue, alpha=0.4)
 
-ax2.errorbar(NA_results['tracers']['POCL']['prior'], grid, fmt='^',
+ax2.errorbar(NA_results['tracers']['POCL']['prior'], GRID, fmt='^',
              xerr=NA_results['tracers']['POCL']['prior_e'], ecolor=blue,
              elinewidth=1, c=blue, ms=10, capsize=5, fillstyle='full')
 ax2.scatter(poc_data['POCL'], poc_data['mod_depth'], c=blue, alpha=0.4)
@@ -242,10 +240,10 @@ ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)', fontsize=14)
 ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
 ax1.set_ylabel('Depth (m)', fontsize=14)
 
-ngrid = [d - 5 for d in grid]
-sgrid = [d + 5 for d in grid]
+ngrid = [d - 5 for d in GRID]
+sgrid = [d + 5 for d in GRID]
 
-ax1.errorbar(NA_results['tracers']['POCS']['prior'], grid, fmt='^',
+ax1.errorbar(NA_results['tracers']['POCS']['prior'], GRID, fmt='^',
              xerr=NA_results['tracers']['POCS']['prior_e'], ecolor=blue,
              elinewidth=1, c=blue, ms=10, capsize=5, fillstyle='full')
 ax1.errorbar(NA_results['tracers']['POCS']['posterior'], ngrid, fmt='o',
@@ -257,7 +255,7 @@ ax1.errorbar(SP_results['tracers']['POCS']['posterior'], sgrid, fmt='s',
              elinewidth=1, c=green, ms=8, capsize=5, fillstyle='none',
              zorder=3, markeredgewidth=1)
 
-ax2.errorbar(NA_results['tracers']['POCL']['prior'], grid, fmt='^',
+ax2.errorbar(NA_results['tracers']['POCL']['prior'], GRID, fmt='^',
              xerr=NA_results['tracers']['POCL']['prior_e'], ecolor=blue,
              elinewidth=1, c=blue, ms=10, capsize=5, fillstyle='full',
              label='Data')
@@ -291,15 +289,15 @@ plt.close()
 #FIGURE 6, non-uniform params
 ######################################################
 
-text = {'ws': ('$w_S$', 'm d$^{-1}$'), 'wl': ('$w_L$', 'm d$^{-1}$'),
-        'B2p': ('$\\beta^,_2$', 'm$^3$ mmol$^{-1}$ d$^{-1}$'),
-        'Bm2': ('$\\beta_{-2}$', 'd$^{-1}$'),
-        'Bm1s': ('$\\beta_{-1,S}$', 'd$^{-1}$'),
-        'Bm1l': ('$\\beta_{-1,L}$', 'd$^{-1}$'),
-        'B2': ('$\\beta_2$', 'd$^{-1}$'),
-        'Po': ('$\.P_{S,ML}$', 'mmol m$^{-3}$ d$^{-1}$'),
-        'Lp': ('$L_P$', 'm'), 'B3': ('$\\beta_3$', 'd$^{-1}$'),
-        'a': ('$\\alpha$', None), 'zm': ('$z_m$', 'm')}
+param_text = {'ws': ('$w_S$', 'm d$^{-1}$'), 'wl': ('$w_L$', 'm d$^{-1}$'),
+              'B2p': ('$\\beta^,_2$', 'm$^3$ mmol$^{-1}$ d$^{-1}$'),
+              'Bm2': ('$\\beta_{-2}$', 'd$^{-1}$'),
+              'Bm1s': ('$\\beta_{-1,S}$', 'd$^{-1}$'),
+              'Bm1l': ('$\\beta_{-1,L}$', 'd$^{-1}$'),
+              'B2': ('$\\beta_2$', 'd$^{-1}$'),
+              'Po': ('$\.P_{S,ML}$', 'mmol m$^{-3}$ d$^{-1}$'),
+              'Lp': ('$L_P$', 'm'), 'B3': ('$\\beta_3$', 'd$^{-1}$'),
+              'a': ('$\\alpha$', None), 'zm': ('$z_m$', 'm')}
 
 fig, (na_axs, sp_axs) = plt.subplots(2, 4, figsize=(6.5,4))
 fig.subplots_adjust(left=0.14, right=0.95, top=0.95, bottom=0.15)
@@ -330,7 +328,8 @@ for inversion, inv_result in results_dict.items():
             ax.set_ylabel(ylabel, fontsize=14, rotation=270, labelpad=20)
             ax.yaxis.set_label_position('right')
         if ylabel == 'SP inversion':
-            ax.set_xlabel(f'{text[p][0]} ({text[p][1]})', fontsize=12)
+            ax.set_xlabel(
+                f'{param_text[p][0]} ({param_text[p][1]})', fontsize=12)
         else:
             ax.axes.xaxis.set_ticklabels([])
         ax.invert_yaxis()
@@ -343,12 +342,12 @@ for inversion, inv_result in results_dict.items():
         ax.axvline(results[p]['prior'] + results[p]['prior_e'], c=blue, lw=1.5,
                    ls='--')
         
-        for j, _ in enumerate(grid):
+        for j, _ in enumerate(GRID):
 
             if j == 0:
-                depths = 0, grid[j]
+                depths = 0, GRID[j]
             else:
-                depths = grid[j-1], grid[j]
+                depths = GRID[j-1], GRID[j]
             
             if 'w' in p:
                 ax.errorbar(results[p]['posterior'][j], depths[1], fmt='o',
@@ -371,7 +370,7 @@ fig.savefig('../../results/exports/figures/Figure6.pdf')
 plt.close()
 
 ######################################################
-#FIGURE 7, non-uniform params
+#FIGURE 7, uniform params
 ######################################################
 
 dc_params = [p for p in results if not results[p]['dv']]
@@ -383,9 +382,9 @@ ax6.axis('off')
 
 for i, p in enumerate(dc_params):
     ax = dc_axs[i]
-    xlabel = text[p][0]
-    if text[p][1]:
-        xlabel += f' ({text[p][1]})'
+    xlabel = param_text[p][0]
+    if param_text[p][1]:
+        xlabel += f' ({param_text[p][1]})'
     ax.set_xlabel(xlabel, fontsize=12)
     ax.errorbar(1, NA_results['params'][p]['prior'],
                 yerr=NA_results['params'][p]['prior_e'], fmt='^',
@@ -451,12 +450,12 @@ for inversion, inv_result in results_dict.items():
                             labelpad=20)
             ax.yaxis.set_label_position('right')
             
-        for j in range(len(grid)):
+        for j in range(len(GRID)):
             
             if j == 0:
-                depths = 0, grid[j]
+                depths = 0, GRID[j]
             else:
-                depths = grid[j-1], grid[j]
+                depths = GRID[j-1], GRID[j]
                 
             ax.scatter(results[t][j][0], np.mean(depths), marker='o',
                        c=orange, s=100, zorder=3, lw=0.7)
@@ -479,17 +478,17 @@ plt.close()
 
 data1 = {'MNA': {'B2': (2/DPY, 0.2/DPY), 'Bm2': (156/DPY, 17/DPY),
                  'Bm1s': (13/DPY, 1/DPY)},
-         'MNWA': {0: {'depth': 25.5, 'thick':50.9, 'Bm1s': (70/DPY, 137/DPY),
+         'MNWA': {0: {'depth': 25.5, 'THICK':50.9, 'Bm1s': (70/DPY, 137/DPY),
                       'B2': (9/DPY, 24/DPY), 'Bm2': (2690/DPY, 10000/DPY)},
-                  1: {'depth': 85.1, 'thick':68.4, 'Bm1s': (798/DPY, 7940/DPY),
+                  1: {'depth': 85.1, 'THICK':68.4, 'Bm1s': (798/DPY, 7940/DPY),
                       'B2': (11/DPY, 30/DPY), 'Bm2': (2280/DPY, 10000/DPY)},
-                  2: {'depth': 169.5, 'thick':100.4,
+                  2: {'depth': 169.5, 'THICK':100.4,
                       'Bm1s': (378/DPY, 3520/DPY), 'B2': (13/DPY, 50/DPY),
                       'Bm2': (1880/DPY, 10000/DPY)},
-                  3: {'depth': 295.3, 'thick':151.1,
+                  3: {'depth': 295.3, 'THICK':151.1,
                       'Bm1s': (1766/DPY, 10000000/DPY), 'B2': (18/DPY, 89/DPY),
                       'Bm2': (950/DPY, 5700/DPY)},
-                  4: {'depth': 482.8, 'thick':224,
+                  4: {'depth': 482.8, 'THICK':224,
                       'Bm1s': (113/DPY, 10000/DPY), 'B2': (17/DPY, 77/DPY),
                       'Bm2': (870/DPY, 5000/DPY)}},
          'BRIG': {'depth': np.arange(250, 555, 50),
@@ -531,21 +530,22 @@ for inversion, inv_result in results_dict.items():
         if ax in na_axs:
             ax.tick_params(labelbottom=False)
         else:
-            ax.set_xlabel(f'{text[p][0]} ({text[p][1]})', fontsize=14)
+            ax.set_xlabel(
+                f'{param_text[p][0]} ({param_text[p][1]})', fontsize=14)
         
         ax.invert_yaxis()
         ax.set_xscale('log')
         ax.set_ylim([600, -50])
 
-        for j in range(len(grid)):
+        for j in range(len(GRID)):
 
             if j == 0:
-                depths = 0, grid[j]
+                depths = 0, GRID[j]
             else:
-                depths = grid[j-1], grid[j]
+                depths = GRID[j-1], GRID[j]
             
             d_av = np.mean(depths)
-            d_err = thick[j]/2
+            d_err = THICK[j]/2
             
             ax.errorbar(results[p]['posterior'][j], d_av, fmt='o', yerr=d_err,
                         c=vermillion, capsize=capsize, zorder=9)
@@ -554,7 +554,7 @@ for inversion, inv_result in results_dict.items():
 
         for z in data1['MNWA']:
             d_av = data1['MNWA'][z]['depth']
-            d_err = data1['MNWA'][z]['thick']/2
+            d_err = data1['MNWA'][z]['THICK']/2
             ax.errorbar(data1['MNWA'][z][p][0], d_av, fmt='s', yerr=d_err,
                         c=radish, capsize=4)
             ax.scatter(data1['MNWA'][z][p][1], d_av, marker='s',
@@ -662,7 +662,7 @@ for inversion, inv_result in results_dict.items():
 
     axs[0].errorbar(
         [x[0] for x in result['S']],
-        np.array(grid) + 2,
+        np.array(GRID) + 2,
         fmt='o', xerr=[x[1] for x in result['S']],
         ecolor=blue, c=blue, capsize=4,
         label='$w_SP_S$', fillstyle='none',
@@ -670,7 +670,7 @@ for inversion, inv_result in results_dict.items():
 
     axs[0].errorbar(
         [x[0] for x in result['L']],
-        np.array(grid) - 2,
+        np.array(GRID) - 2,
         fmt='o', xerr=[x[1] for x in result['L']],
         ecolor=orange, c=orange, capsize=4,
         label='$w_LP_L$', fillstyle='none',
@@ -678,7 +678,7 @@ for inversion, inv_result in results_dict.items():
 
     axs[1].tick_params(labelleft=False)
     axs[1].errorbar(
-        [x[0] for x in result['T']], grid, fmt='o',
+        [x[0] for x in result['T']], GRID, fmt='o',
         xerr=[x[1] for x in result['T']],
         ecolor=vermillion, c=vermillion, capsize=4, zorder=3,
         label='$w_TP_T$', elinewidth=1.5, capthick=1.5,
@@ -708,13 +708,13 @@ plt.close()
 #FIGURE 11, volumetric fluxes
 ######################################################
 
-text = {'sinkdiv_S': '$\\frac{d}{dz}w_SP_S$',
-        'sinkdiv_L': '$\\frac{d}{dz}w_LP_L$',
-        'remin_S': '$\\beta_{-1,S}P_S$',
-        'remin_L': '$\\beta_{-1,L}P_L$',
-        'aggregation': '$\\beta^,_2P^2_S$',
-        'disaggregation': '$\\beta_{-2}P_L$',
-        'production': '${\.P_S}$'}
+flux_text = {'sinkdiv_S': '$\\frac{d}{dz}w_SP_S$',
+             'sinkdiv_L': '$\\frac{d}{dz}w_LP_L$',
+             'remin_S': '$\\beta_{-1,S}P_S$',
+             'remin_L': '$\\beta_{-1,L}P_L$',
+             'aggregation': '$\\beta^,_2P^2_S$',
+             'disaggregation': '$\\beta_{-2}P_L$',
+             'production': '${\.P_S}$'}
 
 fig, (na_axs, sp_axs) = plt.subplots(2, 4, figsize=(7, 6))
 fig.subplots_adjust(left=0.14, right=0.95, top=0.85, bottom=0.17, wspace=0.1)
@@ -756,37 +756,37 @@ for inversion, inv_result in results_dict.items():
 
             result = inv_result['int_fluxes']
             
-            for j in range(len(grid)):
+            for j in range(len(GRID)):
 
                 if j == 0:
-                    depths = 0, grid[j]
+                    depths = 0, GRID[j]
                 else:
-                    depths = grid[j-1], grid[j]
+                    depths = GRID[j-1], GRID[j]
 
                 ax.scatter(
-                    result[pr[0]][j][0]/thick[j], np.mean(depths),
+                    result[pr[0]][j][0]/THICK[j], np.mean(depths),
                     marker='o', c=blue, s=14, zorder=3, lw=0.7,
-                    label=text[pr[0]])
+                    label=flux_text[pr[0]])
                 ax.fill_betweenx(
                     depths,
-                    (result[pr[0]][j][0] - result[pr[0]][j][1])/thick[j],
-                    (result[pr[0]][j][0] + result[pr[0]][j][1])/thick[j],
+                    (result[pr[0]][j][0] - result[pr[0]][j][1])/THICK[j],
+                    (result[pr[0]][j][0] + result[pr[0]][j][1])/THICK[j],
                     color=blue, alpha=0.25)
                 ax.scatter(
-                    result[pr[1]][j][0]/thick[j], np.mean(depths),
+                    result[pr[1]][j][0]/THICK[j], np.mean(depths),
                     marker='o', c=orange, s=14, zorder=3, lw=0.7,
-                    label=text[pr[1]])
+                    label=flux_text[pr[1]])
                 ax.fill_betweenx(
                     depths,
-                    (result[pr[1]][j][0] - result[pr[1]][j][1])/thick[j],
-                    (result[pr[1]][j][0] + result[pr[1]][j][1])/thick[j],
+                    (result[pr[1]][j][0] - result[pr[1]][j][1])/THICK[j],
+                    (result[pr[1]][j][0] + result[pr[1]][j][1])/THICK[j],
                     color=orange, alpha=0.25)
             if i == 0:
                 ax.axvline(0, ls=':', c=black, zorder=1)
 
         else:
             result = inv_result['production_profile']
-            depths = grid
+            depths = GRID
             df = all_data['NPP']
             H = 30
             npp = df.loc[df['target_depth'] >= H]['NPP']
@@ -794,9 +794,9 @@ for inversion, inv_result in results_dict.items():
             ax.scatter(npp/MMC, depth, c=orange, alpha=0.5, label='NPP', s=10)
             ax.scatter(
                 [x[0] for x in result], depths, marker='o', c=blue, s=14,
-                label=text[pr[0]], zorder=3, lw=0.7)
+                label=flux_text[pr[0]], zorder=3, lw=0.7)
             ax.errorbar(
-                [x[0] for x in result], grid, fmt='o',
+                [x[0] for x in result], GRID, fmt='o',
                 xerr=[x[1] for x in result], ecolor=blue, elinewidth=0.5,
                 c=blue, ms=1.5, capsize=2, fillstyle='full',
                 markeredgewidth=0.5)
@@ -872,7 +872,7 @@ for inversion, inv_result in results_dict.items():
         par.axis['top'].label.set_fontsize(12)
         par.axis['top'].major_ticklabels.set_size(12)
 
-    for j, _ in enumerate(grid):
+    for j, _ in enumerate(GRID):
         if j < 3:
             host = hostL
             par = parL
@@ -882,25 +882,25 @@ for inversion, inv_result in results_dict.items():
             par = parR
             par_flux = 'sinkdiv_L'
         if j == 0:
-            depths = 0, grid[j]
+            depths = 0, GRID[j]
         else:
-            depths = grid[j-1], grid[j]
+            depths = GRID[j-1], GRID[j]
 
         host.scatter(
-            result['dvm'][j][0]/thick[j], np.mean(depths),
+            result['dvm'][j][0]/THICK[j], np.mean(depths),
             marker='o', c=blue, s=14, zorder=3, lw=0.7)
         host.fill_betweenx(
             depths,
-            (result['dvm'][j][0] - result['dvm'][j][1])/thick[j],
-            (result['dvm'][j][0] + result['dvm'][j][1])/thick[j],
+            (result['dvm'][j][0] - result['dvm'][j][1])/THICK[j],
+            (result['dvm'][j][0] + result['dvm'][j][1])/THICK[j],
             color=blue, alpha=0.25)
         par.scatter(
-            result[par_flux][j][0]/thick[j], np.mean(depths),
+            result[par_flux][j][0]/THICK[j], np.mean(depths),
             marker='o', c=orange, s=14, zorder=3, lw=0.7)
         par.fill_betweenx(
             depths,
-            (result[par_flux][j][0] - result[par_flux][j][1])/thick[j],
-            (result[par_flux][j][0] + result[par_flux][j][1])/thick[j],
+            (result[par_flux][j][0] - result[par_flux][j][1])/THICK[j],
+            (result[par_flux][j][0] + result[par_flux][j][1])/THICK[j],
             color=orange, alpha=0.25)
     for ax in (hostL, hostR):
         ax.set_yticks([0, 100, 200, 300, 400, 500])
@@ -1119,6 +1119,219 @@ for z, fig_label in (('EZ', 'S3'), ('UMZ', 'S4')):
                 label='$\gamma = 1, RE = 1$')]
     na_axs[1].legend(handles=leg_elements, fontsize=9, frameon=False,
                      handletextpad=-0.5, loc=(-0.04,0.54), labelspacing=0)
+
+    fig.savefig(f'../../results/exports/figures/Figure{fig_label}.pdf')
+    plt.close()
+
+######################################################
+#FIGURES S7 & S8, twin experiment POC profiles
+######################################################
+
+with open('../../results/exports/NA_0.5_0.5_TE.pkl', 'rb') as pickled:
+            NA_results = pickle.load(pickled)
+with open('../../results/exports/SP_0.5_0.5_TE.pkl', 'rb') as pickled:
+            SP_results = pickle.load(pickled)
+
+for inv, fig_label in ((NA_results, 'S5'), (SP_results, 'S6')):
+
+    fig, [ax1, ax2] = plt.subplots(1, 2, tight_layout=True)
+    fig.subplots_adjust(wspace=0.5)
+
+    ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)', fontsize=14)
+    ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
+    ax1.set_ylabel('Depth (m)', fontsize=14)
+
+    ax1.errorbar(
+        inv['tracers']['POCS']['prior'], GRID, fmt='^',
+        xerr=inv['tracers']['POCS']['prior_e'], ecolor=blue,
+        elinewidth=1, c=blue, ms=10, capsize=5, fillstyle='full')
+    ax1.errorbar(
+        inv['tracers']['POCS']['posterior'], GRID, fmt='o',
+        xerr=inv['tracers']['POCS']['posterior_e'], ecolor=orange,
+        elinewidth=1, c=orange, ms=8, capsize=5, fillstyle='none',
+        zorder=3, markeredgewidth=1)
+
+    ax2.errorbar(
+        inv['tracers']['POCL']['prior'], GRID,
+        fmt='^', xerr=inv['tracers']['POCL']['prior_e'], ecolor=blue,
+        elinewidth=1, c=blue, ms=10, capsize=5, fillstyle='full',
+        label='Data')
+    ax2.errorbar(
+        inv['tracers']['POCL']['posterior'], GRID, fmt='o',
+        xerr=inv['tracers']['POCL']['posterior_e'], ecolor=orange,
+        elinewidth=1, c=orange, ms=8, capsize=5,
+        label='Estimate', fillstyle='none',
+        zorder=3, markeredgewidth=1)
+
+    for ax in (ax1, ax2):
+        ax.invert_yaxis()
+        ax.set_ylim(top=0, bottom=530)
+        ax.tick_params(axis='both', which='major', labelsize=12)
+    ax2.tick_params(labelleft=False)
+    ax.legend(fontsize=12, borderpad=0.2, handletextpad=0.4,
+                loc='lower right')
+
+    fig.savefig(f'../../results/exports/figures/Figure{fig_label}.pdf')
+    plt.close()
+
+######################################################
+#FIGURES S7 & S8, twin experiments non-uniform params
+######################################################
+NA_targets = NA_results['targets']['params']
+dv_params = [p for p in NA_targets if NA_targets[p]['dv'] and p != 'B2']
+
+for inv, fig_label in ((NA_results, 'S7'), (SP_results, 'S8')):
+
+    results = inv['params']
+    fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3)
+    dv_axs = ax1, ax2, ax3, ax4, ax5, ax6
+
+    fig.text(0.05, 0.5, 'Depth (m)', fontsize=14, ha='center',
+             va='center', rotation='vertical')
+    fig.subplots_adjust(left=0.14, right=0.95, top=0.95, bottom=0.15,
+                        hspace=0.5)
+
+    for i, p in enumerate(dv_params):
+        ax = dv_axs[i]
+        xlabel = param_text[p][0]
+        if param_text[p][1]:
+            xlabel += f' ({param_text[p][1]})'
+        ax.set_xlabel(xlabel, fontsize=12)
+        if i not in (0,3):
+            ax.tick_params(labelleft=False)
+        ax.invert_yaxis()
+        ax.set_ylim(top=0, bottom=530)
+        ax.tick_params(axis='both', which='major', labelsize=12)
+        ax.axvline(results[p]['prior'], c=blue, lw=1.5, ls=':')
+        ax.axvline(results[p]['prior'] - results[p]['prior_e'],
+                   c=blue, lw=1.5, ls='--')
+        ax.axvline(results[p]['prior'] + results[p]['prior_e'],
+                   c=blue, lw=1.5, ls='--')
+
+        for j, _ in enumerate(GRID):
+            if j == 0:
+                depths = 0, GRID[j]
+            else:
+                depths = GRID[j-1], GRID[j]
+            
+            if 'w' in p:
+                depth = depths[1]
+                ax.errorbar(results[p]['posterior'][j], depth, fmt='o',
+                            xerr=results[p]['posterior_e'][j], ms=8,
+                            ecolor=orange, elinewidth=1, c=orange,
+                            capsize=6, fillstyle='none', zorder=3,
+                            markeredgewidth=1)
+            else:
+                depth = np.mean(depths)
+                ax.scatter(results[p]['posterior'][j], depth, marker='o',
+                           c=orange, s=14, zorder=3)
+                ax.fill_betweenx(depths,
+                                 (results[p]['posterior'][j] -
+                                  results[p]['posterior_e'][j]),
+                                 (results[p]['posterior'][j]
+                                  + results[p]['posterior_e'][j]),
+                                 color=orange, alpha=0.25)
+            ax.scatter(inv['targets']['params'][p]['posterior'][j], depth,
+                       marker='x', s=90, c=green)
+            if p == 'Bm2' and fig_label == 'S8':
+                ax.set_xlim([-1, 3])
+
+    fig.savefig(f'../../results/exports/figures/Figure{fig_label}.pdf')
+    plt.close()
+
+######################################################
+#FIGURES S9 & S10, twin experiments uniform params
+######################################################
+dc_params = [p for p in NA_targets if not NA_targets[p]['dv']]
+
+for inv, fig_label in ((NA_results, 'S9'), (SP_results, 'S10')):
+
+    fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(
+        2, 3, tight_layout=True)
+    results = inv['params']
+    dc_axs = ax1, ax2, ax3, ax4, ax5
+    ax6.axis('off')
+
+    for i, p in enumerate(dc_params):
+        ax = dc_axs[i]
+        xlabel = param_text[p][0]
+        if param_text[p][1]:
+            xlabel += f' ({param_text[p][1]})'
+        ax.set_xlabel(xlabel, fontsize=12)
+        ax.errorbar(1, results[p]['prior'], yerr=results[p]['prior_e'],
+                    fmt='^', c=blue, elinewidth=1.5, ecolor=blue, ms=9,
+                    capsize=6, label='Prior', markeredgewidth=1.5)
+        ax.errorbar(3, results[p]['posterior'], fmt='o',
+                    yerr=results[p]['posterior_e'], c=orange, ms=9,
+                    ecolor=orange, elinewidth=1.5, capsize=6, label='Estimate',
+                    markeredgewidth=1.5)
+        ax.scatter(2, inv['targets']['params'][p]['posterior'], marker='x',
+                    s=90, c=green, label='Target')
+
+        ax.tick_params(bottom=False, labelbottom=False)
+        ax.set_xticks(np.arange(5))
+
+    handles, labels = ax5.get_legend_handles_labels()
+    handles[-2:] = [h[0] for h in handles[-2:]]
+    unique = [(h, l) for i, (h, l) in enumerate(
+        zip(handles, labels)) if l not in labels[:i]]
+    ax6.legend(*zip(*unique), fontsize=12, loc='center', frameon=False,
+                ncol=1, labelspacing=2, bbox_to_anchor=(0.35, 0.5))
+            
+    fig.savefig(f'../../results/exports/figures/Figure{fig_label}.pdf')
+    plt.close()
+
+######################################################
+#FIGURES S11 & S12, twin experiments residual profiles
+######################################################
+
+for inv, fig_label in ((NA_results, 'S11'), (SP_results, 'S12')):
+    
+    fig, [ax1, ax2] = plt.subplots(1, 2, tight_layout=True)
+    fig.subplots_adjust(wspace=0.5)
+    axs = (ax1, ax2)
+
+    ax1.set_xlabel('$\\varepsilon_{S}$ (mmol m$^{-2}$ d$^{-1}$)',
+                    fontsize=14)
+    ax2.set_xlabel('$\\varepsilon_{L}$ (mmol m$^{-2}$ d$^{-1}$)',
+                    fontsize=14)
+    ax1.set_ylabel('Depth (m)', fontsize=14)
+
+    results = inv['residuals']
+
+    for i, t in enumerate(results):
+ 
+        ax = axs[i]
+        ax.invert_yaxis()
+        ax.tick_params(axis='both', which='major', labelsize=12)
+        ax.set_yticks([0, 100, 200, 300, 400, 500])
+            
+        for j in range(len(GRID)):
+            
+            if j == 0:
+                depths = 0, GRID[j]
+            else:
+                depths = GRID[j-1], GRID[j]
+                
+            ax.scatter(results[t][j][0], np.mean(depths), marker='o',
+                       c=orange, s=100, zorder=3, lw=0.7)
+            ax.fill_betweenx(depths,
+                             (results[t][j][0] - results[t][j][1]),
+                             (results[t][j][0] + results[t][j][1]),
+                             color=orange, alpha=0.25)
+            ax.scatter(inv['targets']['residuals'][t][j][0], np.mean(depths),
+                       marker='x', c=green, s=250)
+        prior_err = 0.5*Po_prior*30
+
+        ax.axvline(prior_err, ls='--', c=blue)
+        ax.axvline(-prior_err, ls='--', c=blue)
+        ax.axvline(0, ls=':', c=blue)
+        axs[1].tick_params(labelleft=False)
+
+        for ax in (ax1, ax2):
+            ax.invert_yaxis()
+            ax.tick_params(axis='both', which='major', labelsize=12)
+        ax2.tick_params(labelleft=False)
 
     fig.savefig(f'../../results/exports/figures/Figure{fig_label}.pdf')
     plt.close()

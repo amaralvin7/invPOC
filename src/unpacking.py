@@ -10,10 +10,9 @@ def unpack_state_estimates(tracers, params, state_elements, x, C, layers):
     
     return tracer_estimates, residual_estimates, param_estimates
 
-def slice_by_species(to_slice, species, state_elements):
-
+def slice_by_species(to_slice, species, element_names):
     sliced = [to_slice[i] for i, e in enumerate(
-        state_elements) if e.split('_')[0] == species]
+        element_names) if e.split('_')[0] == species]
     
     return sliced
 
