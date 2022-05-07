@@ -20,11 +20,13 @@ gamma = 0.2
 maxdepth = 600
 
 poc_data = data.load_poc_data()
-mixed_layer_depths = data.load_mixed_layer_depths()
 ppz_data = data.load_ppz_data()
+npp_data = data.load_npp_data()
+mixed_layer_depths = data.load_mixed_layer_depths()
 
 Lp_priors = data.get_Lp_priors(poc_data)
-Po_priors = data.get_Po_priors(Lp_priors)
+Po_priors = data.get_Po_priors(npp_data, Lp_priors)
+B3_priors = data.get_B3_priors(npp_data)
 resid_prior_err = data.get_residual_prior_error(Po_priors, mixed_layer_depths)
 
 priors_from_tuple = ('NA', 'SP')
@@ -39,7 +41,8 @@ def invert_station(priors_from, station):
     tracers = state.define_tracers(station_poc)
     residuals = state.define_residuals(resid_prior_err, gamma)
     params = state.define_params(
-        Lp_priors[station], Po_priors[station], priors_from, relative_err)
+        Lp_priors[station], Po_priors[station], B3_priors[station],
+        priors_from, relative_err)
 
     grid = tuple(station_poc['depth'].values)
     layers = tuple(range(len(grid)))

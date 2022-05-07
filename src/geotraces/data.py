@@ -157,11 +157,7 @@ def load_npp_data():
         closest = min(prior_dates, key=lambda x: abs(x - date))
         npp_df.at[i, 'mgC_m2_d'] = df.at[i, closest.strftime('%-d-%b-%y')]
 
-    npp_df['npp'] = npp_df['mgC_m2_d']/MMC
-    npp_df.drop('mgC_m2_d', axis=1, inplace=True)
-    npp_df.drop('Sampling Date', axis=1, inplace=True)
-
-    npp_dict = dict(zip(npp_df['Station'], npp_df['npp']))
+    npp_dict = dict(zip(npp_df['Station'], npp_df['mgC_m2_d']))
 
     return npp_dict
 
@@ -169,7 +165,6 @@ def load_mixed_layer_depths():
     
     mld_df = pd.read_excel('../../data/gp15_mld.xlsx')
     mld_dict = dict(zip(mld_df['Station No'], mld_df['MLD']))
-    # npp_std = np.std(list(npp_dict.values()), ddof=1)
 
     return mld_dict
 
@@ -183,15 +178,23 @@ def load_ppz_data():
 
     return ppz_dict
 
-def get_Po_priors(Lp_priors):
+def get_Po_priors(npp, Lp_priors):
     
-    npp = load_npp_data()
     Po_priors = {}
     
     for s in Lp_priors:
-        Po_priors[s] = npp[s] / Lp_priors[s]
+        Po_priors[s] = npp[s]/MMC / Lp_priors[s]
     
     return Po_priors
+
+def get_B3_priors(npp):
+    
+    B3_priors = {}
+    
+    for s in npp:
+        B3_priors[s] = 10**(-2.42 + 0.53*np.log10(npp[s]))
+
+    return B3_priors
 
 def get_residual_prior_error(Po_priors, mixed_layer_depths):
     

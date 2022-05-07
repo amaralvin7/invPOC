@@ -25,58 +25,22 @@ def define_residuals(prior_error, gamma):
     
     return residuals
 
-def define_params(Lp_prior, Po_prior, priors_from, rel_err):
+def define_params(Lp_prior, Po_prior, B3_prior, priors_from, rel_err):
     
     params = {}
     
     # B2p_prior, B2p_error, Bm2_prior, Bm2_error = contextual_priors(
     #     priors_from, rel_err)
 
-    # params['ws'] = set_prior(2, 2*rel_err)
-    # params['wl'] = set_prior(20, 20*rel_err)
-    # params['B2p'] = set_prior(B2p_prior*MMC/DPY, B2p_error*MMC/DPY)
-    # params['Bm2'] = set_prior(Bm2_prior/DPY, Bm2_error/DPY)
-    # params['Bm1s'] = set_prior(0.1, 0.1*rel_err)
-    # params['Bm1l'] = set_prior(0.15, 0.15*rel_err)
-    # params['Po'] = set_prior(Po_prior, Po_prior*0.25, depth_varying=False)
-    # params['Lp']= set_prior(Lp_prior, Lp_prior*0.25, depth_varying=False)
-    # params['B3'] = set_prior(0.06, 0.06*rel_err, depth_varying=False)
-    # params['a'] = set_prior(0.3, 0.3*rel_err, depth_varying=False)
-    # params['zm'] = set_prior(500, 500*rel_err, depth_varying=False)    
-
-    # params['ws'] = set_prior(2, 2)
-    # params['wl'] = set_prior(17.6, 17.6)
-    # params['B2p'] = set_prior(0.01/1.57, 0.01/1.57)  # 0.00636942675
-    # params['Bm2'] = set_prior(0.73, 0.73)
-    # params['Bm1s'] = set_prior(0.04, 0.04)
-    # params['Bm1l'] = set_prior(0.15, 0.15)
-    # params['Po'] = set_prior(Po_prior, Po_prior*0.25, depth_varying=False)
-    # params['Lp']= set_prior(Lp_prior, Lp_prior*0.25, depth_varying=False)
-    # params['B3'] = set_prior(0.06, 0.06, depth_varying=False)
-    # params['a'] = set_prior(0.3, 0.3, depth_varying=False)
-    # params['zm'] = set_prior(500, 500, depth_varying=False)  
-
-    # params['ws'] = set_prior(2, 2)
-    # params['wl'] = set_prior(47.5, 47.5)
-    # params['B2p'] = set_prior(0.04/1.57, 0.04/1.57)  # 0.025477707
-    # params['Bm2'] = set_prior(2.38, 2.38)
-    # params['Bm1s'] = set_prior(0.23, 0.23)
-    # params['Bm1l'] = set_prior(0.15, 0.15)
-    # params['Po'] = set_prior(Po_prior, Po_prior*0.25, depth_varying=False)
-    # params['Lp']= set_prior(Lp_prior, Lp_prior*0.25, depth_varying=False)
-    # params['B3'] = set_prior(0.06, 0.06, depth_varying=False)
-    # params['a'] = set_prior(0.3, 0.3, depth_varying=False)
-    # params['zm'] = set_prior(500, 500, depth_varying=False)
-
     params['ws'] = set_prior(2, 2)
     params['wl'] = set_prior(10.1, 10.1)
-    params['B2p'] = set_prior(0.004/1.57, 0.004/1.57)  # 0.0025477707
+    params['B2p'] = set_prior(0.004/1.57, 0.004/1.57)
     params['Bm2'] = set_prior(0.21, 0.21)
     params['Bm1s'] = set_prior(0.009, 0.009)
     params['Bm1l'] = set_prior(0.15, 0.15)
     params['Po'] = set_prior(Po_prior, Po_prior*0.25, depth_varying=False)
     params['Lp']= set_prior(Lp_prior, Lp_prior*0.25, depth_varying=False)
-    params['B3'] = set_prior(0.06, 0.06, depth_varying=False)
+    params['B3'] = set_prior(B3_prior, B3_prior*0.25, depth_varying=False)
     params['a'] = set_prior(0.3, 0.3, depth_varying=False)
     params['zm'] = set_prior(500, 500, depth_varying=False) 
     
