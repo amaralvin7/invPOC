@@ -10,16 +10,26 @@ bm1s = df['Bm1']
 bm2 = df['Bm2']
 b2 = df['B2']
 wl = df['wl']
+ws = df['ws']
 
-markers = {'MNWA': ('s', radish),
-           'MNA': ('d', green),
-           'BRIG': ('*', orange),
-           'CEP': ('^', vermillion),
-           'CSP': ('v', blue),
-           'MWAP1': ('h', sky),
-           'MWAP2': ('D', black),
-           'MBATS': ('X', 'r'),
-           'MSARG': ('p', 'g')}
+markers = {'MNWA': ('s', radish, 60),
+           'MNA': ('d', green, 60),
+           'BRIG': ('*', orange, 60),
+           'CEP': ('^', vermillion, 60),
+           'CSP': ('v', blue, 60),
+           'MWAP1': ('h', sky, 60),
+           'MWAP2': ('D', black, 60),
+           'MBATS': ('X', 'r', 60),
+           'MSARG': ('p', 'g', 60),
+           'XIANG': ('o', 'grey', 4),
+           'A16': ('s', radish, 60),
+           'L17': ('d', green, 60),
+           'G20': ('*', orange, 60),
+           'K76': ('^', vermillion, 60),
+           'K81': ('v', blue, 60),
+           'S95': ('h', sky, 60),
+           'RVDL93': ('D', black, 60),
+           'V08': ('X', 'r', 60)}
 
 def plot_percentage(percent, x, y, ax, name):
     
@@ -38,8 +48,8 @@ def cdf(df, title, name):
     
     fig, ax = plt.subplots(1,1,tight_layout=True)
     for i, _ in enumerate(y):
-        marker, color = markers[m[i]]
-        ax.scatter(x[i], y[i], marker=marker, c=color, label=m[i])
+        marker, color, size = markers[m[i]]
+        ax.scatter(x[i], y[i], marker=marker, c=color, label=m[i], s=size)
         ax.set_yscale('log')
     ax.set_ylabel(title, fontsize=16)
     ax.set_xticks(np.arange(0, 1.1, 0.1))
@@ -59,3 +69,4 @@ cdf(bm1s, '$\\beta_{-1}$ (d$^{-1}$)', 'bm1')
 cdf(bm2, '$\\beta_{-2}$ (d$^{-1}$)', 'bm2')
 cdf(b2, '$\\beta_{2}$ (d$^{-1}$)', 'b2')
 cdf(wl, '$w_L$ (m d$^{-1}$)', 'wl')
+cdf(ws, '$w_S$ (m d$^{-1}$)', 'ws')
