@@ -13,7 +13,8 @@ from src.constants import MMC
 def load_poc_data():
     
     metadata = pd.read_csv('../../data/values_v9.csv',
-                           usecols=('GTNum', 'GTStn', 'CorrectedMeanDepthm',
+                           usecols=('GTNum', 'GTStn', 'CastType',
+                                    'CorrectedMeanDepthm',
                                     'Latitudedegrees_north', 
                                     'Longitudedegrees_east',
                                     'DateatMidcastGMTyyyymmdd'))
@@ -38,7 +39,8 @@ def load_poc_data():
 
 def merge_poc_data(metadata, values, errors, flags):
 
-    rename_cols = {'GTStn': 'station', 'CorrectedMeanDepthm': 'depth',
+    rename_cols = {'GTStn': 'station', 'CastType': 'cast',
+                   'CorrectedMeanDepthm': 'depth',
                    'POC_SPT_uM': 'POCS', 'POC_LPT_uM': 'POCL',
                    'Latitudedegrees_north': 'latitude',
                    'Longitudedegrees_east': 'longitude',
@@ -82,84 +84,88 @@ def clean_by_flags(raw):
 
     return cleaned
 
-def load_modis_data():
+def load_nc_data(dir):
     
-    modis_path = '../../data/modis'
-    filenames = [f for f in os.listdir(modis_path) if '.nc' in f]
-
-    modis_data = {}
+    datainfo = {'modis': {'ext': '.nc', 'dateidx': 3},
+                'cbpm': {'ext': '.hdf', 'dateidx': 1}}
+    
+    path = f'../../data/{dir}'
+    filenames = [f for f in os.listdir(path) if datainfo[dir]['ext'] in f]
+    data = {}
 
     for f in filenames:
-        date = f.split('.')[3]
-        modis_data[date] = nc.Dataset(os.path.join(modis_path, f))
-  
-    return modis_data
+        date = f.split('.')[datainfo[dir]['dateidx']]
+        if dir == 'cbpm':
+            date = datetime.strptime(date, '%Y%j').strftime('%Y%m%d')
+        data[date] = nc.Dataset(os.path.join(path, f))
+    
+    return data
 
-def get_Lp_priors(poc_data):
-
-    Lp_priors = {}
+def extract_nc_data(poc_data, dir):
+    
+    var_by_station = {}
+    
     df = poc_data.copy()
-    df = df[df['depth'] < 50]
+    df = df[df['cast'] == 'S']  
     df = df[['station', 'latitude', 'longitude', 'datetime']]
     df.drop_duplicates(subset=['station'], inplace=True)
     df.reset_index(inplace=True, drop=True)
 
-    modis_data = load_modis_data()
-    modis_dates = [datetime.strptime(d,'%Y%m%d') for d in modis_data]
+    nc_data = load_nc_data(dir)
+    nc_dates = [datetime.strptime(d,'%Y%m%d') for d in nc_data]
     
+    if dir == 'cbpm':
+        nc_lats = [90 - x*(1/12) - 1/24 for x in range(2160)]
+        nc_lons = [x*(1/12) - 180 + 1/24 for x in range(4320)]
+
     for i, row in df.iterrows(): 
 
         date = datetime.strptime(row['datetime'], '%m/%d/%y %H:%M')
-        prev_modis_dates = [d for d in modis_dates if d <= date]
-        df.at[i, 'modis_date'] = min(
-            prev_modis_dates, key=lambda x: abs(x - date))
-        modis_8day = modis_data[df.at[i, 'modis_date'].strftime('%Y%m%d')]
-        kd_8day = modis_8day.variables['MODISA_L3m_KD_8d_4km_2018_Kd_490'][0]
+        station_coord = np.array((row['latitude'], row['longitude']))
+        prev_nc_dates = [d for d in nc_dates if d <= date]
+        df.at[i, 'nc_date'] = min(prev_nc_dates, key=lambda x: abs(x - date))
+        nc_8day = nc_data[df.at[i, 'nc_date'].strftime('%Y%m%d')]
+        
+        if dir == 'cbpm':
+            var_name = 'npp'
+            var_8day = nc_8day.variables[var_name]
+        if dir == 'modis':
+            var_name = 'Kd'
+            var_8day = nc_8day.variables['MODISA_L3m_KD_8d_4km_2018_Kd_490'][0]
+            nc_lats = list(nc_8day.variables['lat'][:])
+            nc_lons = list(nc_8day.variables['lon'][:])
 
-        station_coord = np.array((row['latitude'], row['longitude']))       
-        modis_lats = list(modis_8day.variables['lat'][:])
-        modis_lons = list(modis_8day.variables['lon'][:])
-        close_modis_lats = [
-            l for l in modis_lats if abs(station_coord[0] - l) < 1]
-        close_modis_lons = [
-            l for l in modis_lons if abs(station_coord[1] - l) < 1]
-        modis_coords = list(product(close_modis_lats, close_modis_lons))
-        distances = [distance(mc, station_coord) for mc in modis_coords]
-        modis_coords_sorted = [
-            x for _, x in sorted(zip(distances, modis_coords))]
+        close_nc_lats = [
+            l for l in nc_lats if abs(station_coord[0] - l) < 1]
+        close_nc_lons = [
+            l for l in nc_lons if abs(station_coord[1] - l) < 1]
+        nc_coords = list(product(close_nc_lats, close_nc_lons))
+        distances = [distance(ncc, station_coord) for ncc in nc_coords]
+        nc_coords_sorted = [
+            x for _, x in sorted(zip(distances, nc_coords))]
         
         j = 0
         while True:
-            modis_lat_index = modis_lats.index(modis_coords_sorted[j][0])
-            modis_lon_index = modis_lons.index(modis_coords_sorted[j][1])
-            station_kd = kd_8day[modis_lat_index, modis_lon_index]
-            if station_kd:
+            nc_lat_index = nc_lats.index(nc_coords_sorted[j][0])
+            nc_lon_index = nc_lons.index(nc_coords_sorted[j][1])
+            station_var = var_8day[nc_lat_index, nc_lon_index]
+            if station_var > -9999:
                 break
             j += 1
 
-        df.at[i, 'modis_lat'] = modis_coords_sorted[j][0]
-        df.at[i, 'modis_lon'] = modis_coords_sorted[j][1]
-        df.at[i, 'Lp'] = 1/station_kd
-        Lp_priors[row['station']] = 1/station_kd
+        # df.at[i, 'nc_lat'] = nc_coords_sorted[j][0]
+        # df.at[i, 'nc_lon'] = nc_coords_sorted[j][1]
+        # df.at[i, var_name] = station_var
+        var_by_station[row['station']] = station_var
+    
+    return var_by_station
+        
+def get_Lp_priors(poc_data):
+
+    Kd = extract_nc_data(poc_data, 'modis')
+    Lp_priors = {station: 1/k for station, k in Kd.items()}
     
     return Lp_priors
-
-def load_npp_data():
-    
-    df = pd.read_csv('../../data/npp.csv')
-    dates = [datetime.strptime(d, '%d-%b-%y') for d in df.columns[2:]]
-
-    npp_df = df[['Station', 'Sampling Date']].copy()
-    npp_df['mgC_m2_d'] = 0.0
-    for i, r in npp_df.iterrows():
-        date = datetime.strptime(r['Sampling Date'], '%m/%d/%y')
-        prior_dates = [d for d in dates if d <= date]
-        closest = min(prior_dates, key=lambda x: abs(x - date))
-        npp_df.at[i, 'mgC_m2_d'] = df.at[i, closest.strftime('%-d-%b-%y')]
-
-    npp_dict = dict(zip(npp_df['Station'], npp_df['mgC_m2_d']))
-
-    return npp_dict
 
 def load_mixed_layer_depths():
     
@@ -178,12 +184,12 @@ def load_ppz_data():
 
     return ppz_dict
 
-def get_Po_priors(npp, Lp_priors):
+def get_Po_priors(npp_data, Lp_priors):
     
     Po_priors = {}
     
     for s in Lp_priors:
-        Po_priors[s] = npp[s]/MMC / Lp_priors[s]
+        Po_priors[s] = npp_data[s]/MMC / Lp_priors[s]
     
     return Po_priors
 

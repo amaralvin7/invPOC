@@ -21,9 +21,9 @@ maxdepth = 600
 
 poc_data = data.load_poc_data()
 ppz_data = data.load_ppz_data()
-npp_data = data.load_npp_data()
 mixed_layer_depths = data.load_mixed_layer_depths()
 
+npp_data = data.extract_nc_data(poc_data, 'cbpm')
 Lp_priors = data.get_Lp_priors(poc_data)
 Po_priors = data.get_Po_priors(npp_data, Lp_priors)
 B3_priors = data.get_B3_priors(npp_data)

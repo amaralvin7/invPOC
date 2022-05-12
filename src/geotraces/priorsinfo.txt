@@ -1,11 +1,13 @@
 Explanations of how prior estimates were obtained
 
 Lp
-- Original MODIS file name: g4.timeAvgMap.MODISA_L3m_KD_8d_4km_2018_Kd_490.20180926-20181122.157W_19S_148W_55N.nc
-- 8-day averages with 4km resolution were averaged over the sampling timeline (20180926-20181122)
-- reciprocal of nearest Kd was chosen
+- 8-day averages with 4km resolution were obtained over the sampling timeline from Modis Aqua (4km)
+- For each station, the sampling time was selected from the shallow cast, and was matched with the 8-day satellite average that contained this sampling time
+- Kd was selected from the nearest location where there was an estimate
+- reciprocal of nearest Kd was calculated
 
 Po
-- From Kenyon's readme: NPP was estimated using the MODIS r2018 satellite product and the carbon-based productivity model (CbPM \cite{westberry2008}) by Oregon State University Ocean Productivity. Average NPP for 16 days prior to each sampling date was determined using a weighted average of 8-day NPP products within an 18 km by 18 km region containing each station.
-- I match each station sampling date with the nearest previous satellite sampling date (satellite sampling dates are the beginning of the 8-day averages) to get estimates of integrated NPP at each station
+- 2160 by 4320 (9km resolution) 8day HDF files from MODIS r2018 (GSM) Data were obtained from Oregon State Ocean Productivity for the 8-day windows that spanned the cruise. These are NPP estimates in mg m-2 d-1
+- For each station, the sampling time was selected from the shallow cast, and was matched with the 8-day satellite average that contained this sampling time
+- NPP was selected from the nearest location where there was an estimate
 - I divide the integrated NPP at a given station by its Lp prior to obtain Po
