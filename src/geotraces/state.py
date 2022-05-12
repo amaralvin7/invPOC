@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 import numpy as np
 
-import statsmodels.formula.api as smf
-
-from src.constants import MMC, DPY
+from src.constants import MMC
+from src.geotraces.data import extract_nc_data
 
 def define_tracers(data):
     
@@ -70,3 +69,39 @@ def contextual_priors(priors_from, rel_err):
         Bm2_error = Bm2_prior*rel_err
     
     return B2p_prior, B2p_error, Bm2_prior, Bm2_error
+
+def get_Lp_priors(poc_data):
+
+    Kd = extract_nc_data(poc_data, 'modis')
+    Lp_priors = {station: 1/k for station, k in Kd.items()}
+    
+    return Lp_priors
+
+def get_Po_priors(npp_data, Lp_priors):
+    
+    Po_priors = {}
+    
+    for s in Lp_priors:
+        Po_priors[s] = npp_data[s]/MMC / Lp_priors[s]
+    
+    return Po_priors
+
+def get_B3_priors(npp):
+    
+    B3_priors = {}
+    
+    for s in npp:
+        B3_priors[s] = 10**(-2.42 + 0.53*np.log10(npp[s]))
+
+    return B3_priors
+
+def get_residual_prior_error(Po_priors, mixed_layer_depths):
+    
+    products = []
+
+    for s in Po_priors:
+        if s not in mixed_layer_depths:
+            continue
+        products.append(Po_priors[s]*mixed_layer_depths[s])
+    
+    return np.mean(products)

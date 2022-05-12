@@ -159,13 +159,6 @@ def extract_nc_data(poc_data, dir):
         var_by_station[row['station']] = station_var
     
     return var_by_station
-        
-def get_Lp_priors(poc_data):
-
-    Kd = extract_nc_data(poc_data, 'modis')
-    Lp_priors = {station: 1/k for station, k in Kd.items()}
-    
-    return Lp_priors
 
 def load_mixed_layer_depths():
     
@@ -183,32 +176,3 @@ def load_ppz_data():
         ppz_dict[s] = ppz_df[ppz_df['Station'] == s]['PPZ Depth'].mean()
 
     return ppz_dict
-
-def get_Po_priors(npp_data, Lp_priors):
-    
-    Po_priors = {}
-    
-    for s in Lp_priors:
-        Po_priors[s] = npp_data[s]/MMC / Lp_priors[s]
-    
-    return Po_priors
-
-def get_B3_priors(npp):
-    
-    B3_priors = {}
-    
-    for s in npp:
-        B3_priors[s] = 10**(-2.42 + 0.53*np.log10(npp[s]))
-
-    return B3_priors
-
-def get_residual_prior_error(Po_priors, mixed_layer_depths):
-    
-    products = []
-
-    for s in Po_priors:
-        if s not in mixed_layer_depths:
-            continue
-        products.append(Po_priors[s]*mixed_layer_depths[s])
-    
-    return np.mean(products)
