@@ -6,7 +6,8 @@ import pandas as pd
 from src.colors import *
 
 df = pd.read_excel('../../data/paramcompilation.xlsx', sheet_name=None)
-bm1s = df['Bm1']
+bm1s = df['Bm1s']
+bm1l = df['Bm1l']
 bm2 = df['Bm2']
 b2 = df['B2']
 wl = df['wl']
@@ -29,7 +30,10 @@ markers = {'MNWA': ('s', radish, 60),
            'K81': ('v', blue, 60),
            'S95': ('h', sky, 60),
            'RVDL93': ('D', black, 60),
-           'V08': ('X', 'r', 60)}
+           'V08': ('X', 'r', 60),
+           'ENA': ('h', sky, 60),
+           'ENP': ('D', black, 60),
+           'SBB': ('X', 'r', 60)}
 
 def plot_percentage(percent, x, y, ax, name):
     
@@ -65,7 +69,8 @@ def cdf(df, title, name):
     fig.savefig(f'../../results/geotraces/ranges_{name}')
     plt.close()
 
-cdf(bm1s, '$\\beta_{-1}$ (d$^{-1}$)', 'bm1')
+cdf(bm1s, '$\\beta_{-1,S}$ (d$^{-1}$)', 'bm1s')
+cdf(bm1l, '$\\beta_{-1,L}$ (d$^{-1}$)', 'bm1l')
 cdf(bm2, '$\\beta_{-2}$ (d$^{-1}$)', 'bm2')
 cdf(b2, '$\\beta_{2}$ (d$^{-1}$)', 'b2')
 cdf(wl, '$w_L$ (m d$^{-1}$)', 'wl')
