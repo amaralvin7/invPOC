@@ -2,14 +2,14 @@ import sympy as sym
 import numpy as np
 
 from src.budgets import eval_sym_expression
-from src.modelequations import dvm_egestion
+from src.modelequations import dvm_egestion, production
 """
 todo:
 - combine for loop statements in get_symbolic_int_fluxes
 (it is the way it is to preserve order in original output file)
 """
 
-def get_symbolic_int_fluxes(umz_start, layers, thick, grid, mld, zg):
+def get_symbolic_int_fluxes(umz_start, layers, thick, grid, zg, mld=None):
 
     int_fluxes_sym = {}
     
@@ -102,13 +102,9 @@ def get_symbolic_production(umz_start, layers, grid, mld):
     
     for l in layers:
         Po, Lp = sym.symbols('Po Lp')
-        if l == 0:
-            profile.append(Po*mld)
-        else:
-            zi = grid[l]
-            zim1 = grid[l - 1]
-            profile.append(Lp*Po*(sym.exp(-(zim1 - mld)/Lp)
-                                   - sym.exp(-(zi - mld)/Lp)))
+        zi = grid[l]
+        zim1 = grid[grid.index(zi) - 1] if l > 0 else 0
+        profile.append(production(l, Po, Lp, zi, zim1, mld))
     
     return profile_to_dict(profile, umz_start)
 
@@ -152,14 +148,18 @@ def sinking_fluxes(layers, state_elements, Ckp1, tracers, params):
     
     return sink_fluxes
 
-def production_prof(layers, state_elements, Ckp1, tracers, params, mld, grid):
+def production_prof(
+    layers, state_elements, Ckp1, tracers, params, grid, mld=None):
 
     profile = []
     Po, Lp = sym.symbols('Po Lp')
 
     for l in layers:
         z = grid[l]
-        y = Po*sym.exp(-(z - mld)/Lp)
+        if mld:
+            y = Po*sym.exp(-(z - mld)/Lp)
+        else:
+            y = Po*sym.exp(-(z)/Lp)
         profile.append(
             eval_sym_expression(y, state_elements, Ckp1, tracers=tracers,
             params=params))

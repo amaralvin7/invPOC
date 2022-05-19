@@ -2,8 +2,8 @@ import numpy as np
 import sympy as sym
 
 def evaluate_model_equations(
-    tracers, state_elements, equation_elements, xk, grid, zg, mld,
-    productionbool, umz_start, targets=None):
+    tracers, state_elements, equation_elements, xk, grid, zg, umz_start,
+    mld, targets=None):
     
     n_tracer_elements = len(tracers) * len(grid)
     n_state_elements = len(state_elements)
@@ -16,8 +16,8 @@ def evaluate_model_equations(
 
     for i, element in enumerate(equation_elements):
         tracer, layer = element.split('_')
-        y = equation_builder(tracer, int(layer), grid, zg, mld, productionbool,
-                             umz_start, targets=targets)
+        y = equation_builder(tracer, int(layer), grid, zg, umz_start, mld,
+                             targets=targets)
         x_sym, x_num, x_ind = extract_equation_variables(state_elements, y, xk)
         f[i] = sym.lambdify(x_sym, y)(*x_num)
         for j, x in enumerate(x_sym):
@@ -41,8 +41,7 @@ def extract_equation_variables(state_elements, y, xk):
 
     return x_symbolic, x_numerical, x_indices
 
-def equation_builder(
-    tracer, layer, grid, zg, mld, productionbool, umz_start, targets=None):
+def equation_builder(tracer, layer, grid, zg, umz_start, mld, targets=None):
 
     zi = grid[layer]
     zim1 = grid[grid.index(zi) - 1] if layer > 0 else 0
@@ -66,7 +65,7 @@ def equation_builder(
     if tracer == 'POCS':
         eq = 0
         if targets == None:
-            eq += production(productionbool, layer, Po, Lp, zi, zim1, mld)
+            eq += production(layer, Po, Lp, zi, zim1, mld)
         if layer == 0:
             eq += (-ws*Psi + Bm2*Pli*h - (B2p*Psi + Bm1s)*Psi*h + RPsi
                    - B3*Psi*h)
@@ -86,9 +85,9 @@ def equation_builder(
 
     return eq
 
-def production(productionbool, layer, Po, Lp, zi, zim1, mld):
+def production(layer, Po, Lp, zi, zim1, mld):
     
-    if productionbool:
+    if mld:
         if layer == 0:
             return Po*mld
         else:

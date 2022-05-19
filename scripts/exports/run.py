@@ -28,8 +28,8 @@ def run_model(priors_from, gamma, rel_err):
     Co = framework.define_cov_matrix(tracers, residuals, params, LAYERS)
 
     ati_results = find_solution(
-        tracers, state_elements, equation_elements, xo, Co, GRID, ZG, MLD,
-        True, UMZ_START, priors_from, None)  # last 2 args just for debugging GT inversions, delete later
+        tracers, state_elements, equation_elements, xo, Co, GRID, ZG,
+        UMZ_START, priors_from, None, mld=MLD)  # last 2 args before mld are just for debugging GT inversions, delete later
     xhat, Ckp1, _, _ = ati_results
     x_resids = output.normalized_state_residuals(xhat, xo, Co)
     estimates = unpack_state_estimates(
@@ -52,7 +52,7 @@ def run_model(priors_from, gamma, rel_err):
         inventories_sym, state_elements, Ckp1, LAYERS, tracers=tracers)
 
     int_fluxes_sym = fluxes.get_symbolic_int_fluxes(
-        UMZ_START, LAYERS, THICK, GRID, MLD, ZG)
+        UMZ_START, LAYERS, THICK, GRID, ZG, mld=MLD)
     int_fluxes = budgets.integrate_by_zone_and_layer(
         int_fluxes_sym, state_elements, Ckp1, LAYERS, tracers=tracers,
         params=params)
@@ -68,7 +68,7 @@ def run_model(priors_from, gamma, rel_err):
         LAYERS, state_elements, Ckp1, tracers, params)
     
     production_profile = fluxes.production_prof(
-        LAYERS, state_elements, Ckp1, tracers, params, MLD, GRID)
+        LAYERS, state_elements, Ckp1, tracers, params, GRID, mld=MLD)
 
     residence_times = timescales.calculate_residence_times(
         inventories_sym, int_fluxes_sym, int_fluxes, residuals_sym, residuals,

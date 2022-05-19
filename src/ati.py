@@ -31,8 +31,8 @@ def calculate_cost(Co, xo, x):
     return cost
 
 def find_solution(
-    tracers, state_elements, equation_elements, xo, Co, grid, zg, mld,
-    productionbool, umz_start, priors_from, station):
+    tracers, state_elements, equation_elements, xo, Co, grid, zg, umz_start,
+    priors_from, station, mld=None):
 
     max_iterations = 200
     convergence_evolution = []
@@ -42,8 +42,8 @@ def find_solution(
     xkp1 = np.ones(len(xk))  # at iteration k+1
     for count in range(max_iterations):
         f, F = evaluate_model_equations(
-            tracers, state_elements, equation_elements, xk, grid, zg, mld,
-            productionbool, umz_start)
+            tracers, state_elements, equation_elements, xk, grid, zg,
+            umz_start, mld)
 
         xkp1, CoFT, FCoFTi = calculate_xkp1(Co, xo, xk, f, F)
         cost = calculate_cost(Co, xo, xkp1)

@@ -112,8 +112,8 @@ def generate_nonlinear_solution(targets):
 
     for _ in range(max_iterations):
         f, F = evaluate_model_equations(
-            tracers, state_elements, equation_elements, xk, GRID, ZG, MLD,
-            None, UMZ_START, targets=targets)
+            tracers, state_elements, equation_elements, xk, GRID, ZG,
+            UMZ_START, MLD, targets=targets)
         xkp1 = np.linalg.solve(F, (F @ xk - f + b))
         change = np.abs((xkp1 - xk)/xk)
         if np.max(change) < max_change_limit:

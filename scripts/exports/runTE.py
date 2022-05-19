@@ -25,8 +25,8 @@ def run_twin_experiment(priors_from, gamma, rel_err):
     Co = framework.define_cov_matrix(tracers, residuals, params, LAYERS)
 
     ati_results = find_solution(
-        tracers, state_elements, equation_elements, xo, Co, GRID, ZG, MLD,
-        True, UMZ_START, priors_from, None)  # last 2 args just for debugging GT inversions, delete later
+        tracers, state_elements, equation_elements, xo, Co, GRID, ZG,
+        UMZ_START, priors_from, None, mld=MLD)  # last 2 args before MLD are just for debugging GT inversions, delete later
     xhat, Ckp1, _, _ = ati_results
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, LAYERS)
@@ -34,9 +34,7 @@ def run_twin_experiment(priors_from, gamma, rel_err):
     output.merge_by_keys(tracer_estimates, tracers)
     output.merge_by_keys(param_estimates, params)
     output.merge_by_keys(residual_estimates, residuals)
-    print(residual_estimates)
-    print(residuals)
-    sys.exit()
+
     to_pickle = {'tracers': tracers, 'params': params, 'residuals': residuals,
                  'targets': targets}
     
