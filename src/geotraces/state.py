@@ -30,13 +30,34 @@ def define_params(Lp_prior, Po_prior, B3_prior, priors_from, rel_err):
     
     # B2p_prior, B2p_error, Bm2_prior, Bm2_error = contextual_priors(
     #     priors_from, rel_err)
+    
+    # Bm1l = 0.03
+    # Bm1s = 0.01
+    # Bm2 = 0.21
+    # wl = 47
+    # ws = 0.6
+    # B2 = 0.004
 
-    params['ws'] = set_prior(2, 2)
-    params['wl'] = set_prior(10.1, 10.1)
-    params['B2p'] = set_prior(0.004/1.57, 0.004/1.57)
-    params['Bm2'] = set_prior(0.21, 0.21)
-    params['Bm1s'] = set_prior(0.009, 0.009)
-    params['Bm1l'] = set_prior(0.15, 0.15)
+    # Bm1l = 0.15
+    # Bm1s = 0.04
+    # Bm2 = 0.73
+    # wl = 62
+    # ws = 0.8
+    # B2 = 0.01
+    
+    Bm1l = 0.68
+    Bm1s = 0.23
+    Bm2 = 2.38
+    wl = 78
+    ws = 1.1
+    B2 = 0.04
+
+    params['ws'] = set_prior(ws, ws)
+    params['wl'] = set_prior(wl, wl)
+    params['B2p'] = set_prior(B2/1.57, B2/1.57)
+    params['Bm2'] = set_prior(Bm2, Bm2)
+    params['Bm1s'] = set_prior(Bm1s, Bm1s)
+    params['Bm1l'] = set_prior(Bm1l, Bm1l)
     params['Po'] = set_prior(Po_prior, Po_prior*0.25, depth_varying=False)
     params['Lp']= set_prior(Lp_prior, Lp_prior*0.25, depth_varying=False)
     params['B3'] = set_prior(B3_prior, B3_prior*0.25, depth_varying=False)
@@ -77,31 +98,43 @@ def get_Lp_priors(poc_data):
     
     return Lp_priors
 
-def get_Po_priors(npp_data, Lp_priors):
+def get_ez_depths(Lp_priors):
+
+    depths = {station: l*np.log(100) for station, l in Lp_priors.items()}
     
-    Po_priors = {}
-    
-    for s in Lp_priors:
-        Po_priors[s] = npp_data[s]/MMC / Lp_priors[s]
+    return depths
+
+def get_Po_priors(poc_data, Lp_priors, npp_data, ez_depths):
+
+    Po_priors = {calculate_surface_npp(
+        poc_data[s], Lp_priors[s], npp_data[s], ez_depths[s], volumetric=True
+        ) for s in poc_data}
     
     return Po_priors
 
-def get_B3_priors(npp):
+def get_B3_priors(npp_data):
     
     B3_priors = {}
     
-    for s in npp:
-        B3_priors[s] = 10**(-2.42 + 0.53*np.log10(npp[s]))
+    for s in npp_data:
+        B3_priors[s] = 10**(-2.42 + 0.53*np.log10(npp_data[s]))
 
     return B3_priors
 
-def get_residual_prior_error(Po_priors, mixed_layer_depths):
+def calculate_surface_npp(poc, Lp, npp, ez_depth, volumetric=False):
     
-    products = []
+    z0 = poc.iloc[0]['depth']
+    ratio = ((1 - np.exp(-z0/Lp))/(1 - np.exp(-ez_depth/Lp)))
+    surface_npp = npp/MMC * ratio
+    if volumetric:
+        return surface_npp/z0
+    
+    return surface_npp
 
-    for s in Po_priors:
-        if s not in mixed_layer_depths:
-            continue
-        products.append(Po_priors[s]*mixed_layer_depths[s])
+def get_residual_prior_error(poc_data, Lp_priors, npp_data, ez_depths):
+    
+    products = [calculate_surface_npp(
+        poc_data[s], Lp_priors[s], npp_data[s], ez_depths[s]
+        ) for s in poc_data]
     
     return np.mean(products)

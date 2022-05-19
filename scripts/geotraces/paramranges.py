@@ -62,15 +62,15 @@ def cdf(df, title, name):
     unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
     ax.legend(*zip(*unique), fontsize=10, ncol=1, frameon=False, loc='lower right')
     
+    plot_percentage(0.25, x, y, ax, name)
     plot_percentage(0.5, x, y, ax, name)
     plot_percentage(0.75, x, y, ax, name)
-    plot_percentage(0.25, x, y, ax, name)
     
-    fig.savefig(f'../../results/geotraces/ranges_{name}')
+    fig.savefig(f'../../results/geotraces/ranges/ranges_{name}')
     plt.close()
 
-cdf(bm1s, '$\\beta_{-1,S}$ (d$^{-1}$)', 'bm1s')
 cdf(bm1l, '$\\beta_{-1,L}$ (d$^{-1}$)', 'bm1l')
+cdf(bm1s, '$\\beta_{-1,S}$ (d$^{-1}$)', 'bm1s')
 cdf(bm2, '$\\beta_{-2}$ (d$^{-1}$)', 'bm2')
 cdf(b2, '$\\beta_{2}$ (d$^{-1}$)', 'b2')
 cdf(wl, '$w_L$ (m d$^{-1}$)', 'wl')

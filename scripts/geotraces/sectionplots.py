@@ -29,8 +29,7 @@ text = {'ws': ('Settling speed, 1-51 µm (m d$^{-1}$)',),
         'sink_L': ('Sinking flux, > 51 µm (mmol m$^{-2}$ d$^{-1}$)', (0, 8)),
         'sink_T': ('Sinking flux, >1 µm (mmol m$^{-2}$ d$^{-1}$)', (0, 8))}
 
-poc_data = data.load_poc_data()
-
+poc_data = data.poc_by_station()
 results_path = f'../../results/geotraces/'
 pickled_files = [f for f in os.listdir(results_path) if f.endswith('NA.pkl')]
 
@@ -82,7 +81,7 @@ def get_path(filename):
 
 def get_station_latitude(station):
 
-    station_poc = poc_data.loc[poc_data['station'] == int(station)]
+    station_poc = poc_data[int(station)]
     latitude = round(station_poc.iloc[0]['latitude'], 1)
 
     return latitude
@@ -102,7 +101,7 @@ for f in pickled_files:
 
     with open(file_path, 'rb') as file:
         unpickled = pickle.load(file)
-        _, _, _, _, _, _, _, _, grid, zg, mld, *_ = unpickled
+        _, _, _, grid, zg, mld, *_ = unpickled
     
     latitudes.append(get_station_latitude(s))
     mlds.append(mld)
@@ -136,7 +135,7 @@ for p in dv_params:
 
         with open(file_path, 'rb') as file:
             unpickled = pickle.load(file)
-            _, params, _, _, _, _, _, _, grid, _, _, layers, *_ = unpickled
+            _, params, _, grid, _, _, layers, *_ = unpickled
 
         for l in layers:
             if 'w' in p:
@@ -149,66 +148,66 @@ for p in dv_params:
     
     plot_section(df, p)
 
-###################
-#INTEGRATED FLUXES
-###################
-file_path = os.path.join(results_path, pickled_files[0])
-with open(file_path, 'rb') as file:
-    unpickled = pickle.load(file)
-    _, _, _, _, int_fluxes, *_ = unpickled
+# ###################
+# #INTEGRATED FLUXES
+# ###################
+# file_path = os.path.join(results_path, pickled_files[0])
+# with open(file_path, 'rb') as file:
+#     unpickled = pickle.load(file)
+#     _, _, _, _, int_fluxes, *_ = unpickled
 
-for i in int_fluxes:
+# for i in int_fluxes:
 
-    df = pd.DataFrame(columns=('depth', 'latitude', 'estimate'))
+#     df = pd.DataFrame(columns=('depth', 'latitude', 'estimate'))
 
-    for f in pickled_files:
+#     for f in pickled_files:
 
-        file_path, s, pf = get_path(f)
-        latitude = get_station_latitude(s)
+#         file_path, s, pf = get_path(f)
+#         latitude = get_station_latitude(s)
 
-        with open(file_path, 'rb') as file:
-            unpickled = pickle.load(file)
-            _, _, _, _, int_fluxes, _, _, _, grid, zg, _, layers, *_ = unpickled
+#         with open(file_path, 'rb') as file:
+#             unpickled = pickle.load(file)
+#             _, _, _, _, int_fluxes, _, _, _, grid, zg, _, layers, *_ = unpickled
 
-        for l in layers:
-            zi = grid[l]
-            zim1 = grid[grid.index(zi) - 1] if l > 0 else 0
-            depth = np.mean((zi, zim1))
-            if zi <= zg and i == 'dvm':
-                df.loc[df.shape[0]] = [depth, latitude, -int_fluxes[i][l][0]]
-            else:
-                df.loc[df.shape[0]] = [depth, latitude, int_fluxes[i][l][0]]
+#         for l in layers:
+#             zi = grid[l]
+#             zim1 = grid[grid.index(zi) - 1] if l > 0 else 0
+#             depth = np.mean((zi, zim1))
+#             if zi <= zg and i == 'dvm':
+#                 df.loc[df.shape[0]] = [depth, latitude, -int_fluxes[i][l][0]]
+#             else:
+#                 df.loc[df.shape[0]] = [depth, latitude, int_fluxes[i][l][0]]
 
-    plot_section(df, i)
+#     plot_section(df, i)
 
-    if i in ('remin_S', 'aggregation', 'sinkdiv_S', 'sinkdiv_L', 'dvm'):
-        plot_section(df, i, lims=True)
+#     if i in ('remin_S', 'aggregation', 'sinkdiv_S', 'sinkdiv_L', 'dvm'):
+#         plot_section(df, i, lims=True)
 
-###################
-#SINKING FLUXES
-###################
-file_path = os.path.join(results_path, pickled_files[0])
-with open(file_path, 'rb') as file:
-    unpickled = pickle.load(file)
-    _, _, _, _, _, sink_fluxes, *_ = unpickled
+# ###################
+# #SINKING FLUXES
+# ###################
+# file_path = os.path.join(results_path, pickled_files[0])
+# with open(file_path, 'rb') as file:
+#     unpickled = pickle.load(file)
+#     _, _, _, _, _, sink_fluxes, *_ = unpickled
 
-for sf in sink_fluxes:
+# for sf in sink_fluxes:
 
-    df = pd.DataFrame(columns=('depth', 'latitude', 'estimate'))
+#     df = pd.DataFrame(columns=('depth', 'latitude', 'estimate'))
 
-    for f in pickled_files:
+#     for f in pickled_files:
 
-        file_path, s, pf = get_path(f)
-        latitude = get_station_latitude(s)
+#         file_path, s, pf = get_path(f)
+#         latitude = get_station_latitude(s)
 
-        with open(file_path, 'rb') as file:
-            unpickled = pickle.load(file)
-            _, _, _, _, _, sink_fluxes, _, _, grid, zg, _, layers, *_ = unpickled
+#         with open(file_path, 'rb') as file:
+#             unpickled = pickle.load(file)
+#             _, _, _, _, _, sink_fluxes, _, _, grid, zg, _, layers, *_ = unpickled
 
-        for l in layers:
-            depth = grid[l]
-            df.loc[df.shape[0]] = [depth, latitude, sink_fluxes[sf][l][0]]
+#         for l in layers:
+#             depth = grid[l]
+#             df.loc[df.shape[0]] = [depth, latitude, sink_fluxes[sf][l][0]]
 
-    plot_section(df, f'sink_{sf}')
-    plot_section(df, f'sink_{sf}', lims=True)
-    # df.to_csv(f'../../results/geotraces/sink_{sf}.csv', index=False)
+#     plot_section(df, f'sink_{sf}')
+#     plot_section(df, f'sink_{sf}', lims=True)
+#     # df.to_csv(f'../../results/geotraces/sink_{sf}.csv', index=False)

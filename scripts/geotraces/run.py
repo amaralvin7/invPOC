@@ -17,36 +17,34 @@ from src.ati import find_solution
 
 relative_err = 1
 gamma = 0.2
-maxdepth = 600
 
-poc_data = data.load_poc_data()
-ppz_data = data.load_ppz_data()
+poc_data = data.poc_by_station()
+stations = poc_data.keys()
 mixed_layer_depths = data.load_mixed_layer_depths()
 
 npp_data = data.extract_nc_data(poc_data, 'cbpm')
 Lp_priors = state.get_Lp_priors(poc_data)
+ez_depths = state.get_ez_depths(Lp_priors)
 Po_priors = state.get_Po_priors(npp_data, Lp_priors)
 B3_priors = state.get_B3_priors(npp_data)
-resid_prior_err = state.get_residual_prior_error(Po_priors, mixed_layer_depths)
+resid_prior_err = state.get_residual_prior_error(
+    poc_data, Lp_priors, npp_data, ez_depths)
 
 priors_from_tuple = ('NA', 'SP')
 priors_from_tuple = ('NA',)
-stations = poc_data['station'].unique()
 
 def invert_station(priors_from, station):
 
     mld = mixed_layer_depths[station]
-    ppz = ppz_data[station]
-    station_poc = data.get_station_poc(poc_data, station, maxdepth)
-    tracers = state.define_tracers(station_poc)
+    tracers = state.define_tracers(poc_data[station])
     residuals = state.define_residuals(resid_prior_err, gamma)
     params = state.define_params(
         Lp_priors[station], Po_priors[station], B3_priors[station],
         priors_from, relative_err)
 
-    grid = tuple(station_poc['depth'].values)
+    grid = tuple(poc_data[station]['depth'].values)
     layers = tuple(range(len(grid)))
-    zg = min(grid, key=lambda x:abs(x - ppz))  # grazing depth
+    zg = min(grid, key=lambda x:abs(x - ez_depths[station]))  # grazing depth
     umz_start = grid.index(zg) + 1
     zone_layers = ('EZ', 'UMZ') + layers
     thick = diff((0,) + grid)
@@ -76,31 +74,36 @@ def invert_station(priors_from, station):
         residuals_sym, state_elements, Ckp1, residuals=residuals)
     output.merge_by_keys(residual_estimates_by_zone, residuals)
 
-    inventories_sym = budgets.get_symbolic_inventories(
-        tracers, umz_start, layers, thick)
-    inventories = budgets.integrate_by_zone_and_layer(
-        inventories_sym, state_elements, Ckp1, layers, tracers=tracers)
+    # NEEDS TO BE CHECKED FOR CORRECTNESS AS APPLIED TO GP15
+    # inventories_sym = budgets.get_symbolic_inventories(
+    #     tracers, umz_start, layers, thick)
+    # inventories = budgets.integrate_by_zone_and_layer(
+    #     inventories_sym, state_elements, Ckp1, layers, tracers=tracers)
 
-    int_fluxes_sym = fluxes.get_symbolic_int_fluxes(
-        umz_start, layers, thick, grid, mld, zg)
-    int_fluxes = budgets.integrate_by_zone_and_layer(
-        int_fluxes_sym, state_elements, Ckp1, layers, tracers=tracers,
-        params=params)
+    # int_fluxes_sym = fluxes.get_symbolic_int_fluxes(
+    #     umz_start, layers, thick, grid, mld, zg)
+    # int_fluxes = budgets.integrate_by_zone_and_layer(
+    #     int_fluxes_sym, state_elements, Ckp1, layers, tracers=tracers,
+    #     params=params)
 
-    sink_fluxes = fluxes.sinking_fluxes(
-        layers, state_elements, Ckp1, tracers, params)
+    # sink_fluxes = fluxes.sinking_fluxes(
+    #     layers, state_elements, Ckp1, tracers, params)
 
-    residence_times = timescales.calculate_residence_times(
-        inventories_sym, int_fluxes_sym, int_fluxes, residuals_sym, residuals,
-        tracers, params, state_elements, Ckp1, zone_layers, umz_start)
+    # residence_times = timescales.calculate_residence_times(
+    #     inventories_sym, int_fluxes_sym, int_fluxes, residuals_sym, residuals,
+    #     tracers, params, state_elements, Ckp1, zone_layers, umz_start)
 
-    turnover_times = timescales.calculate_turnover_times(
-        inventories_sym, int_fluxes_sym, int_fluxes, tracers, params,
-        state_elements, Ckp1, zone_layers)
+    # turnover_times = timescales.calculate_turnover_times(
+    #     inventories_sym, int_fluxes_sym, int_fluxes, tracers, params,
+    #     state_elements, Ckp1, zone_layers)
 
-    to_pickle = (tracers, params, residuals, inventories, int_fluxes,
-                 sink_fluxes, residence_times, turnover_times, grid, zg, mld,
+    # to_pickle = (tracers, params, residuals, inventories, int_fluxes,
+    #              sink_fluxes, residence_times, turnover_times, grid, zg, mld,
+    #              layers, convergence_evolution, cost_evolution)
+    
+    to_pickle = (tracers, params, residuals, grid, zg, mld,
                  layers, convergence_evolution, cost_evolution)
+    
     save_path = f'../../results/geotraces/stn{int(station)}_{priors_from}.pkl'
     with open(save_path, 'wb') as file:
                 pickle.dump(to_pickle, file)
@@ -109,9 +112,9 @@ if __name__ == '__main__':
 
     start_time = time.time()
 
-    n_processes = 32
+    n_processes = 64
 
-    pool = Pool(32)
+    pool = Pool(n_processes)
     pool.starmap(invert_station, product(priors_from_tuple, stations))
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')

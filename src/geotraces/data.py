@@ -26,15 +26,14 @@ def load_poc_data():
     errors = pd.read_csv('../../data/error_v9.csv', usecols=cols)
     flags = pd.read_csv('../../data/flag_v9.csv', usecols=cols)
 
-    merged = merge_poc_data(metadata, values, errors, flags)
-    merged.dropna(inplace=True)
-    merged = merged.loc[:, ~merged.columns.str.startswith('SPM_SPT_ugL')]
+    data = merge_poc_data(metadata, values, errors, flags)
+    data.dropna(inplace=True)
+    data = data.loc[:, ~data.columns.str.startswith('SPM_SPT_ugL')]
 
-    # station 18.3 excludes upper 500m
-    merged = merged[merged['station'] != 18.3]
-    merged = merged[merged['depth'] < 1000]
+    data = data[data['station'] != 18.3]  # station 18.3 excludes upper 500m
+    data = data[data['depth'] < 1000]  # don't need data below 1km
 
-    return merged
+    return data
 
 
 def merge_poc_data(metadata, values, errors, flags):
@@ -58,15 +57,19 @@ def merge_poc_data(metadata, values, errors, flags):
     
     return data
 
-def get_station_poc(data, station, maxdepth):
-
-    raw_station_data = data[data['station'] == station].copy()
-    raw_station_data.sort_values('depth', inplace=True, ignore_index=True)
-
-    clean_station_data = clean_by_flags(raw_station_data)
-    cleaned = clean_station_data.loc[clean_station_data['depth'] < maxdepth]
+def poc_by_station():
     
-    return cleaned
+    df = load_poc_data()
+    data = {}
+    maxdepth = 600
+
+    for s in df['station'].unique():
+        raw = df[df['station'] == s].copy()
+        raw.sort_values('depth', inplace=True, ignore_index=True)
+        cleaned = clean_by_flags(raw)
+        data[int(s)] = cleaned.loc[cleaned['depth'] < maxdepth]
+    
+    return data
 
 def clean_by_flags(raw):
     
@@ -104,12 +107,6 @@ def load_nc_data(dir):
 def extract_nc_data(poc_data, dir):
     
     var_by_station = {}
-    
-    df = poc_data.copy()
-    df = df[df['cast'] == 'S']  
-    df = df[['station', 'latitude', 'longitude', 'datetime']]
-    df.drop_duplicates(subset=['station'], inplace=True)
-    df.reset_index(inplace=True, drop=True)
 
     nc_data = load_nc_data(dir)
     nc_dates = [datetime.strptime(d,'%Y%m%d') for d in nc_data]
@@ -118,13 +115,16 @@ def extract_nc_data(poc_data, dir):
         nc_lats = [90 - x*(1/12) - 1/24 for x in range(2160)]
         nc_lons = [x*(1/12) - 180 + 1/24 for x in range(4320)]
 
-    for i, row in df.iterrows(): 
+    for s in poc_data:
+
+        df = poc_data[s].copy()
+        row = df[df['cast'] == 'S'].iloc[0]
 
         date = datetime.strptime(row['datetime'], '%m/%d/%y %H:%M')
         station_coord = np.array((row['latitude'], row['longitude']))
         prev_nc_dates = [d for d in nc_dates if d <= date]
-        df.at[i, 'nc_date'] = min(prev_nc_dates, key=lambda x: abs(x - date))
-        nc_8day = nc_data[df.at[i, 'nc_date'].strftime('%Y%m%d')]
+        nc_date = min(prev_nc_dates, key=lambda x: abs(x - date))
+        nc_8day = nc_data[nc_date.strftime('%Y%m%d')]
         
         if dir == 'cbpm':
             var_name = 'npp'
@@ -153,9 +153,6 @@ def extract_nc_data(poc_data, dir):
                 break
             j += 1
 
-        # df.at[i, 'nc_lat'] = nc_coords_sorted[j][0]
-        # df.at[i, 'nc_lon'] = nc_coords_sorted[j][1]
-        # df.at[i, var_name] = station_var
         var_by_station[row['station']] = station_var
     
     return var_by_station
@@ -166,13 +163,3 @@ def load_mixed_layer_depths():
     mld_dict = dict(zip(mld_df['Station No'], mld_df['MLD']))
 
     return mld_dict
-
-def load_ppz_data():
-    
-    ppz_df = pd.read_excel('../../data/gp15_ppz.xlsx')
-    ppz_dict = {}
-    
-    for s in ppz_df['Station'].unique():
-        ppz_dict[s] = ppz_df[ppz_df['Station'] == s]['PPZ Depth'].mean()
-
-    return ppz_dict
