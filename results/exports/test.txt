@@ -86,8 +86,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.40 ± 0.15
-sinkdiv_L: 0.85 ± 0.13
 remin_S: 13.65 ± 1.66
+sinkdiv_L: 0.85 ± 0.13
 remin_L: 1.13 ± 0.26
 aggregation: 0.63 ± 0.16
 disaggregation: 3.23 ± 0.75
@@ -95,8 +95,8 @@ production: 11.60 ± 0.93
 dvm: 8.14 ± 1.17
 --------UMZ--------
 sinkdiv_S: -1.07 ± 0.15
-sinkdiv_L: -0.32 ± 0.15
 remin_S: 11.68 ± 0.63
+sinkdiv_L: -0.32 ± 0.15
 remin_L: 2.05 ± 0.17
 aggregation: 0.12 ± 0.01
 disaggregation: 5.84 ± 0.49
@@ -104,8 +104,8 @@ production: 0.42 ± 0.15
 dvm: 2.67 ± 1.25
 --------0--------
 sinkdiv_S: 3.41 ± 0.76
-sinkdiv_L: 2.02 ± 0.82
 remin_S: 5.05 ± 1.11
+sinkdiv_L: 2.02 ± 0.82
 remin_L: 0.46 ± 0.19
 aggregation: 0.28 ± 0.12
 disaggregation: 1.30 ± 0.54
@@ -113,8 +113,8 @@ production: 6.34 ± 0.46
 dvm: 3.02 ± 0.68
 --------1--------
 sinkdiv_S: -0.38 ± 0.87
-sinkdiv_L: -0.63 ± 0.87
 remin_S: 3.21 ± 0.50
+sinkdiv_L: -0.63 ± 0.87
 remin_L: 0.26 ± 0.07
 aggregation: 0.16 ± 0.04
 disaggregation: 0.73 ± 0.20
@@ -122,8 +122,8 @@ production: 2.98 ± 0.24
 dvm: 1.89 ± 0.29
 --------2--------
 sinkdiv_S: -1.63 ± 0.45
-sinkdiv_L: -0.53 ± 0.32
 remin_S: 5.39 ± 0.66
+sinkdiv_L: -0.53 ± 0.32
 remin_L: 0.42 ± 0.07
 aggregation: 0.19 ± 0.03
 disaggregation: 1.20 ± 0.20
@@ -131,8 +131,8 @@ production: 2.27 ± 0.35
 dvm: 3.23 ± 0.39
 --------3--------
 sinkdiv_S: -0.58 ± 0.17
-sinkdiv_L: -0.24 ± 0.16
 remin_S: 2.77 ± 0.29
+sinkdiv_L: -0.24 ± 0.16
 remin_L: 0.27 ± 0.04
 aggregation: 0.05 ± 0.01
 disaggregation: 0.78 ± 0.11
@@ -140,8 +140,8 @@ production: 0.35 ± 0.12
 dvm: 0.10 ± 0.11
 --------4--------
 sinkdiv_S: -0.16 ± 0.11
-sinkdiv_L: 0.20 ± 0.17
 remin_S: 1.84 ± 0.19
+sinkdiv_L: 0.20 ± 0.17
 remin_L: 0.27 ± 0.04
 aggregation: 0.02 ± 0.00
 disaggregation: 0.76 ± 0.11
@@ -149,8 +149,8 @@ production: 0.05 ± 0.03
 dvm: 0.28 ± 0.31
 --------5--------
 sinkdiv_S: -0.19 ± 0.09
-sinkdiv_L: -0.12 ± 0.18
 remin_S: 3.67 ± 0.38
+sinkdiv_L: -0.12 ± 0.18
 remin_L: 0.73 ± 0.10
 aggregation: 0.03 ± 0.00
 disaggregation: 2.08 ± 0.30
@@ -158,8 +158,8 @@ production: 0.01 ± 0.01
 dvm: 1.22 ± 1.04
 --------6--------
 sinkdiv_S: -0.15 ± 0.06
-sinkdiv_L: -0.15 ± 0.12
 remin_S: 3.40 ± 0.35
+sinkdiv_L: -0.15 ± 0.12
 remin_L: 0.78 ± 0.09
 aggregation: 0.02 ± 0.00
 disaggregation: 2.22 ± 0.28
@@ -442,8 +442,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.39 ± 0.28
-sinkdiv_L: 0.85 ± 0.20
 remin_S: 13.29 ± 2.06
+sinkdiv_L: 0.85 ± 0.20
 remin_L: 1.13 ± 0.29
 aggregation: 0.67 ± 0.18
 disaggregation: 3.23 ± 0.76
@@ -451,8 +451,8 @@ production: 11.57 ± 0.93
 dvm: 7.78 ± 1.76
 --------UMZ--------
 sinkdiv_S: -1.06 ± 0.29
-sinkdiv_L: -0.32 ± 0.23
 remin_S: 11.55 ± 1.20
+sinkdiv_L: -0.32 ± 0.23
 remin_L: 2.04 ± 0.26
 aggregation: 0.12 ± 0.01
 disaggregation: 5.84 ± 0.49
@@ -460,8 +460,8 @@ production: 0.41 ± 0.15
 dvm: 2.54 ± 1.27
 --------0--------
 sinkdiv_S: 3.45 ± 0.93
-sinkdiv_L: 1.98 ± 0.86
 remin_S: 4.92 ± 1.31
+sinkdiv_L: 1.98 ± 0.86
 remin_L: 0.46 ± 0.20
 aggregation: 0.30 ± 0.13
 disaggregation: 1.31 ± 0.54
@@ -469,8 +469,8 @@ production: 6.34 ± 0.46
 dvm: 2.95 ± 0.82
 --------1--------
 sinkdiv_S: -0.36 ± 1.12
-sinkdiv_L: -0.60 ± 0.93
 remin_S: 3.25 ± 0.76
+sinkdiv_L: -0.60 ± 0.93
 remin_L: 0.26 ± 0.08
 aggregation: 0.17 ± 0.05
 disaggregation: 0.73 ± 0.20
@@ -478,8 +478,8 @@ production: 2.97 ± 0.24
 dvm: 1.81 ± 0.42
 --------2--------
 sinkdiv_S: -1.70 ± 0.71
-sinkdiv_L: -0.53 ± 0.42
 remin_S: 5.12 ± 1.10
+sinkdiv_L: -0.53 ± 0.42
 remin_L: 0.42 ± 0.10
 aggregation: 0.19 ± 0.03
 disaggregation: 1.19 ± 0.20
@@ -487,8 +487,8 @@ production: 2.26 ± 0.35
 dvm: 3.02 ± 0.66
 --------3--------
 sinkdiv_S: -0.57 ± 0.33
-sinkdiv_L: -0.24 ± 0.24
 remin_S: 2.74 ± 0.55
+sinkdiv_L: -0.24 ± 0.24
 remin_L: 0.27 ± 0.06
 aggregation: 0.05 ± 0.01
 disaggregation: 0.78 ± 0.11
@@ -496,8 +496,8 @@ production: 0.35 ± 0.12
 dvm: 0.09 ± 0.11
 --------4--------
 sinkdiv_S: -0.15 ± 0.21
-sinkdiv_L: 0.20 ± 0.25
 remin_S: 1.83 ± 0.37
+sinkdiv_L: 0.20 ± 0.25
 remin_L: 0.27 ± 0.06
 aggregation: 0.02 ± 0.00
 disaggregation: 0.76 ± 0.11
@@ -505,8 +505,8 @@ production: 0.05 ± 0.03
 dvm: 0.26 ± 0.30
 --------5--------
 sinkdiv_S: -0.19 ± 0.17
-sinkdiv_L: -0.13 ± 0.25
 remin_S: 3.61 ± 0.73
+sinkdiv_L: -0.13 ± 0.25
 remin_L: 0.73 ± 0.16
 aggregation: 0.03 ± 0.00
 disaggregation: 2.08 ± 0.30
@@ -514,8 +514,8 @@ production: 0.01 ± 0.01
 dvm: 1.16 ± 1.02
 --------6--------
 sinkdiv_S: -0.15 ± 0.12
-sinkdiv_L: -0.15 ± 0.19
 remin_S: 3.37 ± 0.67
+sinkdiv_L: -0.15 ± 0.19
 remin_L: 0.78 ± 0.16
 aggregation: 0.02 ± 0.00
 disaggregation: 2.22 ± 0.28
@@ -798,8 +798,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.38 ± 0.68
-sinkdiv_L: 0.85 ± 0.43
 remin_S: 11.29 ± 3.95
+sinkdiv_L: 0.85 ± 0.43
 remin_L: 1.12 ± 0.42
 aggregation: 0.88 ± 0.28
 disaggregation: 3.24 ± 0.78
@@ -807,8 +807,8 @@ production: 11.47 ± 0.93
 dvm: 6.38 ± 3.89
 --------UMZ--------
 sinkdiv_S: -1.05 ± 0.70
-sinkdiv_L: -0.33 ± 0.51
 remin_S: 10.84 ± 2.68
+sinkdiv_L: -0.33 ± 0.51
 remin_L: 1.99 ± 0.57
 aggregation: 0.12 ± 0.01
 disaggregation: 5.83 ± 0.49
@@ -816,8 +816,8 @@ production: 0.40 ± 0.15
 dvm: 2.07 ± 1.54
 --------0--------
 sinkdiv_S: 3.59 ± 1.84
-sinkdiv_L: 1.77 ± 1.09
 remin_S: 3.57 ± 2.63
+sinkdiv_L: 1.77 ± 1.09
 remin_L: 0.45 ± 0.29
 aggregation: 0.47 ± 0.22
 disaggregation: 1.32 ± 0.56
@@ -825,8 +825,8 @@ production: 6.29 ± 0.46
 dvm: 2.67 ± 1.66
 --------1--------
 sinkdiv_S: -0.42 ± 2.10
-sinkdiv_L: -0.38 ± 1.25
 remin_S: 3.39 ± 1.77
+sinkdiv_L: -0.38 ± 1.25
 remin_L: 0.26 ± 0.14
 aggregation: 0.22 ± 0.07
 disaggregation: 0.73 ± 0.21
@@ -834,8 +834,8 @@ production: 2.95 ± 0.24
 dvm: 1.50 ± 0.91
 --------2--------
 sinkdiv_S: -1.79 ± 1.51
-sinkdiv_L: -0.55 ± 0.81
 remin_S: 4.33 ± 2.27
+sinkdiv_L: -0.55 ± 0.81
 remin_L: 0.41 ± 0.21
 aggregation: 0.19 ± 0.03
 disaggregation: 1.19 ± 0.20
@@ -843,8 +843,8 @@ production: 2.23 ± 0.35
 dvm: 2.22 ± 1.38
 --------3--------
 sinkdiv_S: -0.56 ± 0.79
-sinkdiv_L: -0.23 ± 0.53
 remin_S: 2.59 ± 1.28
+sinkdiv_L: -0.23 ± 0.53
 remin_L: 0.27 ± 0.14
 aggregation: 0.05 ± 0.01
 disaggregation: 0.78 ± 0.11
@@ -852,8 +852,8 @@ production: 0.34 ± 0.11
 dvm: 0.08 ± 0.10
 --------4--------
 sinkdiv_S: -0.15 ± 0.52
-sinkdiv_L: 0.21 ± 0.52
 remin_S: 1.77 ± 0.89
+sinkdiv_L: 0.21 ± 0.52
 remin_L: 0.26 ± 0.14
 aggregation: 0.02 ± 0.00
 disaggregation: 0.76 ± 0.11
@@ -861,8 +861,8 @@ production: 0.05 ± 0.03
 dvm: 0.22 ± 0.28
 --------5--------
 sinkdiv_S: -0.19 ± 0.40
-sinkdiv_L: -0.13 ± 0.54
 remin_S: 3.31 ± 1.59
+sinkdiv_L: -0.13 ± 0.54
 remin_L: 0.71 ± 0.37
 aggregation: 0.03 ± 0.00
 disaggregation: 2.07 ± 0.30
@@ -870,8 +870,8 @@ production: 0.01 ± 0.01
 dvm: 0.95 ± 1.00
 --------6--------
 sinkdiv_S: -0.15 ± 0.29
-sinkdiv_L: -0.17 ± 0.44
 remin_S: 3.17 ± 1.50
+sinkdiv_L: -0.17 ± 0.44
 remin_L: 0.75 ± 0.39
 aggregation: 0.02 ± 0.00
 disaggregation: 2.21 ± 0.28
@@ -1154,8 +1154,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.40 ± 1.32
-sinkdiv_L: 0.84 ± 0.80
 remin_S: 7.75 ± 7.24
+sinkdiv_L: 0.84 ± 0.80
 remin_L: 1.07 ± 0.72
 aggregation: 1.05 ± 0.34
 disaggregation: 3.28 ± 0.81
@@ -1163,8 +1163,8 @@ production: 11.37 ± 0.93
 dvm: 6.75 ± 7.00
 --------UMZ--------
 sinkdiv_S: -1.08 ± 1.36
-sinkdiv_L: -0.36 ± 0.96
 remin_S: 9.55 ± 4.27
+sinkdiv_L: -0.36 ± 0.96
 remin_L: 1.84 ± 1.12
 aggregation: 0.12 ± 0.01
 disaggregation: 5.82 ± 0.49
@@ -1172,8 +1172,8 @@ production: 0.39 ± 0.15
 dvm: 2.19 ± 2.40
 --------0--------
 sinkdiv_S: 3.79 ± 3.48
-sinkdiv_L: 1.32 ± 1.57
 remin_S: 1.29 ± 5.05
+sinkdiv_L: 1.32 ± 1.57
 remin_L: 0.42 ± 0.50
 aggregation: 0.60 ± 0.27
 disaggregation: 1.35 ± 0.59
@@ -1181,8 +1181,8 @@ production: 6.24 ± 0.46
 dvm: 2.97 ± 3.10
 --------1--------
 sinkdiv_S: -0.65 ± 3.64
-sinkdiv_L: 0.05 ± 1.79
 remin_S: 3.05 ± 3.49
+sinkdiv_L: 0.05 ± 1.79
 remin_L: 0.26 ± 0.27
 aggregation: 0.26 ± 0.08
 disaggregation: 0.74 ± 0.21
@@ -1190,8 +1190,8 @@ production: 2.92 ± 0.24
 dvm: 1.59 ± 1.65
 --------2--------
 sinkdiv_S: -1.74 ± 2.79
-sinkdiv_L: -0.53 ± 1.38
 remin_S: 3.41 ± 3.84
+sinkdiv_L: -0.53 ± 1.38
 remin_L: 0.40 ± 0.41
 aggregation: 0.19 ± 0.04
 disaggregation: 1.18 ± 0.20
@@ -1199,8 +1199,8 @@ production: 2.20 ± 0.35
 dvm: 2.19 ± 2.29
 --------3--------
 sinkdiv_S: -0.58 ± 1.49
-sinkdiv_L: -0.22 ± 0.98
 remin_S: 2.28 ± 2.18
+sinkdiv_L: -0.22 ± 0.98
 remin_L: 0.27 ± 0.27
 aggregation: 0.05 ± 0.01
 disaggregation: 0.78 ± 0.11
@@ -1208,8 +1208,8 @@ production: 0.33 ± 0.11
 dvm: 0.08 ± 0.13
 --------4--------
 sinkdiv_S: -0.16 ± 1.00
-sinkdiv_L: 0.22 ± 0.95
 remin_S: 1.61 ± 1.61
+sinkdiv_L: 0.22 ± 0.95
 remin_L: 0.26 ± 0.27
 aggregation: 0.02 ± 0.00
 disaggregation: 0.76 ± 0.11
@@ -1217,8 +1217,8 @@ production: 0.05 ± 0.03
 dvm: 0.23 ± 0.35
 --------5--------
 sinkdiv_S: -0.19 ± 0.79
-sinkdiv_L: -0.15 ± 1.00
 remin_S: 2.84 ± 2.43
+sinkdiv_L: -0.15 ± 1.00
 remin_L: 0.64 ± 0.72
 aggregation: 0.03 ± 0.00
 disaggregation: 2.07 ± 0.30
@@ -1226,8 +1226,8 @@ production: 0.01 ± 0.01
 dvm: 1.01 ± 1.34
 --------6--------
 sinkdiv_S: -0.15 ± 0.57
-sinkdiv_L: -0.21 ± 0.84
 remin_S: 2.83 ± 2.32
+sinkdiv_L: -0.21 ± 0.84
 remin_L: 0.67 ± 0.76
 aggregation: 0.02 ± 0.00
 disaggregation: 2.21 ± 0.28
@@ -1510,8 +1510,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.41 ± 0.15
-sinkdiv_L: 0.85 ± 0.13
 remin_S: 15.65 ± 2.13
+sinkdiv_L: 0.85 ± 0.13
 remin_L: 1.21 ± 0.29
 aggregation: 0.85 ± 0.26
 disaggregation: 3.45 ± 0.83
@@ -1519,8 +1519,8 @@ production: 11.40 ± 0.93
 dvm: 9.36 ± 1.48
 --------UMZ--------
 sinkdiv_S: -1.08 ± 0.16
-sinkdiv_L: -0.31 ± 0.15
 remin_S: 11.72 ± 0.64
+sinkdiv_L: -0.31 ± 0.15
 remin_L: 2.05 ± 0.17
 aggregation: 0.12 ± 0.01
 disaggregation: 5.85 ± 0.49
@@ -1528,8 +1528,8 @@ production: 0.40 ± 0.15
 dvm: 2.88 ± 1.46
 --------0--------
 sinkdiv_S: 4.31 ± 1.02
-sinkdiv_L: 2.30 ± 0.93
 remin_S: 6.43 ± 1.51
+sinkdiv_L: 2.30 ± 0.93
 remin_L: 0.52 ± 0.21
 aggregation: 0.44 ± 0.20
 disaggregation: 1.48 ± 0.60
@@ -1537,8 +1537,8 @@ production: 6.26 ± 0.46
 dvm: 3.87 ± 0.92
 --------1--------
 sinkdiv_S: -1.26 ± 1.11
-sinkdiv_L: -0.93 ± 0.98
 remin_S: 3.69 ± 0.62
+sinkdiv_L: -0.93 ± 0.98
 remin_L: 0.28 ± 0.08
 aggregation: 0.21 ± 0.06
 disaggregation: 0.78 ± 0.22
@@ -1546,8 +1546,8 @@ production: 2.93 ± 0.24
 dvm: 2.19 ± 0.36
 --------2--------
 sinkdiv_S: -1.64 ± 0.46
-sinkdiv_L: -0.52 ± 0.32
 remin_S: 5.53 ± 0.68
+sinkdiv_L: -0.52 ± 0.32
 remin_L: 0.42 ± 0.07
 aggregation: 0.19 ± 0.03
 disaggregation: 1.19 ± 0.20
@@ -1555,8 +1555,8 @@ production: 2.21 ± 0.35
 dvm: 3.30 ± 0.41
 --------3--------
 sinkdiv_S: -0.59 ± 0.17
-sinkdiv_L: -0.24 ± 0.16
 remin_S: 2.78 ± 0.29
+sinkdiv_L: -0.24 ± 0.16
 remin_L: 0.27 ± 0.04
 aggregation: 0.05 ± 0.01
 disaggregation: 0.78 ± 0.11
@@ -1564,8 +1564,8 @@ production: 0.34 ± 0.11
 dvm: 0.11 ± 0.14
 --------4--------
 sinkdiv_S: -0.16 ± 0.11
-sinkdiv_L: 0.20 ± 0.18
 remin_S: 1.85 ± 0.19
+sinkdiv_L: 0.20 ± 0.18
 remin_L: 0.27 ± 0.04
 aggregation: 0.02 ± 0.00
 disaggregation: 0.76 ± 0.11
@@ -1573,8 +1573,8 @@ production: 0.05 ± 0.03
 dvm: 0.31 ± 0.37
 --------5--------
 sinkdiv_S: -0.19 ± 0.09
-sinkdiv_L: -0.12 ± 0.18
 remin_S: 3.69 ± 0.39
+sinkdiv_L: -0.12 ± 0.18
 remin_L: 0.73 ± 0.10
 aggregation: 0.03 ± 0.00
 disaggregation: 2.08 ± 0.30
@@ -1582,8 +1582,8 @@ production: 0.01 ± 0.01
 dvm: 1.34 ± 1.23
 --------6--------
 sinkdiv_S: -0.15 ± 0.06
-sinkdiv_L: -0.15 ± 0.12
 remin_S: 3.41 ± 0.35
+sinkdiv_L: -0.15 ± 0.12
 remin_L: 0.78 ± 0.09
 aggregation: 0.02 ± 0.00
 disaggregation: 2.22 ± 0.28
@@ -1866,8 +1866,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.40 ± 0.29
-sinkdiv_L: 0.85 ± 0.20
 remin_S: 15.42 ± 2.58
+sinkdiv_L: 0.85 ± 0.20
 remin_L: 1.21 ± 0.32
 aggregation: 0.86 ± 0.26
 disaggregation: 3.45 ± 0.83
@@ -1875,8 +1875,8 @@ production: 11.39 ± 0.93
 dvm: 9.14 ± 2.14
 --------UMZ--------
 sinkdiv_S: -1.07 ± 0.29
-sinkdiv_L: -0.31 ± 0.23
 remin_S: 11.69 ± 1.22
+sinkdiv_L: -0.31 ± 0.23
 remin_L: 2.05 ± 0.26
 aggregation: 0.12 ± 0.01
 disaggregation: 5.85 ± 0.49
@@ -1884,8 +1884,8 @@ production: 0.39 ± 0.15
 dvm: 2.81 ± 1.51
 --------0--------
 sinkdiv_S: 4.28 ± 1.23
-sinkdiv_L: 2.28 ± 1.00
 remin_S: 6.27 ± 1.79
+sinkdiv_L: 2.28 ± 1.00
 remin_L: 0.52 ± 0.23
 aggregation: 0.45 ± 0.20
 disaggregation: 1.48 ± 0.60
@@ -1893,8 +1893,8 @@ production: 6.26 ± 0.46
 dvm: 3.80 ± 1.10
 --------1--------
 sinkdiv_S: -1.21 ± 1.39
-sinkdiv_L: -0.91 ± 1.06
 remin_S: 3.70 ± 0.89
+sinkdiv_L: -0.91 ± 1.06
 remin_L: 0.28 ± 0.09
 aggregation: 0.22 ± 0.06
 disaggregation: 0.78 ± 0.22
@@ -1902,8 +1902,8 @@ production: 2.93 ± 0.24
 dvm: 2.14 ± 0.51
 --------2--------
 sinkdiv_S: -1.67 ± 0.74
-sinkdiv_L: -0.52 ± 0.42
 remin_S: 5.44 ± 1.16
+sinkdiv_L: -0.52 ± 0.42
 remin_L: 0.42 ± 0.10
 aggregation: 0.19 ± 0.03
 disaggregation: 1.19 ± 0.20
@@ -1911,8 +1911,8 @@ production: 2.21 ± 0.35
 dvm: 3.20 ± 0.69
 --------3--------
 sinkdiv_S: -0.59 ± 0.33
-sinkdiv_L: -0.24 ± 0.24
 remin_S: 2.77 ± 0.56
+sinkdiv_L: -0.24 ± 0.24
 remin_L: 0.27 ± 0.06
 aggregation: 0.05 ± 0.01
 disaggregation: 0.78 ± 0.11
@@ -1920,8 +1920,8 @@ production: 0.33 ± 0.11
 dvm: 0.10 ± 0.14
 --------4--------
 sinkdiv_S: -0.15 ± 0.21
-sinkdiv_L: 0.20 ± 0.25
 remin_S: 1.84 ± 0.37
+sinkdiv_L: 0.20 ± 0.25
 remin_L: 0.27 ± 0.06
 aggregation: 0.02 ± 0.00
 disaggregation: 0.76 ± 0.11
@@ -1929,8 +1929,8 @@ production: 0.05 ± 0.03
 dvm: 0.30 ± 0.37
 --------5--------
 sinkdiv_S: -0.19 ± 0.17
-sinkdiv_L: -0.12 ± 0.26
 remin_S: 3.67 ± 0.74
+sinkdiv_L: -0.12 ± 0.26
 remin_L: 0.73 ± 0.16
 aggregation: 0.03 ± 0.00
 disaggregation: 2.08 ± 0.30
@@ -1938,8 +1938,8 @@ production: 0.01 ± 0.01
 dvm: 1.30 ± 1.22
 --------6--------
 sinkdiv_S: -0.15 ± 0.12
-sinkdiv_L: -0.15 ± 0.19
 remin_S: 3.40 ± 0.68
+sinkdiv_L: -0.15 ± 0.19
 remin_L: 0.78 ± 0.16
 aggregation: 0.02 ± 0.00
 disaggregation: 2.22 ± 0.28
@@ -2222,8 +2222,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.39 ± 0.70
-sinkdiv_L: 0.85 ± 0.43
 remin_S: 14.01 ± 4.61
+sinkdiv_L: 0.85 ± 0.43
 remin_L: 1.20 ± 0.45
 aggregation: 0.94 ± 0.30
 disaggregation: 3.44 ± 0.84
@@ -2231,8 +2231,8 @@ production: 11.37 ± 0.93
 dvm: 7.92 ± 4.53
 --------UMZ--------
 sinkdiv_S: -1.06 ± 0.72
-sinkdiv_L: -0.32 ± 0.51
 remin_S: 11.47 ± 2.93
+sinkdiv_L: -0.32 ± 0.51
 remin_L: 2.04 ± 0.58
 aggregation: 0.12 ± 0.01
 disaggregation: 5.85 ± 0.49
@@ -2240,8 +2240,8 @@ production: 0.39 ± 0.15
 dvm: 2.43 ± 1.81
 --------0--------
 sinkdiv_S: 4.06 ± 2.20
-sinkdiv_L: 2.17 ± 1.36
 remin_S: 5.26 ± 3.18
+sinkdiv_L: 2.17 ± 1.36
 remin_L: 0.51 ± 0.33
 aggregation: 0.51 ± 0.23
 disaggregation: 1.47 ± 0.61
@@ -2249,8 +2249,8 @@ production: 6.25 ± 0.46
 dvm: 3.37 ± 1.99
 --------1--------
 sinkdiv_S: -0.92 ± 2.57
-sinkdiv_L: -0.79 ± 1.53
 remin_S: 3.74 ± 1.93
+sinkdiv_L: -0.79 ± 1.53
 remin_L: 0.27 ± 0.15
 aggregation: 0.23 ± 0.07
 disaggregation: 0.78 ± 0.22
@@ -2258,8 +2258,8 @@ production: 2.92 ± 0.24
 dvm: 1.86 ± 1.07
 --------2--------
 sinkdiv_S: -1.76 ± 1.63
-sinkdiv_L: -0.53 ± 0.84
 remin_S: 5.02 ± 2.59
+sinkdiv_L: -0.53 ± 0.84
 remin_L: 0.42 ± 0.21
 aggregation: 0.19 ± 0.04
 disaggregation: 1.19 ± 0.20
@@ -2267,8 +2267,8 @@ production: 2.20 ± 0.35
 dvm: 2.68 ± 1.54
 --------3--------
 sinkdiv_S: -0.57 ± 0.81
-sinkdiv_L: -0.24 ± 0.53
 remin_S: 2.73 ± 1.36
+sinkdiv_L: -0.24 ± 0.53
 remin_L: 0.27 ± 0.14
 aggregation: 0.05 ± 0.01
 disaggregation: 0.78 ± 0.11
@@ -2276,8 +2276,8 @@ production: 0.33 ± 0.11
 dvm: 0.09 ± 0.13
 --------4--------
 sinkdiv_S: -0.15 ± 0.52
-sinkdiv_L: 0.20 ± 0.53
 remin_S: 1.83 ± 0.92
+sinkdiv_L: 0.20 ± 0.53
 remin_L: 0.27 ± 0.14
 aggregation: 0.02 ± 0.00
 disaggregation: 0.76 ± 0.11
@@ -2285,8 +2285,8 @@ production: 0.05 ± 0.03
 dvm: 0.26 ± 0.35
 --------5--------
 sinkdiv_S: -0.19 ± 0.41
-sinkdiv_L: -0.13 ± 0.55
 remin_S: 3.57 ± 1.77
+sinkdiv_L: -0.13 ± 0.55
 remin_L: 0.73 ± 0.37
 aggregation: 0.03 ± 0.00
 disaggregation: 2.08 ± 0.30
@@ -2294,8 +2294,8 @@ production: 0.01 ± 0.01
 dvm: 1.13 ± 1.22
 --------6--------
 sinkdiv_S: -0.15 ± 0.29
-sinkdiv_L: -0.15 ± 0.44
 remin_S: 3.34 ± 1.65
+sinkdiv_L: -0.15 ± 0.44
 remin_L: 0.77 ± 0.39
 aggregation: 0.02 ± 0.00
 disaggregation: 2.22 ± 0.28
@@ -2578,8 +2578,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.38 ± 1.37
-sinkdiv_L: 0.85 ± 0.84
 remin_S: 11.34 ± 8.25
+sinkdiv_L: 0.85 ± 0.84
 remin_L: 1.18 ± 0.76
 aggregation: 1.03 ± 0.34
 disaggregation: 3.42 ± 0.84
@@ -2587,8 +2587,8 @@ production: 11.33 ± 0.93
 dvm: 6.33 ± 8.18
 --------UMZ--------
 sinkdiv_S: -1.05 ± 1.40
-sinkdiv_L: -0.33 ± 1.00
 remin_S: 10.84 ± 5.36
+sinkdiv_L: -0.33 ± 1.00
 remin_L: 1.99 ± 1.13
 aggregation: 0.12 ± 0.01
 disaggregation: 5.84 ± 0.49
@@ -2596,8 +2596,8 @@ production: 0.39 ± 0.15
 dvm: 1.94 ± 2.66
 --------0--------
 sinkdiv_S: 3.80 ± 3.90
-sinkdiv_L: 1.88 ± 2.10
 remin_S: 3.36 ± 5.71
+sinkdiv_L: 1.88 ± 2.10
 remin_L: 0.49 ± 0.55
 aggregation: 0.58 ± 0.26
 disaggregation: 1.46 ± 0.61
@@ -2605,8 +2605,8 @@ production: 6.23 ± 0.46
 dvm: 2.77 ± 3.59
 --------1--------
 sinkdiv_S: -0.64 ± 4.33
-sinkdiv_L: -0.49 ± 2.41
 remin_S: 3.60 ± 3.68
+sinkdiv_L: -0.49 ± 2.41
 remin_L: 0.27 ± 0.28
 aggregation: 0.25 ± 0.08
 disaggregation: 0.78 ± 0.22
@@ -2614,8 +2614,8 @@ production: 2.91 ± 0.24
 dvm: 1.49 ± 1.93
 --------2--------
 sinkdiv_S: -1.79 ± 3.00
-sinkdiv_L: -0.54 ± 1.55
 remin_S: 4.38 ± 4.52
+sinkdiv_L: -0.54 ± 1.55
 remin_L: 0.41 ± 0.42
 aggregation: 0.19 ± 0.04
 disaggregation: 1.18 ± 0.20
@@ -2623,8 +2623,8 @@ production: 2.19 ± 0.35
 dvm: 2.07 ± 2.69
 --------3--------
 sinkdiv_S: -0.57 ± 1.57
-sinkdiv_L: -0.23 ± 1.03
 remin_S: 2.59 ± 2.55
+sinkdiv_L: -0.23 ± 1.03
 remin_L: 0.27 ± 0.28
 aggregation: 0.05 ± 0.01
 disaggregation: 0.78 ± 0.11
@@ -2632,8 +2632,8 @@ production: 0.33 ± 0.11
 dvm: 0.07 ± 0.13
 --------4--------
 sinkdiv_S: -0.15 ± 1.03
-sinkdiv_L: 0.21 ± 1.01
 remin_S: 1.77 ± 1.77
+sinkdiv_L: 0.21 ± 1.01
 remin_L: 0.27 ± 0.27
 aggregation: 0.02 ± 0.00
 disaggregation: 0.76 ± 0.11
@@ -2641,8 +2641,8 @@ production: 0.05 ± 0.03
 dvm: 0.21 ± 0.37
 --------5--------
 sinkdiv_S: -0.19 ± 0.81
-sinkdiv_L: -0.13 ± 1.05
 remin_S: 3.31 ± 3.18
+sinkdiv_L: -0.13 ± 1.05
 remin_L: 0.71 ± 0.73
 aggregation: 0.03 ± 0.00
 disaggregation: 2.08 ± 0.30
@@ -2650,8 +2650,8 @@ production: 0.01 ± 0.01
 dvm: 0.90 ± 1.43
 --------6--------
 sinkdiv_S: -0.15 ± 0.58
-sinkdiv_L: -0.17 ± 0.87
 remin_S: 3.17 ± 3.00
+sinkdiv_L: -0.17 ± 0.87
 remin_L: 0.75 ± 0.78
 aggregation: 0.02 ± 0.00
 disaggregation: 2.22 ± 0.28
@@ -2934,8 +2934,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.41 ± 0.15
-sinkdiv_L: 0.85 ± 0.13
 remin_S: 17.30 ± 2.51
+sinkdiv_L: 0.85 ± 0.13
 remin_L: 1.23 ± 0.30
 aggregation: 1.07 ± 0.35
 disaggregation: 3.49 ± 0.87
@@ -2943,8 +2943,8 @@ production: 11.29 ± 0.94
 dvm: 10.38 ± 1.72
 --------UMZ--------
 sinkdiv_S: -1.08 ± 0.16
-sinkdiv_L: -0.31 ± 0.15
 remin_S: 11.74 ± 0.64
+sinkdiv_L: -0.31 ± 0.15
 remin_L: 2.05 ± 0.17
 aggregation: 0.12 ± 0.01
 disaggregation: 5.85 ± 0.50
@@ -2952,8 +2952,8 @@ production: 0.39 ± 0.14
 dvm: 3.12 ± 1.64
 --------0--------
 sinkdiv_S: 5.10 ± 1.22
-sinkdiv_L: 2.36 ± 0.98
 remin_S: 7.64 ± 1.83
+sinkdiv_L: 2.36 ± 0.98
 remin_L: 0.53 ± 0.22
 aggregation: 0.61 ± 0.27
 disaggregation: 1.51 ± 0.63
@@ -2961,8 +2961,8 @@ production: 6.21 ± 0.46
 dvm: 4.59 ± 1.10
 --------1--------
 sinkdiv_S: -2.04 ± 1.30
-sinkdiv_L: -0.99 ± 1.02
 remin_S: 4.08 ± 0.71
+sinkdiv_L: -0.99 ± 1.02
 remin_L: 0.28 ± 0.08
 aggregation: 0.26 ± 0.08
 disaggregation: 0.80 ± 0.23
@@ -2970,8 +2970,8 @@ production: 2.90 ± 0.24
 dvm: 2.45 ± 0.42
 --------2--------
 sinkdiv_S: -1.65 ± 0.46
-sinkdiv_L: -0.51 ± 0.32
 remin_S: 5.58 ± 0.69
+sinkdiv_L: -0.51 ± 0.32
 remin_L: 0.42 ± 0.07
 aggregation: 0.20 ± 0.04
 disaggregation: 1.18 ± 0.20
@@ -2979,8 +2979,8 @@ production: 2.18 ± 0.35
 dvm: 3.35 ± 0.41
 --------3--------
 sinkdiv_S: -0.59 ± 0.18
-sinkdiv_L: -0.24 ± 0.16
 remin_S: 2.78 ± 0.29
+sinkdiv_L: -0.24 ± 0.16
 remin_L: 0.27 ± 0.04
 aggregation: 0.05 ± 0.01
 disaggregation: 0.78 ± 0.11
@@ -2988,8 +2988,8 @@ production: 0.33 ± 0.11
 dvm: 0.12 ± 0.16
 --------4--------
 sinkdiv_S: -0.16 ± 0.11
-sinkdiv_L: 0.20 ± 0.18
 remin_S: 1.85 ± 0.19
+sinkdiv_L: 0.20 ± 0.18
 remin_L: 0.27 ± 0.04
 aggregation: 0.02 ± 0.00
 disaggregation: 0.76 ± 0.11
@@ -2997,8 +2997,8 @@ production: 0.05 ± 0.03
 dvm: 0.34 ± 0.43
 --------5--------
 sinkdiv_S: -0.19 ± 0.09
-sinkdiv_L: -0.12 ± 0.18
 remin_S: 3.69 ± 0.39
+sinkdiv_L: -0.12 ± 0.18
 remin_L: 0.73 ± 0.10
 aggregation: 0.03 ± 0.00
 disaggregation: 2.08 ± 0.30
@@ -3006,8 +3006,8 @@ production: 0.01 ± 0.01
 dvm: 1.46 ± 1.40
 --------6--------
 sinkdiv_S: -0.15 ± 0.06
-sinkdiv_L: -0.15 ± 0.12
 remin_S: 3.42 ± 0.35
+sinkdiv_L: -0.15 ± 0.12
 remin_L: 0.78 ± 0.09
 aggregation: 0.02 ± 0.00
 disaggregation: 2.22 ± 0.28
@@ -3290,8 +3290,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.41 ± 0.29
-sinkdiv_L: 0.85 ± 0.20
 remin_S: 17.28 ± 3.07
+sinkdiv_L: 0.85 ± 0.20
 remin_L: 1.23 ± 0.33
 aggregation: 1.07 ± 0.35
 disaggregation: 3.49 ± 0.87
@@ -3299,8 +3299,8 @@ production: 11.29 ± 0.94
 dvm: 10.36 ± 2.48
 --------UMZ--------
 sinkdiv_S: -1.08 ± 0.29
-sinkdiv_L: -0.31 ± 0.23
 remin_S: 11.74 ± 1.23
+sinkdiv_L: -0.31 ± 0.23
 remin_L: 2.05 ± 0.26
 aggregation: 0.12 ± 0.01
 disaggregation: 5.85 ± 0.50
@@ -3308,8 +3308,8 @@ production: 0.39 ± 0.14
 dvm: 3.11 ± 1.72
 --------0--------
 sinkdiv_S: 5.09 ± 1.50
-sinkdiv_L: 2.36 ± 1.06
 remin_S: 7.63 ± 2.25
+sinkdiv_L: 2.36 ± 1.06
 remin_L: 0.53 ± 0.24
 aggregation: 0.61 ± 0.27
 disaggregation: 1.51 ± 0.63
@@ -3317,8 +3317,8 @@ production: 6.21 ± 0.46
 dvm: 4.58 ± 1.35
 --------1--------
 sinkdiv_S: -2.03 ± 1.65
-sinkdiv_L: -0.99 ± 1.13
 remin_S: 4.08 ± 1.00
+sinkdiv_L: -0.99 ± 1.13
 remin_L: 0.28 ± 0.09
 aggregation: 0.26 ± 0.08
 disaggregation: 0.80 ± 0.23
@@ -3326,8 +3326,8 @@ production: 2.90 ± 0.24
 dvm: 2.44 ± 0.60
 --------2--------
 sinkdiv_S: -1.65 ± 0.74
-sinkdiv_L: -0.51 ± 0.43
 remin_S: 5.58 ± 1.18
+sinkdiv_L: -0.51 ± 0.43
 remin_L: 0.42 ± 0.10
 aggregation: 0.20 ± 0.04
 disaggregation: 1.18 ± 0.20
@@ -3335,8 +3335,8 @@ production: 2.18 ± 0.35
 dvm: 3.34 ± 0.71
 --------3--------
 sinkdiv_S: -0.59 ± 0.33
-sinkdiv_L: -0.24 ± 0.24
 remin_S: 2.78 ± 0.56
+sinkdiv_L: -0.24 ± 0.24
 remin_L: 0.27 ± 0.06
 aggregation: 0.05 ± 0.01
 disaggregation: 0.78 ± 0.11
@@ -3344,8 +3344,8 @@ production: 0.33 ± 0.11
 dvm: 0.12 ± 0.16
 --------4--------
 sinkdiv_S: -0.16 ± 0.22
-sinkdiv_L: 0.20 ± 0.25
 remin_S: 1.85 ± 0.37
+sinkdiv_L: 0.20 ± 0.25
 remin_L: 0.27 ± 0.06
 aggregation: 0.02 ± 0.00
 disaggregation: 0.76 ± 0.11
@@ -3353,8 +3353,8 @@ production: 0.05 ± 0.03
 dvm: 0.34 ± 0.43
 --------5--------
 sinkdiv_S: -0.19 ± 0.17
-sinkdiv_L: -0.12 ± 0.26
 remin_S: 3.69 ± 0.75
+sinkdiv_L: -0.12 ± 0.26
 remin_L: 0.73 ± 0.16
 aggregation: 0.03 ± 0.00
 disaggregation: 2.08 ± 0.30
@@ -3362,8 +3362,8 @@ production: 0.01 ± 0.01
 dvm: 1.46 ± 1.42
 --------6--------
 sinkdiv_S: -0.15 ± 0.12
-sinkdiv_L: -0.15 ± 0.19
 remin_S: 3.42 ± 0.69
+sinkdiv_L: -0.15 ± 0.19
 remin_L: 0.78 ± 0.16
 aggregation: 0.02 ± 0.00
 disaggregation: 2.22 ± 0.28
@@ -3646,8 +3646,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.41 ± 0.71
-sinkdiv_L: 0.85 ± 0.44
 remin_S: 17.13 ± 5.58
+sinkdiv_L: 0.85 ± 0.44
 remin_L: 1.22 ± 0.47
 aggregation: 1.07 ± 0.35
 disaggregation: 3.49 ± 0.87
@@ -3655,8 +3655,8 @@ production: 11.29 ± 0.94
 dvm: 10.23 ± 5.33
 --------UMZ--------
 sinkdiv_S: -1.08 ± 0.72
-sinkdiv_L: -0.31 ± 0.51
 remin_S: 11.73 ± 3.02
+sinkdiv_L: -0.31 ± 0.51
 remin_L: 2.05 ± 0.58
 aggregation: 0.12 ± 0.01
 disaggregation: 5.85 ± 0.50
@@ -3664,8 +3664,8 @@ production: 0.39 ± 0.14
 dvm: 3.07 ± 2.22
 --------0--------
 sinkdiv_S: 5.04 ± 2.75
-sinkdiv_L: 2.35 ± 1.51
 remin_S: 7.50 ± 4.11
+sinkdiv_L: 2.35 ± 1.51
 remin_L: 0.53 ± 0.34
 aggregation: 0.61 ± 0.27
 disaggregation: 1.51 ± 0.63
@@ -3673,8 +3673,8 @@ production: 6.21 ± 0.46
 dvm: 4.52 ± 2.48
 --------1--------
 sinkdiv_S: -1.98 ± 3.16
-sinkdiv_L: -0.99 ± 1.68
 remin_S: 4.08 ± 2.12
+sinkdiv_L: -0.99 ± 1.68
 remin_L: 0.28 ± 0.16
 aggregation: 0.26 ± 0.08
 disaggregation: 0.79 ± 0.23
@@ -3682,8 +3682,8 @@ production: 2.90 ± 0.24
 dvm: 2.41 ± 1.26
 --------2--------
 sinkdiv_S: -1.66 ± 1.71
-sinkdiv_L: -0.51 ± 0.85
 remin_S: 5.55 ± 2.81
+sinkdiv_L: -0.51 ± 0.85
 remin_L: 0.42 ± 0.21
 aggregation: 0.20 ± 0.04
 disaggregation: 1.18 ± 0.20
@@ -3691,8 +3691,8 @@ production: 2.18 ± 0.35
 dvm: 3.30 ± 1.68
 --------3--------
 sinkdiv_S: -0.59 ± 0.82
-sinkdiv_L: -0.24 ± 0.54
 remin_S: 2.78 ± 1.39
+sinkdiv_L: -0.24 ± 0.54
 remin_L: 0.27 ± 0.14
 aggregation: 0.05 ± 0.01
 disaggregation: 0.78 ± 0.11
@@ -3700,8 +3700,8 @@ production: 0.33 ± 0.11
 dvm: 0.12 ± 0.17
 --------4--------
 sinkdiv_S: -0.16 ± 0.53
-sinkdiv_L: 0.20 ± 0.53
 remin_S: 1.85 ± 0.93
+sinkdiv_L: 0.20 ± 0.53
 remin_L: 0.27 ± 0.14
 aggregation: 0.02 ± 0.00
 disaggregation: 0.76 ± 0.11
@@ -3709,8 +3709,8 @@ production: 0.05 ± 0.03
 dvm: 0.33 ± 0.46
 --------5--------
 sinkdiv_S: -0.19 ± 0.41
-sinkdiv_L: -0.12 ± 0.55
 remin_S: 3.69 ± 1.85
+sinkdiv_L: -0.12 ± 0.55
 remin_L: 0.73 ± 0.37
 aggregation: 0.03 ± 0.00
 disaggregation: 2.08 ± 0.30
@@ -3718,8 +3718,8 @@ production: 0.01 ± 0.01
 dvm: 1.44 ± 1.55
 --------6--------
 sinkdiv_S: -0.15 ± 0.29
-sinkdiv_L: -0.15 ± 0.44
 remin_S: 3.41 ± 1.71
+sinkdiv_L: -0.15 ± 0.44
 remin_L: 0.78 ± 0.39
 aggregation: 0.02 ± 0.00
 disaggregation: 2.22 ± 0.28
@@ -4002,8 +4002,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.40 ± 1.41
-sinkdiv_L: 0.85 ± 0.86
 remin_S: 16.62 ± 10.29
+sinkdiv_L: 0.85 ± 0.86
 remin_L: 1.22 ± 0.79
 aggregation: 1.07 ± 0.35
 disaggregation: 3.49 ± 0.87
@@ -4011,8 +4011,8 @@ production: 11.29 ± 0.94
 dvm: 9.82 ± 10.25
 --------UMZ--------
 sinkdiv_S: -1.07 ± 1.44
-sinkdiv_L: -0.31 ± 1.01
 remin_S: 11.69 ± 6.01
+sinkdiv_L: -0.31 ± 1.01
 remin_L: 2.05 ± 1.14
 aggregation: 0.12 ± 0.01
 disaggregation: 5.85 ± 0.50
@@ -4020,8 +4020,8 @@ production: 0.39 ± 0.14
 dvm: 2.95 ± 3.41
 --------0--------
 sinkdiv_S: 4.89 ± 5.07
-sinkdiv_L: 2.33 ± 2.52
 remin_S: 7.10 ± 7.57
+sinkdiv_L: 2.33 ± 2.52
 remin_L: 0.53 ± 0.57
 aggregation: 0.61 ± 0.28
 disaggregation: 1.51 ± 0.63
@@ -4029,8 +4029,8 @@ production: 6.21 ± 0.46
 dvm: 4.34 ± 4.59
 --------1--------
 sinkdiv_S: -1.81 ± 5.88
-sinkdiv_L: -0.97 ± 2.87
 remin_S: 4.06 ± 4.09
+sinkdiv_L: -0.97 ± 2.87
 remin_L: 0.28 ± 0.29
 aggregation: 0.26 ± 0.08
 disaggregation: 0.79 ± 0.23
@@ -4038,8 +4038,8 @@ production: 2.90 ± 0.24
 dvm: 2.31 ± 2.42
 --------2--------
 sinkdiv_S: -1.68 ± 3.35
-sinkdiv_L: -0.52 ± 1.63
 remin_S: 5.46 ± 5.51
+sinkdiv_L: -0.52 ± 1.63
 remin_L: 0.42 ± 0.42
 aggregation: 0.20 ± 0.04
 disaggregation: 1.18 ± 0.20
@@ -4047,8 +4047,8 @@ production: 2.18 ± 0.35
 dvm: 3.16 ± 3.29
 --------3--------
 sinkdiv_S: -0.59 ± 1.63
-sinkdiv_L: -0.24 ± 1.05
 remin_S: 2.77 ± 2.77
+sinkdiv_L: -0.24 ± 1.05
 remin_L: 0.27 ± 0.28
 aggregation: 0.05 ± 0.01
 disaggregation: 0.78 ± 0.11
@@ -4056,8 +4056,8 @@ production: 0.33 ± 0.11
 dvm: 0.11 ± 0.19
 --------4--------
 sinkdiv_S: -0.15 ± 1.05
-sinkdiv_L: 0.20 ± 1.03
 remin_S: 1.84 ± 1.84
+sinkdiv_L: 0.20 ± 1.03
 remin_L: 0.27 ± 0.27
 aggregation: 0.02 ± 0.00
 disaggregation: 0.76 ± 0.11
@@ -4065,8 +4065,8 @@ production: 0.05 ± 0.03
 dvm: 0.32 ± 0.52
 --------5--------
 sinkdiv_S: -0.19 ± 0.81
-sinkdiv_L: -0.12 ± 1.07
 remin_S: 3.67 ± 3.67
+sinkdiv_L: -0.12 ± 1.07
 remin_L: 0.73 ± 0.73
 aggregation: 0.03 ± 0.00
 disaggregation: 2.08 ± 0.30
@@ -4074,8 +4074,8 @@ production: 0.01 ± 0.01
 dvm: 1.39 ± 1.95
 --------6--------
 sinkdiv_S: -0.15 ± 0.58
-sinkdiv_L: -0.15 ± 0.88
 remin_S: 3.40 ± 3.40
+sinkdiv_L: -0.15 ± 0.88
 remin_L: 0.78 ± 0.78
 aggregation: 0.02 ± 0.00
 disaggregation: 2.22 ± 0.28
@@ -4358,8 +4358,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.41 ± 0.15
-sinkdiv_L: 0.85 ± 0.13
 remin_S: 17.38 ± 2.52
+sinkdiv_L: 0.85 ± 0.13
 remin_L: 1.23 ± 0.30
 aggregation: 1.08 ± 0.35
 disaggregation: 3.49 ± 0.87
@@ -4367,8 +4367,8 @@ production: 11.29 ± 0.94
 dvm: 10.43 ± 1.73
 --------UMZ--------
 sinkdiv_S: -1.08 ± 0.16
-sinkdiv_L: -0.31 ± 0.15
 remin_S: 11.74 ± 0.64
+sinkdiv_L: -0.31 ± 0.15
 remin_L: 2.05 ± 0.17
 aggregation: 0.12 ± 0.01
 disaggregation: 5.85 ± 0.50
@@ -4376,8 +4376,8 @@ production: 0.39 ± 0.14
 dvm: 3.13 ± 1.65
 --------0--------
 sinkdiv_S: 5.13 ± 1.23
-sinkdiv_L: 2.36 ± 0.98
 remin_S: 7.70 ± 1.84
+sinkdiv_L: 2.36 ± 0.98
 remin_L: 0.53 ± 0.22
 aggregation: 0.62 ± 0.28
 disaggregation: 1.51 ± 0.63
@@ -4385,8 +4385,8 @@ production: 6.21 ± 0.46
 dvm: 4.62 ± 1.11
 --------1--------
 sinkdiv_S: -2.08 ± 1.31
-sinkdiv_L: -0.99 ± 1.02
 remin_S: 4.10 ± 0.71
+sinkdiv_L: -0.99 ± 1.02
 remin_L: 0.28 ± 0.08
 aggregation: 0.26 ± 0.08
 disaggregation: 0.80 ± 0.23
@@ -4394,8 +4394,8 @@ production: 2.90 ± 0.24
 dvm: 2.46 ± 0.43
 --------2--------
 sinkdiv_S: -1.65 ± 0.46
-sinkdiv_L: -0.51 ± 0.32
 remin_S: 5.58 ± 0.69
+sinkdiv_L: -0.51 ± 0.32
 remin_L: 0.42 ± 0.07
 aggregation: 0.20 ± 0.04
 disaggregation: 1.18 ± 0.20
@@ -4403,8 +4403,8 @@ production: 2.18 ± 0.35
 dvm: 3.35 ± 0.41
 --------3--------
 sinkdiv_S: -0.59 ± 0.18
-sinkdiv_L: -0.24 ± 0.16
 remin_S: 2.78 ± 0.29
+sinkdiv_L: -0.24 ± 0.16
 remin_L: 0.27 ± 0.04
 aggregation: 0.05 ± 0.01
 disaggregation: 0.78 ± 0.11
@@ -4412,8 +4412,8 @@ production: 0.33 ± 0.11
 dvm: 0.12 ± 0.16
 --------4--------
 sinkdiv_S: -0.16 ± 0.11
-sinkdiv_L: 0.20 ± 0.18
 remin_S: 1.85 ± 0.19
+sinkdiv_L: 0.20 ± 0.18
 remin_L: 0.27 ± 0.04
 aggregation: 0.02 ± 0.00
 disaggregation: 0.76 ± 0.11
@@ -4421,8 +4421,8 @@ production: 0.05 ± 0.03
 dvm: 0.34 ± 0.43
 --------5--------
 sinkdiv_S: -0.19 ± 0.09
-sinkdiv_L: -0.12 ± 0.18
 remin_S: 3.69 ± 0.39
+sinkdiv_L: -0.12 ± 0.18
 remin_L: 0.73 ± 0.10
 aggregation: 0.03 ± 0.00
 disaggregation: 2.08 ± 0.30
@@ -4430,8 +4430,8 @@ production: 0.01 ± 0.01
 dvm: 1.47 ± 1.41
 --------6--------
 sinkdiv_S: -0.15 ± 0.06
-sinkdiv_L: -0.15 ± 0.12
 remin_S: 3.42 ± 0.35
+sinkdiv_L: -0.15 ± 0.12
 remin_L: 0.78 ± 0.09
 aggregation: 0.02 ± 0.00
 disaggregation: 2.22 ± 0.28
@@ -4714,8 +4714,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.41 ± 0.29
-sinkdiv_L: 0.85 ± 0.20
 remin_S: 17.37 ± 3.09
+sinkdiv_L: 0.85 ± 0.20
 remin_L: 1.23 ± 0.33
 aggregation: 1.08 ± 0.35
 disaggregation: 3.49 ± 0.87
@@ -4723,8 +4723,8 @@ production: 11.29 ± 0.94
 dvm: 10.42 ± 2.50
 --------UMZ--------
 sinkdiv_S: -1.08 ± 0.29
-sinkdiv_L: -0.31 ± 0.23
 remin_S: 11.74 ± 1.23
+sinkdiv_L: -0.31 ± 0.23
 remin_L: 2.05 ± 0.26
 aggregation: 0.12 ± 0.01
 disaggregation: 5.85 ± 0.50
@@ -4732,8 +4732,8 @@ production: 0.39 ± 0.14
 dvm: 3.13 ± 1.73
 --------0--------
 sinkdiv_S: 5.13 ± 1.52
-sinkdiv_L: 2.36 ± 1.06
 remin_S: 7.70 ± 2.27
+sinkdiv_L: 2.36 ± 1.06
 remin_L: 0.53 ± 0.24
 aggregation: 0.62 ± 0.28
 disaggregation: 1.51 ± 0.63
@@ -4741,8 +4741,8 @@ production: 6.21 ± 0.46
 dvm: 4.62 ± 1.36
 --------1--------
 sinkdiv_S: -2.07 ± 1.66
-sinkdiv_L: -0.99 ± 1.13
 remin_S: 4.10 ± 1.00
+sinkdiv_L: -0.99 ± 1.13
 remin_L: 0.28 ± 0.09
 aggregation: 0.26 ± 0.08
 disaggregation: 0.80 ± 0.23
@@ -4750,8 +4750,8 @@ production: 2.90 ± 0.24
 dvm: 2.46 ± 0.60
 --------2--------
 sinkdiv_S: -1.65 ± 0.74
-sinkdiv_L: -0.51 ± 0.43
 remin_S: 5.58 ± 1.18
+sinkdiv_L: -0.51 ± 0.43
 remin_L: 0.42 ± 0.10
 aggregation: 0.20 ± 0.04
 disaggregation: 1.18 ± 0.20
@@ -4759,8 +4759,8 @@ production: 2.18 ± 0.35
 dvm: 3.35 ± 0.71
 --------3--------
 sinkdiv_S: -0.59 ± 0.33
-sinkdiv_L: -0.24 ± 0.24
 remin_S: 2.78 ± 0.56
+sinkdiv_L: -0.24 ± 0.24
 remin_L: 0.27 ± 0.06
 aggregation: 0.05 ± 0.01
 disaggregation: 0.78 ± 0.11
@@ -4768,8 +4768,8 @@ production: 0.33 ± 0.11
 dvm: 0.12 ± 0.16
 --------4--------
 sinkdiv_S: -0.16 ± 0.22
-sinkdiv_L: 0.20 ± 0.25
 remin_S: 1.85 ± 0.37
+sinkdiv_L: 0.20 ± 0.25
 remin_L: 0.27 ± 0.06
 aggregation: 0.02 ± 0.00
 disaggregation: 0.76 ± 0.11
@@ -4777,8 +4777,8 @@ production: 0.05 ± 0.03
 dvm: 0.34 ± 0.44
 --------5--------
 sinkdiv_S: -0.19 ± 0.17
-sinkdiv_L: -0.12 ± 0.26
 remin_S: 3.69 ± 0.75
+sinkdiv_L: -0.12 ± 0.26
 remin_L: 0.73 ± 0.16
 aggregation: 0.03 ± 0.00
 disaggregation: 2.08 ± 0.30
@@ -4786,8 +4786,8 @@ production: 0.01 ± 0.01
 dvm: 1.47 ± 1.43
 --------6--------
 sinkdiv_S: -0.15 ± 0.12
-sinkdiv_L: -0.15 ± 0.19
 remin_S: 3.42 ± 0.69
+sinkdiv_L: -0.15 ± 0.19
 remin_L: 0.78 ± 0.16
 aggregation: 0.02 ± 0.00
 disaggregation: 2.22 ± 0.28
@@ -5070,8 +5070,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.41 ± 0.71
-sinkdiv_L: 0.85 ± 0.44
 remin_S: 17.33 ± 5.65
+sinkdiv_L: 0.85 ± 0.44
 remin_L: 1.23 ± 0.47
 aggregation: 1.08 ± 0.35
 disaggregation: 3.49 ± 0.87
@@ -5079,8 +5079,8 @@ production: 11.29 ± 0.94
 dvm: 10.39 ± 5.38
 --------UMZ--------
 sinkdiv_S: -1.08 ± 0.72
-sinkdiv_L: -0.31 ± 0.51
 remin_S: 11.73 ± 3.03
+sinkdiv_L: -0.31 ± 0.51
 remin_L: 2.05 ± 0.58
 aggregation: 0.12 ± 0.01
 disaggregation: 5.85 ± 0.50
@@ -5088,8 +5088,8 @@ production: 0.39 ± 0.14
 dvm: 3.12 ± 2.24
 --------0--------
 sinkdiv_S: 5.12 ± 2.79
-sinkdiv_L: 2.36 ± 1.51
 remin_S: 7.66 ± 4.18
+sinkdiv_L: 2.36 ± 1.51
 remin_L: 0.53 ± 0.34
 aggregation: 0.62 ± 0.28
 disaggregation: 1.51 ± 0.63
@@ -5097,8 +5097,8 @@ production: 6.21 ± 0.46
 dvm: 4.60 ± 2.51
 --------1--------
 sinkdiv_S: -2.06 ± 3.20
-sinkdiv_L: -0.99 ± 1.68
 remin_S: 4.10 ± 2.13
+sinkdiv_L: -0.99 ± 1.68
 remin_L: 0.28 ± 0.16
 aggregation: 0.26 ± 0.08
 disaggregation: 0.80 ± 0.23
@@ -5106,8 +5106,8 @@ production: 2.90 ± 0.24
 dvm: 2.45 ± 1.27
 --------2--------
 sinkdiv_S: -1.65 ± 1.71
-sinkdiv_L: -0.51 ± 0.85
 remin_S: 5.57 ± 2.82
+sinkdiv_L: -0.51 ± 0.85
 remin_L: 0.42 ± 0.21
 aggregation: 0.20 ± 0.04
 disaggregation: 1.18 ± 0.20
@@ -5115,8 +5115,8 @@ production: 2.18 ± 0.35
 dvm: 3.34 ± 1.69
 --------3--------
 sinkdiv_S: -0.59 ± 0.82
-sinkdiv_L: -0.24 ± 0.54
 remin_S: 2.78 ± 1.39
+sinkdiv_L: -0.24 ± 0.54
 remin_L: 0.27 ± 0.14
 aggregation: 0.05 ± 0.01
 disaggregation: 0.78 ± 0.11
@@ -5124,8 +5124,8 @@ production: 0.33 ± 0.11
 dvm: 0.12 ± 0.17
 --------4--------
 sinkdiv_S: -0.16 ± 0.53
-sinkdiv_L: 0.20 ± 0.53
 remin_S: 1.85 ± 0.93
+sinkdiv_L: 0.20 ± 0.53
 remin_L: 0.27 ± 0.14
 aggregation: 0.02 ± 0.00
 disaggregation: 0.76 ± 0.11
@@ -5133,8 +5133,8 @@ production: 0.05 ± 0.03
 dvm: 0.34 ± 0.46
 --------5--------
 sinkdiv_S: -0.19 ± 0.41
-sinkdiv_L: -0.12 ± 0.55
 remin_S: 3.69 ± 1.85
+sinkdiv_L: -0.12 ± 0.55
 remin_L: 0.73 ± 0.37
 aggregation: 0.03 ± 0.00
 disaggregation: 2.08 ± 0.30
@@ -5142,8 +5142,8 @@ production: 0.01 ± 0.01
 dvm: 1.47 ± 1.57
 --------6--------
 sinkdiv_S: -0.15 ± 0.29
-sinkdiv_L: -0.15 ± 0.44
 remin_S: 3.42 ± 1.71
+sinkdiv_L: -0.15 ± 0.44
 remin_L: 0.78 ± 0.39
 aggregation: 0.02 ± 0.00
 disaggregation: 2.22 ± 0.28
@@ -5426,8 +5426,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.41 ± 1.41
-sinkdiv_L: 0.85 ± 0.86
 remin_S: 17.19 ± 10.53
+sinkdiv_L: 0.85 ± 0.86
 remin_L: 1.22 ± 0.79
 aggregation: 1.08 ± 0.35
 disaggregation: 3.49 ± 0.87
@@ -5435,8 +5435,8 @@ production: 11.29 ± 0.94
 dvm: 10.27 ± 10.46
 --------UMZ--------
 sinkdiv_S: -1.08 ± 1.45
-sinkdiv_L: -0.31 ± 1.01
 remin_S: 11.73 ± 6.03
+sinkdiv_L: -0.31 ± 1.01
 remin_L: 2.05 ± 1.14
 aggregation: 0.12 ± 0.01
 disaggregation: 5.85 ± 0.50
@@ -5444,8 +5444,8 @@ production: 0.39 ± 0.14
 dvm: 3.08 ± 3.49
 --------0--------
 sinkdiv_S: 5.07 ± 5.21
-sinkdiv_L: 2.35 ± 2.54
 remin_S: 7.55 ± 7.81
+sinkdiv_L: 2.35 ± 2.54
 remin_L: 0.53 ± 0.57
 aggregation: 0.62 ± 0.28
 disaggregation: 1.51 ± 0.63
@@ -5453,8 +5453,8 @@ production: 6.21 ± 0.46
 dvm: 4.55 ± 4.70
 --------1--------
 sinkdiv_S: -2.01 ± 6.04
-sinkdiv_L: -0.99 ± 2.89
 remin_S: 4.09 ± 4.13
+sinkdiv_L: -0.99 ± 2.89
 remin_L: 0.28 ± 0.29
 aggregation: 0.26 ± 0.08
 disaggregation: 0.80 ± 0.23
@@ -5462,8 +5462,8 @@ production: 2.90 ± 0.24
 dvm: 2.42 ± 2.47
 --------2--------
 sinkdiv_S: -1.66 ± 3.37
-sinkdiv_L: -0.51 ± 1.63
 remin_S: 5.55 ± 5.57
+sinkdiv_L: -0.51 ± 1.63
 remin_L: 0.42 ± 0.42
 aggregation: 0.20 ± 0.04
 disaggregation: 1.18 ± 0.20
@@ -5471,8 +5471,8 @@ production: 2.18 ± 0.35
 dvm: 3.30 ± 3.34
 --------3--------
 sinkdiv_S: -0.59 ± 1.63
-sinkdiv_L: -0.24 ± 1.05
 remin_S: 2.78 ± 2.78
+sinkdiv_L: -0.24 ± 1.05
 remin_L: 0.27 ± 0.28
 aggregation: 0.05 ± 0.01
 disaggregation: 0.78 ± 0.11
@@ -5480,8 +5480,8 @@ production: 0.33 ± 0.11
 dvm: 0.12 ± 0.20
 --------4--------
 sinkdiv_S: -0.16 ± 1.05
-sinkdiv_L: 0.20 ± 1.03
 remin_S: 1.85 ± 1.85
+sinkdiv_L: 0.20 ± 1.03
 remin_L: 0.27 ± 0.27
 aggregation: 0.02 ± 0.00
 disaggregation: 0.76 ± 0.11
@@ -5489,8 +5489,8 @@ production: 0.05 ± 0.03
 dvm: 0.33 ± 0.54
 --------5--------
 sinkdiv_S: -0.19 ± 0.81
-sinkdiv_L: -0.12 ± 1.07
 remin_S: 3.69 ± 3.69
+sinkdiv_L: -0.12 ± 1.07
 remin_L: 0.73 ± 0.73
 aggregation: 0.03 ± 0.00
 disaggregation: 2.08 ± 0.30
@@ -5498,8 +5498,8 @@ production: 0.01 ± 0.01
 dvm: 1.45 ± 2.01
 --------6--------
 sinkdiv_S: -0.15 ± 0.58
-sinkdiv_L: -0.15 ± 0.88
 remin_S: 3.41 ± 3.41
+sinkdiv_L: -0.15 ± 0.88
 remin_L: 0.78 ± 0.78
 aggregation: 0.02 ± 0.00
 disaggregation: 2.22 ± 0.28
@@ -5782,8 +5782,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.40 ± 0.15
-sinkdiv_L: 0.85 ± 0.13
 remin_S: 13.91 ± 1.94
+sinkdiv_L: 0.85 ± 0.13
 remin_L: 1.11 ± 0.29
 aggregation: 3.49 ± 2.63
 disaggregation: 8.55 ± 5.17
@@ -5791,8 +5791,8 @@ production: 11.54 ± 0.93
 dvm: 8.30 ± 1.33
 --------UMZ--------
 sinkdiv_S: -1.07 ± 0.15
-sinkdiv_L: -0.31 ± 0.15
 remin_S: 11.68 ± 0.64
+sinkdiv_L: -0.31 ± 0.15
 remin_L: 2.05 ± 0.17
 aggregation: 0.66 ± 0.41
 disaggregation: 6.25 ± 4.47
@@ -5800,8 +5800,8 @@ production: 0.41 ± 0.15
 dvm: 2.71 ± 1.30
 --------0--------
 sinkdiv_S: 3.48 ± 0.91
-sinkdiv_L: 1.96 ± 0.93
 remin_S: 5.17 ± 1.34
+sinkdiv_L: 1.96 ± 0.93
 remin_L: 0.44 ± 0.21
 aggregation: 1.56 ± 1.98
 disaggregation: 3.09 ± 3.71
@@ -5809,8 +5809,8 @@ production: 6.32 ± 0.46
 dvm: 3.11 ± 0.82
 --------1--------
 sinkdiv_S: -0.44 ± 1.01
-sinkdiv_L: -0.58 ± 0.97
 remin_S: 3.27 ± 0.56
+sinkdiv_L: -0.58 ± 0.97
 remin_L: 0.25 ± 0.08
 aggregation: 0.90 ± 1.08
 disaggregation: 1.96 ± 2.52
@@ -5818,8 +5818,8 @@ production: 2.97 ± 0.24
 dvm: 1.93 ± 0.33
 --------2--------
 sinkdiv_S: -1.64 ± 0.46
-sinkdiv_L: -0.53 ± 0.32
 remin_S: 5.46 ± 0.67
+sinkdiv_L: -0.53 ± 0.32
 remin_L: 0.42 ± 0.07
 aggregation: 1.03 ± 1.21
 disaggregation: 3.50 ± 2.55
@@ -5827,8 +5827,8 @@ production: 2.25 ± 0.35
 dvm: 3.26 ± 0.40
 --------3--------
 sinkdiv_S: -0.59 ± 0.17
-sinkdiv_L: -0.24 ± 0.16
 remin_S: 2.77 ± 0.29
+sinkdiv_L: -0.24 ± 0.16
 remin_L: 0.27 ± 0.04
 aggregation: 0.26 ± 0.30
 disaggregation: 1.21 ± 2.22
@@ -5836,8 +5836,8 @@ production: 0.35 ± 0.11
 dvm: 0.10 ± 0.13
 --------4--------
 sinkdiv_S: -0.16 ± 0.11
-sinkdiv_L: 0.20 ± 0.18
 remin_S: 1.84 ± 0.19
+sinkdiv_L: 0.20 ± 0.18
 remin_L: 0.27 ± 0.04
 aggregation: 0.11 ± 0.13
 disaggregation: 0.85 ± 2.21
@@ -5845,8 +5845,8 @@ production: 0.05 ± 0.03
 dvm: 0.29 ± 0.34
 --------5--------
 sinkdiv_S: -0.19 ± 0.09
-sinkdiv_L: -0.12 ± 0.18
 remin_S: 3.67 ± 0.38
+sinkdiv_L: -0.12 ± 0.18
 remin_L: 0.73 ± 0.10
 aggregation: 0.18 ± 0.20
 disaggregation: 2.24 ± 2.28
@@ -5854,8 +5854,8 @@ production: 0.01 ± 0.01
 dvm: 1.26 ± 1.11
 --------6--------
 sinkdiv_S: -0.15 ± 0.06
-sinkdiv_L: -0.15 ± 0.12
 remin_S: 3.40 ± 0.35
+sinkdiv_L: -0.15 ± 0.12
 remin_L: 0.78 ± 0.09
 aggregation: 0.11 ± 0.13
 disaggregation: 1.96 ± 2.31
@@ -6138,8 +6138,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.40 ± 0.29
-sinkdiv_L: 0.84 ± 0.20
 remin_S: 13.59 ± 2.31
+sinkdiv_L: 0.84 ± 0.20
 remin_L: 1.11 ± 0.31
 aggregation: 3.65 ± 2.78
 disaggregation: 8.40 ± 5.29
@@ -6147,8 +6147,8 @@ production: 11.53 ± 0.93
 dvm: 8.00 ± 1.91
 --------UMZ--------
 sinkdiv_S: -1.07 ± 0.29
-sinkdiv_L: -0.31 ± 0.23
 remin_S: 11.54 ± 1.21
+sinkdiv_L: -0.31 ± 0.23
 remin_L: 2.04 ± 0.26
 aggregation: 0.66 ± 0.41
 disaggregation: 6.13 ± 4.51
@@ -6156,8 +6156,8 @@ production: 0.41 ± 0.15
 dvm: 2.60 ± 1.33
 --------0--------
 sinkdiv_S: 3.49 ± 1.07
-sinkdiv_L: 1.94 ± 0.97
 remin_S: 5.01 ± 1.52
+sinkdiv_L: 1.94 ± 0.97
 remin_L: 0.44 ± 0.22
 aggregation: 1.68 ± 2.13
 disaggregation: 3.11 ± 3.79
@@ -6165,8 +6165,8 @@ production: 6.32 ± 0.46
 dvm: 3.06 ± 0.95
 --------1--------
 sinkdiv_S: -0.41 ± 1.25
-sinkdiv_L: -0.56 ± 1.04
 remin_S: 3.31 ± 0.81
+sinkdiv_L: -0.56 ± 1.04
 remin_L: 0.25 ± 0.09
 aggregation: 0.94 ± 1.12
 disaggregation: 1.99 ± 2.60
@@ -6174,8 +6174,8 @@ production: 2.96 ± 0.24
 dvm: 1.86 ± 0.45
 --------2--------
 sinkdiv_S: -1.69 ± 0.73
-sinkdiv_L: -0.54 ± 0.42
 remin_S: 5.27 ± 1.13
+sinkdiv_L: -0.54 ± 0.42
 remin_L: 0.41 ± 0.10
 aggregation: 1.03 ± 1.21
 disaggregation: 3.30 ± 2.62
@@ -6183,8 +6183,8 @@ production: 2.25 ± 0.35
 dvm: 3.09 ± 0.68
 --------3--------
 sinkdiv_S: -0.58 ± 0.33
-sinkdiv_L: -0.23 ± 0.24
 remin_S: 2.75 ± 0.56
+sinkdiv_L: -0.23 ± 0.24
 remin_L: 0.27 ± 0.06
 aggregation: 0.26 ± 0.30
 disaggregation: 1.20 ± 2.24
@@ -6192,8 +6192,8 @@ production: 0.34 ± 0.11
 dvm: 0.10 ± 0.12
 --------4--------
 sinkdiv_S: -0.15 ± 0.21
-sinkdiv_L: 0.20 ± 0.25
 remin_S: 1.83 ± 0.37
+sinkdiv_L: 0.20 ± 0.25
 remin_L: 0.27 ± 0.06
 aggregation: 0.11 ± 0.13
 disaggregation: 0.83 ± 2.22
@@ -6201,8 +6201,8 @@ production: 0.05 ± 0.03
 dvm: 0.28 ± 0.33
 --------5--------
 sinkdiv_S: -0.19 ± 0.17
-sinkdiv_L: -0.13 ± 0.26
 remin_S: 3.61 ± 0.74
+sinkdiv_L: -0.13 ± 0.26
 remin_L: 0.73 ± 0.16
 aggregation: 0.18 ± 0.20
 disaggregation: 2.19 ± 2.31
@@ -6210,8 +6210,8 @@ production: 0.01 ± 0.01
 dvm: 1.21 ± 1.10
 --------6--------
 sinkdiv_S: -0.15 ± 0.12
-sinkdiv_L: -0.15 ± 0.19
 remin_S: 3.35 ± 0.68
+sinkdiv_L: -0.15 ± 0.19
 remin_L: 0.78 ± 0.16
 aggregation: 0.11 ± 0.13
 disaggregation: 1.91 ± 2.33
@@ -6494,8 +6494,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.38 ± 0.69
-sinkdiv_L: 0.84 ± 0.43
 remin_S: 11.45 ± 4.22
+sinkdiv_L: 0.84 ± 0.43
 remin_L: 1.13 ± 0.44
 aggregation: 4.66 ± 3.72
 disaggregation: 7.51 ± 6.05
@@ -6503,8 +6503,8 @@ production: 11.46 ± 0.93
 dvm: 6.29 ± 4.17
 --------UMZ--------
 sinkdiv_S: -1.06 ± 0.71
-sinkdiv_L: -0.31 ± 0.51
 remin_S: 10.61 ± 2.84
+sinkdiv_L: -0.31 ± 0.51
 remin_L: 2.01 ± 0.58
 aggregation: 0.66 ± 0.41
 disaggregation: 5.40 ± 4.75
@@ -6512,8 +6512,8 @@ production: 0.40 ± 0.15
 dvm: 2.01 ± 1.61
 --------0--------
 sinkdiv_S: 3.40 ± 2.01
-sinkdiv_L: 1.89 ± 1.30
 remin_S: 3.47 ± 2.84
+sinkdiv_L: 1.89 ± 1.30
 remin_L: 0.46 ± 0.31
 aggregation: 2.46 ± 3.09
 disaggregation: 2.88 ± 4.46
@@ -6521,8 +6521,8 @@ production: 6.29 ± 0.46
 dvm: 2.62 ± 1.78
 --------1--------
 sinkdiv_S: -0.23 ± 2.36
-sinkdiv_L: -0.50 ± 1.47
 remin_S: 3.46 ± 1.83
+sinkdiv_L: -0.50 ± 1.47
 remin_L: 0.26 ± 0.15
 aggregation: 1.17 ± 1.40
 disaggregation: 2.16 ± 3.11
@@ -6530,8 +6530,8 @@ production: 2.95 ± 0.24
 dvm: 1.47 ± 0.98
 --------2--------
 sinkdiv_S: -1.78 ± 1.58
-sinkdiv_L: -0.55 ± 0.84
 remin_S: 4.53 ± 2.45
+sinkdiv_L: -0.55 ± 0.84
 remin_L: 0.41 ± 0.21
 aggregation: 1.04 ± 1.22
 disaggregation: 2.46 ± 2.93
@@ -6539,8 +6539,8 @@ production: 2.23 ± 0.35
 dvm: 2.20 ± 1.47
 --------3--------
 sinkdiv_S: -0.57 ± 0.80
-sinkdiv_L: -0.23 ± 0.53
 remin_S: 2.61 ± 1.33
+sinkdiv_L: -0.23 ± 0.53
 remin_L: 0.27 ± 0.14
 aggregation: 0.26 ± 0.30
 disaggregation: 1.13 ± 2.36
@@ -6548,8 +6548,8 @@ production: 0.34 ± 0.11
 dvm: 0.08 ± 0.11
 --------4--------
 sinkdiv_S: -0.15 ± 0.52
-sinkdiv_L: 0.21 ± 0.52
 remin_S: 1.77 ± 0.91
+sinkdiv_L: 0.21 ± 0.52
 remin_L: 0.27 ± 0.14
 aggregation: 0.11 ± 0.13
 disaggregation: 0.77 ± 2.28
@@ -6557,8 +6557,8 @@ production: 0.05 ± 0.03
 dvm: 0.21 ± 0.30
 --------5--------
 sinkdiv_S: -0.19 ± 0.41
-sinkdiv_L: -0.13 ± 0.55
 remin_S: 3.22 ± 1.71
+sinkdiv_L: -0.13 ± 0.55
 remin_L: 0.71 ± 0.37
 aggregation: 0.18 ± 0.21
 disaggregation: 1.86 ± 2.47
@@ -6566,8 +6566,8 @@ production: 0.01 ± 0.01
 dvm: 0.94 ± 1.04
 --------6--------
 sinkdiv_S: -0.15 ± 0.29
-sinkdiv_L: -0.16 ± 0.44
 remin_S: 3.01 ± 1.60
+sinkdiv_L: -0.16 ± 0.44
 remin_L: 0.76 ± 0.39
 aggregation: 0.11 ± 0.13
 disaggregation: 1.64 ± 2.46
@@ -6850,8 +6850,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.42 ± 1.35
-sinkdiv_L: 0.86 ± 0.84
 remin_S: 7.69 ± 7.81
+sinkdiv_L: 0.86 ± 0.84
 remin_L: 1.16 ± 0.77
 aggregation: 5.53 ± 4.52
 disaggregation: 5.75 ± 6.88
@@ -6859,8 +6859,8 @@ production: 11.37 ± 0.94
 dvm: 4.69 ± 7.74
 --------UMZ--------
 sinkdiv_S: -1.10 ± 1.39
-sinkdiv_L: -0.35 ± 1.00
 remin_S: 8.31 ± 4.99
+sinkdiv_L: -0.35 ± 1.00
 remin_L: 1.92 ± 1.13
 aggregation: 0.66 ± 0.41
 disaggregation: 4.02 ± 5.43
@@ -6868,8 +6868,8 @@ production: 0.39 ± 0.15
 dvm: 1.46 ± 2.49
 --------0--------
 sinkdiv_S: 3.28 ± 3.82
-sinkdiv_L: 1.92 ± 2.29
 remin_S: 0.80 ± 5.43
+sinkdiv_L: 1.92 ± 2.29
 remin_L: 0.48 ± 0.55
 aggregation: 3.14 ± 3.91
 disaggregation: 1.88 ± 5.44
@@ -6877,8 +6877,8 @@ production: 6.24 ± 0.46
 dvm: 2.06 ± 3.40
 --------1--------
 sinkdiv_S: -0.14 ± 4.20
-sinkdiv_L: -0.54 ± 2.62
 remin_S: 3.20 ± 3.61
+sinkdiv_L: -0.54 ± 2.62
 remin_L: 0.27 ± 0.28
 aggregation: 1.35 ± 1.63
 disaggregation: 2.11 ± 4.03
@@ -6886,8 +6886,8 @@ production: 2.92 ± 0.24
 dvm: 1.10 ± 1.82
 --------2--------
 sinkdiv_S: -1.72 ± 2.92
-sinkdiv_L: -0.53 ± 1.58
 remin_S: 3.69 ± 4.23
+sinkdiv_L: -0.53 ± 1.58
 remin_L: 0.40 ± 0.42
 aggregation: 1.04 ± 1.22
 disaggregation: 1.75 ± 3.43
@@ -6895,8 +6895,8 @@ production: 2.20 ± 0.35
 dvm: 1.53 ± 2.53
 --------3--------
 sinkdiv_S: -0.59 ± 1.54
-sinkdiv_L: -0.24 ± 1.03
 remin_S: 2.26 ± 2.40
+sinkdiv_L: -0.24 ± 1.03
 remin_L: 0.27 ± 0.27
 aggregation: 0.26 ± 0.30
 disaggregation: 0.94 ± 2.67
@@ -6904,8 +6904,8 @@ production: 0.33 ± 0.11
 dvm: 0.06 ± 0.12
 --------4--------
 sinkdiv_S: -0.16 ± 1.02
-sinkdiv_L: 0.20 ± 1.00
 remin_S: 1.56 ± 1.72
+sinkdiv_L: 0.20 ± 1.00
 remin_L: 0.26 ± 0.27
 aggregation: 0.11 ± 0.13
 disaggregation: 0.64 ± 2.48
@@ -6913,8 +6913,8 @@ production: 0.05 ± 0.03
 dvm: 0.16 ± 0.32
 --------5--------
 sinkdiv_S: -0.19 ± 0.80
-sinkdiv_L: -0.13 ± 1.04
 remin_S: 2.30 ± 2.93
+sinkdiv_L: -0.13 ± 1.04
 remin_L: 0.68 ± 0.73
 aggregation: 0.18 ± 0.21
 disaggregation: 1.30 ± 2.91
@@ -6922,8 +6922,8 @@ production: 0.01 ± 0.01
 dvm: 0.68 ± 1.29
 --------6--------
 sinkdiv_S: -0.16 ± 0.57
-sinkdiv_L: -0.18 ± 0.86
 remin_S: 2.20 ± 2.77
+sinkdiv_L: -0.18 ± 0.86
 remin_L: 0.72 ± 0.78
 aggregation: 0.12 ± 0.13
 disaggregation: 1.15 ± 2.83
@@ -7206,8 +7206,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.41 ± 0.15
-sinkdiv_L: 0.85 ± 0.13
 remin_S: 16.05 ± 2.30
+sinkdiv_L: 0.85 ± 0.13
 remin_L: 1.18 ± 0.30
 aggregation: 4.81 ± 3.83
 disaggregation: 11.64 ± 8.98
@@ -7215,8 +7215,8 @@ production: 11.37 ± 0.93
 dvm: 9.61 ± 1.58
 --------UMZ--------
 sinkdiv_S: -1.08 ± 0.16
-sinkdiv_L: -0.31 ± 0.15
 remin_S: 11.72 ± 0.64
+sinkdiv_L: -0.31 ± 0.15
 remin_L: 2.05 ± 0.17
 aggregation: 0.66 ± 0.41
 disaggregation: 6.42 ± 8.81
@@ -7224,8 +7224,8 @@ production: 0.39 ± 0.15
 dvm: 2.95 ± 1.51
 --------0--------
 sinkdiv_S: 4.50 ± 1.11
-sinkdiv_L: 2.20 ± 0.96
 remin_S: 6.72 ± 1.65
+sinkdiv_L: 2.20 ± 0.96
 remin_L: 0.50 ± 0.22
 aggregation: 2.57 ± 3.22
 disaggregation: 5.72 ± 6.10
@@ -7233,8 +7233,8 @@ production: 6.25 ± 0.46
 dvm: 4.04 ± 1.00
 --------1--------
 sinkdiv_S: -1.44 ± 1.19
-sinkdiv_L: -0.83 ± 1.01
 remin_S: 3.78 ± 0.66
+sinkdiv_L: -0.83 ± 1.01
 remin_L: 0.27 ± 0.08
 aggregation: 1.20 ± 1.44
 disaggregation: 2.32 ± 4.65
@@ -7242,8 +7242,8 @@ production: 2.92 ± 0.24
 dvm: 2.25 ± 0.39
 --------2--------
 sinkdiv_S: -1.65 ± 0.46
-sinkdiv_L: -0.52 ± 0.32
 remin_S: 5.55 ± 0.68
+sinkdiv_L: -0.52 ± 0.32
 remin_L: 0.42 ± 0.07
 aggregation: 1.04 ± 1.22
 disaggregation: 3.60 ± 4.58
@@ -7251,8 +7251,8 @@ production: 2.20 ± 0.35
 dvm: 3.32 ± 0.41
 --------3--------
 sinkdiv_S: -0.59 ± 0.17
-sinkdiv_L: -0.24 ± 0.16
 remin_S: 2.78 ± 0.29
+sinkdiv_L: -0.24 ± 0.16
 remin_L: 0.27 ± 0.04
 aggregation: 0.26 ± 0.30
 disaggregation: 1.23 ± 4.39
@@ -7260,8 +7260,8 @@ production: 0.33 ± 0.11
 dvm: 0.11 ± 0.15
 --------4--------
 sinkdiv_S: -0.16 ± 0.11
-sinkdiv_L: 0.20 ± 0.18
 remin_S: 1.85 ± 0.19
+sinkdiv_L: 0.20 ± 0.18
 remin_L: 0.27 ± 0.04
 aggregation: 0.11 ± 0.13
 disaggregation: 0.87 ± 4.38
@@ -7269,8 +7269,8 @@ production: 0.05 ± 0.03
 dvm: 0.32 ± 0.40
 --------5--------
 sinkdiv_S: -0.19 ± 0.09
-sinkdiv_L: -0.12 ± 0.18
 remin_S: 3.69 ± 0.39
+sinkdiv_L: -0.12 ± 0.18
 remin_L: 0.73 ± 0.10
 aggregation: 0.18 ± 0.21
 disaggregation: 2.31 ± 4.44
@@ -7278,8 +7278,8 @@ production: 0.01 ± 0.01
 dvm: 1.38 ± 1.29
 --------6--------
 sinkdiv_S: -0.15 ± 0.06
-sinkdiv_L: -0.15 ± 0.12
 remin_S: 3.41 ± 0.35
+sinkdiv_L: -0.15 ± 0.12
 remin_L: 0.78 ± 0.09
 aggregation: 0.12 ± 0.13
 disaggregation: 2.01 ± 4.47
@@ -7562,8 +7562,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.40 ± 0.29
-sinkdiv_L: 0.85 ± 0.20
 remin_S: 15.84 ± 2.77
+sinkdiv_L: 0.85 ± 0.20
 remin_L: 1.18 ± 0.32
 aggregation: 4.86 ± 3.88
 disaggregation: 11.49 ± 9.05
@@ -7571,8 +7571,8 @@ production: 11.37 ± 0.93
 dvm: 9.43 ± 2.26
 --------UMZ--------
 sinkdiv_S: -1.08 ± 0.29
-sinkdiv_L: -0.31 ± 0.23
 remin_S: 11.69 ± 1.22
+sinkdiv_L: -0.31 ± 0.23
 remin_L: 2.05 ± 0.26
 aggregation: 0.66 ± 0.41
 disaggregation: 6.38 ± 8.83
@@ -7580,8 +7580,8 @@ production: 0.39 ± 0.15
 dvm: 2.90 ± 1.57
 --------0--------
 sinkdiv_S: 4.44 ± 1.33
-sinkdiv_L: 2.18 ± 1.03
 remin_S: 6.56 ± 1.96
+sinkdiv_L: 2.18 ± 1.03
 remin_L: 0.50 ± 0.23
 aggregation: 2.60 ± 3.26
 disaggregation: 5.63 ± 6.14
@@ -7589,8 +7589,8 @@ production: 6.25 ± 0.46
 dvm: 3.98 ± 1.20
 --------1--------
 sinkdiv_S: -1.38 ± 1.49
-sinkdiv_L: -0.81 ± 1.09
 remin_S: 3.79 ± 0.93
+sinkdiv_L: -0.81 ± 1.09
 remin_L: 0.27 ± 0.09
 aggregation: 1.21 ± 1.45
 disaggregation: 2.33 ± 4.69
@@ -7598,8 +7598,8 @@ production: 2.92 ± 0.24
 dvm: 2.21 ± 0.54
 --------2--------
 sinkdiv_S: -1.66 ± 0.74
-sinkdiv_L: -0.52 ± 0.42
 remin_S: 5.50 ± 1.17
+sinkdiv_L: -0.52 ± 0.42
 remin_L: 0.42 ± 0.10
 aggregation: 1.04 ± 1.22
 disaggregation: 3.53 ± 4.62
@@ -7607,8 +7607,8 @@ production: 2.20 ± 0.35
 dvm: 3.24 ± 0.70
 --------3--------
 sinkdiv_S: -0.59 ± 0.33
-sinkdiv_L: -0.24 ± 0.24
 remin_S: 2.77 ± 0.56
+sinkdiv_L: -0.24 ± 0.24
 remin_L: 0.27 ± 0.06
 aggregation: 0.26 ± 0.30
 disaggregation: 1.23 ± 4.40
@@ -7616,8 +7616,8 @@ production: 0.33 ± 0.11
 dvm: 0.11 ± 0.14
 --------4--------
 sinkdiv_S: -0.15 ± 0.22
-sinkdiv_L: 0.20 ± 0.25
 remin_S: 1.84 ± 0.37
+sinkdiv_L: 0.20 ± 0.25
 remin_L: 0.27 ± 0.06
 aggregation: 0.11 ± 0.13
 disaggregation: 0.87 ± 4.39
@@ -7625,8 +7625,8 @@ production: 0.05 ± 0.03
 dvm: 0.31 ± 0.39
 --------5--------
 sinkdiv_S: -0.19 ± 0.17
-sinkdiv_L: -0.12 ± 0.26
 remin_S: 3.67 ± 0.74
+sinkdiv_L: -0.12 ± 0.26
 remin_L: 0.73 ± 0.16
 aggregation: 0.18 ± 0.21
 disaggregation: 2.29 ± 4.46
@@ -7634,8 +7634,8 @@ production: 0.01 ± 0.01
 dvm: 1.36 ± 1.29
 --------6--------
 sinkdiv_S: -0.15 ± 0.12
-sinkdiv_L: -0.15 ± 0.19
 remin_S: 3.40 ± 0.68
+sinkdiv_L: -0.15 ± 0.19
 remin_L: 0.78 ± 0.16
 aggregation: 0.12 ± 0.13
 disaggregation: 1.99 ± 4.48
@@ -7918,8 +7918,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.39 ± 0.70
-sinkdiv_L: 0.85 ± 0.44
 remin_S: 14.52 ± 4.90
+sinkdiv_L: 0.85 ± 0.44
 remin_L: 1.18 ± 0.46
 aggregation: 5.11 ± 4.12
 disaggregation: 10.54 ± 9.46
@@ -7927,8 +7927,8 @@ production: 11.36 ± 0.93
 dvm: 8.35 ± 4.78
 --------UMZ--------
 sinkdiv_S: -1.07 ± 0.72
-sinkdiv_L: -0.31 ± 0.51
 remin_S: 11.44 ± 2.97
+sinkdiv_L: -0.31 ± 0.51
 remin_L: 2.04 ± 0.58
 aggregation: 0.66 ± 0.41
 disaggregation: 6.09 ± 8.96
@@ -7936,8 +7936,8 @@ production: 0.39 ± 0.15
 dvm: 2.56 ± 1.92
 --------0--------
 sinkdiv_S: 4.13 ± 2.36
-sinkdiv_L: 2.11 ± 1.41
 remin_S: 5.52 ± 3.43
+sinkdiv_L: 2.11 ± 1.41
 remin_L: 0.50 ± 0.33
 aggregation: 2.80 ± 3.51
 disaggregation: 4.99 ± 6.42
@@ -7945,8 +7945,8 @@ production: 6.24 ± 0.46
 dvm: 3.57 ± 2.13
 --------1--------
 sinkdiv_S: -1.00 ± 2.76
-sinkdiv_L: -0.73 ± 1.58
 remin_S: 3.82 ± 1.98
+sinkdiv_L: -0.73 ± 1.58
 remin_L: 0.27 ± 0.15
 aggregation: 1.27 ± 1.52
 disaggregation: 2.42 ± 5.00
@@ -7954,8 +7954,8 @@ production: 2.92 ± 0.24
 dvm: 1.96 ± 1.13
 --------2--------
 sinkdiv_S: -1.73 ± 1.67
-sinkdiv_L: -0.54 ± 0.85
 remin_S: 5.18 ± 2.69
+sinkdiv_L: -0.54 ± 0.85
 remin_L: 0.41 ± 0.21
 aggregation: 1.04 ± 1.22
 disaggregation: 3.13 ± 4.88
@@ -7963,8 +7963,8 @@ production: 2.20 ± 0.35
 dvm: 2.81 ± 1.60
 --------3--------
 sinkdiv_S: -0.58 ± 0.81
-sinkdiv_L: -0.23 ± 0.54
 remin_S: 2.74 ± 1.38
+sinkdiv_L: -0.23 ± 0.54
 remin_L: 0.27 ± 0.14
 aggregation: 0.26 ± 0.30
 disaggregation: 1.21 ± 4.46
@@ -7972,8 +7972,8 @@ production: 0.33 ± 0.11
 dvm: 0.10 ± 0.14
 --------4--------
 sinkdiv_S: -0.15 ± 0.53
-sinkdiv_L: 0.20 ± 0.53
 remin_S: 1.83 ± 0.92
+sinkdiv_L: 0.20 ± 0.53
 remin_L: 0.27 ± 0.14
 aggregation: 0.11 ± 0.13
 disaggregation: 0.84 ± 4.42
@@ -7981,8 +7981,8 @@ production: 0.05 ± 0.03
 dvm: 0.28 ± 0.38
 --------5--------
 sinkdiv_S: -0.19 ± 0.41
-sinkdiv_L: -0.13 ± 0.55
 remin_S: 3.57 ± 1.81
+sinkdiv_L: -0.13 ± 0.55
 remin_L: 0.73 ± 0.37
 aggregation: 0.18 ± 0.21
 disaggregation: 2.16 ± 4.55
@@ -7990,8 +7990,8 @@ production: 0.01 ± 0.01
 dvm: 1.20 ± 1.30
 --------6--------
 sinkdiv_S: -0.15 ± 0.29
-sinkdiv_L: -0.15 ± 0.44
 remin_S: 3.31 ± 1.68
+sinkdiv_L: -0.15 ± 0.44
 remin_L: 0.78 ± 0.39
 aggregation: 0.12 ± 0.13
 disaggregation: 1.88 ± 4.55
@@ -8274,8 +8274,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.39 ± 1.38
-sinkdiv_L: 0.84 ± 0.85
 remin_S: 11.52 ± 8.79
+sinkdiv_L: 0.84 ± 0.85
 remin_L: 1.18 ± 0.77
 aggregation: 5.50 ± 4.50
 disaggregation: 8.40 ± 10.32
@@ -8283,8 +8283,8 @@ production: 11.33 ± 0.94
 dvm: 6.24 ± 8.80
 --------UMZ--------
 sinkdiv_S: -1.06 ± 1.42
-sinkdiv_L: -0.32 ± 1.01
 remin_S: 10.60 ± 5.68
+sinkdiv_L: -0.32 ± 1.01
 remin_L: 2.01 ± 1.14
 aggregation: 0.66 ± 0.41
 disaggregation: 5.37 ± 9.41
@@ -8292,8 +8292,8 @@ production: 0.39 ± 0.15
 dvm: 1.90 ± 2.83
 --------0--------
 sinkdiv_S: 3.59 ± 4.26
-sinkdiv_L: 2.00 ± 2.36
 remin_S: 3.25 ± 6.19
+sinkdiv_L: 2.00 ± 2.36
 remin_L: 0.50 ± 0.56
 aggregation: 3.11 ± 3.88
 disaggregation: 3.53 ± 7.10
@@ -8301,8 +8301,8 @@ production: 6.23 ± 0.46
 dvm: 2.73 ± 3.87
 --------1--------
 sinkdiv_S: -0.41 ± 4.86
-sinkdiv_L: -0.61 ± 2.70
 remin_S: 3.70 ± 3.81
+sinkdiv_L: -0.61 ± 2.70
 remin_L: 0.27 ± 0.28
 aggregation: 1.35 ± 1.62
 disaggregation: 2.44 ± 5.77
@@ -8310,8 +8310,8 @@ production: 2.91 ± 0.24
 dvm: 1.47 ± 2.07
 --------2--------
 sinkdiv_S: -1.79 ± 3.13
-sinkdiv_L: -0.55 ± 1.61
 remin_S: 4.57 ± 4.88
+sinkdiv_L: -0.55 ± 1.61
 remin_L: 0.41 ± 0.42
 aggregation: 1.04 ± 1.22
 disaggregation: 2.43 ± 5.45
@@ -8319,8 +8319,8 @@ production: 2.19 ± 0.35
 dvm: 2.04 ± 2.88
 --------3--------
 sinkdiv_S: -0.57 ± 1.59
-sinkdiv_L: -0.23 ± 1.05
 remin_S: 2.61 ± 2.66
+sinkdiv_L: -0.23 ± 1.05
 remin_L: 0.27 ± 0.28
 aggregation: 0.26 ± 0.30
 disaggregation: 1.14 ± 4.67
@@ -8328,8 +8328,8 @@ production: 0.33 ± 0.11
 dvm: 0.07 ± 0.14
 --------4--------
 sinkdiv_S: -0.15 ± 1.04
-sinkdiv_L: 0.21 ± 1.02
 remin_S: 1.77 ± 1.81
+sinkdiv_L: 0.21 ± 1.02
 remin_L: 0.27 ± 0.27
 aggregation: 0.11 ± 0.13
 disaggregation: 0.77 ± 4.53
@@ -8337,8 +8337,8 @@ production: 0.05 ± 0.03
 dvm: 0.21 ± 0.39
 --------5--------
 sinkdiv_S: -0.19 ± 0.81
-sinkdiv_L: -0.13 ± 1.06
 remin_S: 3.22 ± 3.42
+sinkdiv_L: -0.13 ± 1.06
 remin_L: 0.71 ± 0.73
 aggregation: 0.18 ± 0.21
 disaggregation: 1.84 ± 4.86
@@ -8346,8 +8346,8 @@ production: 0.01 ± 0.01
 dvm: 0.89 ± 1.50
 --------6--------
 sinkdiv_S: -0.15 ± 0.58
-sinkdiv_L: -0.16 ± 0.87
 remin_S: 3.01 ± 3.19
+sinkdiv_L: -0.16 ± 0.87
 remin_L: 0.76 ± 0.78
 aggregation: 0.12 ± 0.13
 disaggregation: 1.61 ± 4.79
@@ -8630,8 +8630,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.41 ± 0.15
-sinkdiv_L: 0.85 ± 0.13
 remin_S: 17.34 ± 2.52
+sinkdiv_L: 0.85 ± 0.13
 remin_L: 1.22 ± 0.30
 aggregation: 5.73 ± 4.71
 disaggregation: 13.31 ± 36.57
@@ -8639,8 +8639,8 @@ production: 11.29 ± 0.94
 dvm: 10.40 ± 1.73
 --------UMZ--------
 sinkdiv_S: -1.08 ± 0.16
-sinkdiv_L: -0.31 ± 0.15
 remin_S: 11.74 ± 0.64
+sinkdiv_L: -0.31 ± 0.15
 remin_L: 2.05 ± 0.17
 aggregation: 0.66 ± 0.41
 disaggregation: 6.96 ± 41.77
@@ -8648,8 +8648,8 @@ production: 0.39 ± 0.14
 dvm: 3.12 ± 1.64
 --------0--------
 sinkdiv_S: 5.11 ± 1.23
-sinkdiv_L: 2.35 ± 0.98
 remin_S: 7.67 ± 1.84
+sinkdiv_L: 2.35 ± 0.98
 remin_L: 0.53 ± 0.22
 aggregation: 3.28 ± 4.09
 disaggregation: 7.25 ± 21.95
@@ -8657,8 +8657,8 @@ production: 6.21 ± 0.46
 dvm: 4.60 ± 1.10
 --------1--------
 sinkdiv_S: -2.06 ± 1.30
-sinkdiv_L: -0.99 ± 1.02
 remin_S: 4.09 ± 0.71
+sinkdiv_L: -0.99 ± 1.02
 remin_L: 0.28 ± 0.08
 aggregation: 1.40 ± 1.68
 disaggregation: 2.46 ± 20.21
@@ -8666,8 +8666,8 @@ production: 2.90 ± 0.24
 dvm: 2.45 ± 0.42
 --------2--------
 sinkdiv_S: -1.65 ± 0.46
-sinkdiv_L: -0.51 ± 0.32
 remin_S: 5.58 ± 0.69
+sinkdiv_L: -0.51 ± 0.32
 remin_L: 0.42 ± 0.07
 aggregation: 1.04 ± 1.23
 disaggregation: 3.60 ± 21.12
@@ -8675,8 +8675,8 @@ production: 2.18 ± 0.35
 dvm: 3.35 ± 0.41
 --------3--------
 sinkdiv_S: -0.59 ± 0.18
-sinkdiv_L: -0.24 ± 0.16
 remin_S: 2.78 ± 0.29
+sinkdiv_L: -0.24 ± 0.16
 remin_L: 0.27 ± 0.04
 aggregation: 0.26 ± 0.30
 disaggregation: 1.36 ± 20.10
@@ -8684,8 +8684,8 @@ production: 0.33 ± 0.11
 dvm: 0.12 ± 0.16
 --------4--------
 sinkdiv_S: -0.16 ± 0.11
-sinkdiv_L: 0.20 ± 0.18
 remin_S: 1.85 ± 0.19
+sinkdiv_L: 0.20 ± 0.18
 remin_L: 0.27 ± 0.04
 aggregation: 0.11 ± 0.13
 disaggregation: 1.05 ± 20.01
@@ -8693,8 +8693,8 @@ production: 0.05 ± 0.03
 dvm: 0.34 ± 0.43
 --------5--------
 sinkdiv_S: -0.19 ± 0.09
-sinkdiv_L: -0.12 ± 0.18
 remin_S: 3.69 ± 0.39
+sinkdiv_L: -0.12 ± 0.18
 remin_L: 0.73 ± 0.10
 aggregation: 0.18 ± 0.21
 disaggregation: 2.43 ± 21.67
@@ -8702,8 +8702,8 @@ production: 0.01 ± 0.01
 dvm: 1.47 ± 1.40
 --------6--------
 sinkdiv_S: -0.15 ± 0.06
-sinkdiv_L: -0.15 ± 0.12
 remin_S: 3.42 ± 0.35
+sinkdiv_L: -0.15 ± 0.12
 remin_L: 0.78 ± 0.09
 aggregation: 0.12 ± 0.13
 disaggregation: 2.12 ± 21.71
@@ -8986,8 +8986,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.41 ± 0.29
-sinkdiv_L: 0.85 ± 0.20
 remin_S: 17.32 ± 3.08
+sinkdiv_L: 0.85 ± 0.20
 remin_L: 1.22 ± 0.33
 aggregation: 5.73 ± 4.71
 disaggregation: 13.30 ± 36.59
@@ -8995,8 +8995,8 @@ production: 11.29 ± 0.94
 dvm: 10.39 ± 2.49
 --------UMZ--------
 sinkdiv_S: -1.08 ± 0.29
-sinkdiv_L: -0.31 ± 0.23
 remin_S: 11.74 ± 1.23
+sinkdiv_L: -0.31 ± 0.23
 remin_L: 2.05 ± 0.26
 aggregation: 0.66 ± 0.41
 disaggregation: 6.96 ± 41.78
@@ -9004,8 +9004,8 @@ production: 0.39 ± 0.14
 dvm: 3.12 ± 1.73
 --------0--------
 sinkdiv_S: 5.11 ± 1.51
-sinkdiv_L: 2.35 ± 1.06
 remin_S: 7.66 ± 2.26
+sinkdiv_L: 2.35 ± 1.06
 remin_L: 0.53 ± 0.24
 aggregation: 3.28 ± 4.09
 disaggregation: 7.24 ± 21.97
@@ -9013,8 +9013,8 @@ production: 6.21 ± 0.46
 dvm: 4.60 ± 1.36
 --------1--------
 sinkdiv_S: -2.05 ± 1.66
-sinkdiv_L: -0.99 ± 1.13
 remin_S: 4.09 ± 1.00
+sinkdiv_L: -0.99 ± 1.13
 remin_L: 0.28 ± 0.09
 aggregation: 1.40 ± 1.68
 disaggregation: 2.46 ± 20.22
@@ -9022,8 +9022,8 @@ production: 2.90 ± 0.24
 dvm: 2.45 ± 0.60
 --------2--------
 sinkdiv_S: -1.65 ± 0.74
-sinkdiv_L: -0.51 ± 0.43
 remin_S: 5.58 ± 1.18
+sinkdiv_L: -0.51 ± 0.43
 remin_L: 0.42 ± 0.10
 aggregation: 1.04 ± 1.23
 disaggregation: 3.59 ± 21.13
@@ -9031,8 +9031,8 @@ production: 2.18 ± 0.35
 dvm: 3.34 ± 0.71
 --------3--------
 sinkdiv_S: -0.59 ± 0.33
-sinkdiv_L: -0.24 ± 0.24
 remin_S: 2.78 ± 0.56
+sinkdiv_L: -0.24 ± 0.24
 remin_L: 0.27 ± 0.06
 aggregation: 0.26 ± 0.30
 disaggregation: 1.36 ± 20.11
@@ -9040,8 +9040,8 @@ production: 0.33 ± 0.11
 dvm: 0.12 ± 0.16
 --------4--------
 sinkdiv_S: -0.16 ± 0.22
-sinkdiv_L: 0.20 ± 0.25
 remin_S: 1.85 ± 0.37
+sinkdiv_L: 0.20 ± 0.25
 remin_L: 0.27 ± 0.06
 aggregation: 0.11 ± 0.13
 disaggregation: 1.05 ± 20.02
@@ -9049,8 +9049,8 @@ production: 0.05 ± 0.03
 dvm: 0.34 ± 0.44
 --------5--------
 sinkdiv_S: -0.19 ± 0.17
-sinkdiv_L: -0.12 ± 0.26
 remin_S: 3.69 ± 0.75
+sinkdiv_L: -0.12 ± 0.26
 remin_L: 0.73 ± 0.16
 aggregation: 0.18 ± 0.21
 disaggregation: 2.43 ± 21.67
@@ -9058,8 +9058,8 @@ production: 0.01 ± 0.01
 dvm: 1.47 ± 1.42
 --------6--------
 sinkdiv_S: -0.15 ± 0.12
-sinkdiv_L: -0.15 ± 0.19
 remin_S: 3.42 ± 0.69
+sinkdiv_L: -0.15 ± 0.19
 remin_L: 0.78 ± 0.16
 aggregation: 0.12 ± 0.13
 disaggregation: 2.12 ± 21.71
@@ -9342,8 +9342,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.41 ± 0.71
-sinkdiv_L: 0.85 ± 0.44
 remin_S: 17.21 ± 5.62
+sinkdiv_L: 0.85 ± 0.44
 remin_L: 1.22 ± 0.47
 aggregation: 5.73 ± 4.71
 disaggregation: 13.21 ± 36.72
@@ -9351,8 +9351,8 @@ production: 11.29 ± 0.94
 dvm: 10.30 ± 5.36
 --------UMZ--------
 sinkdiv_S: -1.08 ± 0.72
-sinkdiv_L: -0.31 ± 0.51
 remin_S: 11.73 ± 3.02
+sinkdiv_L: -0.31 ± 0.51
 remin_L: 2.05 ± 0.58
 aggregation: 0.66 ± 0.41
 disaggregation: 6.94 ± 41.81
@@ -9360,8 +9360,8 @@ production: 0.39 ± 0.14
 dvm: 3.09 ± 2.23
 --------0--------
 sinkdiv_S: 5.07 ± 2.77
-sinkdiv_L: 2.34 ± 1.51
 remin_S: 7.57 ± 4.15
+sinkdiv_L: 2.34 ± 1.51
 remin_L: 0.53 ± 0.34
 aggregation: 3.28 ± 4.09
 disaggregation: 7.17 ± 22.08
@@ -9369,8 +9369,8 @@ production: 6.21 ± 0.46
 dvm: 4.56 ± 2.50
 --------1--------
 sinkdiv_S: -2.01 ± 3.18
-sinkdiv_L: -0.98 ± 1.68
 remin_S: 4.08 ± 2.12
+sinkdiv_L: -0.98 ± 1.68
 remin_L: 0.28 ± 0.16
 aggregation: 1.40 ± 1.68
 disaggregation: 2.47 ± 20.28
@@ -9378,8 +9378,8 @@ production: 2.90 ± 0.24
 dvm: 2.43 ± 1.27
 --------2--------
 sinkdiv_S: -1.66 ± 1.71
-sinkdiv_L: -0.52 ± 0.85
 remin_S: 5.56 ± 2.81
+sinkdiv_L: -0.52 ± 0.85
 remin_L: 0.42 ± 0.21
 aggregation: 1.04 ± 1.23
 disaggregation: 3.57 ± 21.19
@@ -9387,8 +9387,8 @@ production: 2.18 ± 0.35
 dvm: 3.32 ± 1.69
 --------3--------
 sinkdiv_S: -0.59 ± 0.82
-sinkdiv_L: -0.24 ± 0.54
 remin_S: 2.78 ± 1.39
+sinkdiv_L: -0.24 ± 0.54
 remin_L: 0.27 ± 0.14
 aggregation: 0.26 ± 0.30
 disaggregation: 1.35 ± 20.12
@@ -9396,8 +9396,8 @@ production: 0.33 ± 0.11
 dvm: 0.12 ± 0.17
 --------4--------
 sinkdiv_S: -0.16 ± 0.53
-sinkdiv_L: 0.20 ± 0.53
 remin_S: 1.85 ± 0.93
+sinkdiv_L: 0.20 ± 0.53
 remin_L: 0.27 ± 0.14
 aggregation: 0.11 ± 0.13
 disaggregation: 1.05 ± 20.02
@@ -9405,8 +9405,8 @@ production: 0.05 ± 0.03
 dvm: 0.34 ± 0.46
 --------5--------
 sinkdiv_S: -0.19 ± 0.41
-sinkdiv_L: -0.12 ± 0.55
 remin_S: 3.69 ± 1.85
+sinkdiv_L: -0.12 ± 0.55
 remin_L: 0.73 ± 0.37
 aggregation: 0.18 ± 0.21
 disaggregation: 2.43 ± 21.69
@@ -9414,8 +9414,8 @@ production: 0.01 ± 0.01
 dvm: 1.45 ± 1.56
 --------6--------
 sinkdiv_S: -0.15 ± 0.29
-sinkdiv_L: -0.15 ± 0.44
 remin_S: 3.41 ± 1.71
+sinkdiv_L: -0.15 ± 0.44
 remin_L: 0.78 ± 0.39
 aggregation: 0.12 ± 0.13
 disaggregation: 2.11 ± 21.73
@@ -9698,8 +9698,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.40 ± 1.41
-sinkdiv_L: 0.85 ± 0.86
 remin_S: 16.84 ± 10.43
+sinkdiv_L: 0.85 ± 0.86
 remin_L: 1.22 ± 0.79
 aggregation: 5.73 ± 4.71
 disaggregation: 12.90 ± 37.15
@@ -9707,8 +9707,8 @@ production: 11.29 ± 0.94
 dvm: 10.01 ± 10.36
 --------UMZ--------
 sinkdiv_S: -1.08 ± 1.45
-sinkdiv_L: -0.31 ± 1.01
 remin_S: 11.70 ± 6.02
+sinkdiv_L: -0.31 ± 1.01
 remin_L: 2.05 ± 1.14
 aggregation: 0.66 ± 0.41
 disaggregation: 6.89 ± 41.90
@@ -9716,8 +9716,8 @@ production: 0.39 ± 0.14
 dvm: 3.01 ± 3.45
 --------0--------
 sinkdiv_S: 4.95 ± 5.15
-sinkdiv_L: 2.32 ± 2.52
 remin_S: 7.26 ± 7.70
+sinkdiv_L: 2.32 ± 2.52
 remin_L: 0.53 ± 0.57
 aggregation: 3.29 ± 4.09
 disaggregation: 6.92 ± 22.46
@@ -9725,8 +9725,8 @@ production: 6.21 ± 0.46
 dvm: 4.43 ± 4.65
 --------1--------
 sinkdiv_S: -1.87 ± 5.96
-sinkdiv_L: -0.95 ± 2.88
 remin_S: 4.08 ± 4.11
+sinkdiv_L: -0.95 ± 2.88
 remin_L: 0.28 ± 0.29
 aggregation: 1.40 ± 1.68
 disaggregation: 2.48 ± 20.49
@@ -9734,8 +9734,8 @@ production: 2.90 ± 0.24
 dvm: 2.36 ± 2.45
 --------2--------
 sinkdiv_S: -1.67 ± 3.36
-sinkdiv_L: -0.52 ± 1.63
 remin_S: 5.50 ± 5.55
+sinkdiv_L: -0.52 ± 1.63
 remin_L: 0.41 ± 0.42
 aggregation: 1.04 ± 1.23
 disaggregation: 3.49 ± 21.39
@@ -9743,8 +9743,8 @@ production: 2.18 ± 0.35
 dvm: 3.22 ± 3.32
 --------3--------
 sinkdiv_S: -0.59 ± 1.63
-sinkdiv_L: -0.24 ± 1.05
 remin_S: 2.77 ± 2.78
+sinkdiv_L: -0.24 ± 1.05
 remin_L: 0.27 ± 0.28
 aggregation: 0.26 ± 0.30
 disaggregation: 1.35 ± 20.15
@@ -9752,8 +9752,8 @@ production: 0.33 ± 0.11
 dvm: 0.11 ± 0.19
 --------4--------
 sinkdiv_S: -0.15 ± 1.05
-sinkdiv_L: 0.20 ± 1.03
 remin_S: 1.84 ± 1.85
+sinkdiv_L: 0.20 ± 1.03
 remin_L: 0.27 ± 0.27
 aggregation: 0.11 ± 0.13
 disaggregation: 1.05 ± 20.04
@@ -9761,8 +9761,8 @@ production: 0.05 ± 0.03
 dvm: 0.33 ± 0.53
 --------5--------
 sinkdiv_S: -0.19 ± 0.81
-sinkdiv_L: -0.12 ± 1.07
 remin_S: 3.68 ± 3.68
+sinkdiv_L: -0.12 ± 1.07
 remin_L: 0.73 ± 0.73
 aggregation: 0.18 ± 0.21
 disaggregation: 2.40 ± 21.77
@@ -9770,8 +9770,8 @@ production: 0.01 ± 0.01
 dvm: 1.41 ± 1.98
 --------6--------
 sinkdiv_S: -0.15 ± 0.58
-sinkdiv_L: -0.15 ± 0.88
 remin_S: 3.40 ± 3.41
+sinkdiv_L: -0.15 ± 0.88
 remin_L: 0.78 ± 0.78
 aggregation: 0.12 ± 0.13
 disaggregation: 2.09 ± 21.79
@@ -10054,8 +10054,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.41 ± 0.15
-sinkdiv_L: 0.85 ± 0.13
 remin_S: 17.39 ± 2.53
+sinkdiv_L: 0.85 ± 0.13
 remin_L: 1.22 ± 0.30
 aggregation: 5.76 ± 4.74
 disaggregation: 12.70 ± 64.57
@@ -10063,8 +10063,8 @@ production: 11.29 ± 0.94
 dvm: 10.43 ± 1.73
 --------UMZ--------
 sinkdiv_S: -1.08 ± 0.16
-sinkdiv_L: -0.31 ± 0.15
 remin_S: 11.74 ± 0.64
+sinkdiv_L: -0.31 ± 0.15
 remin_L: 2.05 ± 0.17
 aggregation: 0.66 ± 0.41
 disaggregation: 7.92 ± 75.19
@@ -10072,8 +10072,8 @@ production: 0.39 ± 0.14
 dvm: 3.13 ± 1.65
 --------0--------
 sinkdiv_S: 5.14 ± 1.23
-sinkdiv_L: 2.36 ± 0.98
 remin_S: 7.71 ± 1.85
+sinkdiv_L: 2.36 ± 0.98
 remin_L: 0.53 ± 0.22
 aggregation: 3.31 ± 4.12
 disaggregation: 6.88 ± 40.21
@@ -10081,8 +10081,8 @@ production: 6.21 ± 0.46
 dvm: 4.62 ± 1.11
 --------1--------
 sinkdiv_S: -2.08 ± 1.31
-sinkdiv_L: -0.99 ± 1.02
 remin_S: 4.10 ± 0.71
+sinkdiv_L: -0.99 ± 1.02
 remin_L: 0.28 ± 0.08
 aggregation: 1.41 ± 1.69
 disaggregation: 2.33 ± 33.28
@@ -10090,8 +10090,8 @@ production: 2.90 ± 0.24
 dvm: 2.46 ± 0.43
 --------2--------
 sinkdiv_S: -1.65 ± 0.46
-sinkdiv_L: -0.51 ± 0.32
 remin_S: 5.58 ± 0.69
+sinkdiv_L: -0.51 ± 0.32
 remin_L: 0.42 ± 0.07
 aggregation: 1.04 ± 1.23
 disaggregation: 3.49 ± 38.00
@@ -10099,8 +10099,8 @@ production: 2.18 ± 0.35
 dvm: 3.35 ± 0.41
 --------3--------
 sinkdiv_S: -0.59 ± 0.18
-sinkdiv_L: -0.24 ± 0.16
 remin_S: 2.78 ± 0.29
+sinkdiv_L: -0.24 ± 0.16
 remin_L: 0.27 ± 0.04
 aggregation: 0.26 ± 0.30
 disaggregation: 1.57 ± 33.01
@@ -10108,8 +10108,8 @@ production: 0.33 ± 0.11
 dvm: 0.12 ± 0.16
 --------4--------
 sinkdiv_S: -0.16 ± 0.11
-sinkdiv_L: 0.20 ± 0.18
 remin_S: 1.85 ± 0.19
+sinkdiv_L: 0.20 ± 0.18
 remin_L: 0.27 ± 0.04
 aggregation: 0.11 ± 0.13
 disaggregation: 1.35 ± 32.62
@@ -10117,8 +10117,8 @@ production: 0.05 ± 0.03
 dvm: 0.34 ± 0.43
 --------5--------
 sinkdiv_S: -0.19 ± 0.09
-sinkdiv_L: -0.12 ± 0.18
 remin_S: 3.69 ± 0.39
+sinkdiv_L: -0.12 ± 0.18
 remin_L: 0.73 ± 0.10
 aggregation: 0.18 ± 0.21
 disaggregation: 2.65 ± 41.70
@@ -10126,8 +10126,8 @@ production: 0.01 ± 0.01
 dvm: 1.47 ± 1.41
 --------6--------
 sinkdiv_S: -0.15 ± 0.06
-sinkdiv_L: -0.15 ± 0.12
 remin_S: 3.42 ± 0.35
+sinkdiv_L: -0.15 ± 0.12
 remin_L: 0.78 ± 0.09
 aggregation: 0.12 ± 0.13
 disaggregation: 2.35 ± 41.96
@@ -10410,8 +10410,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.41 ± 0.29
-sinkdiv_L: 0.85 ± 0.20
 remin_S: 17.38 ± 3.10
+sinkdiv_L: 0.85 ± 0.20
 remin_L: 1.22 ± 0.33
 aggregation: 5.76 ± 4.74
 disaggregation: 12.70 ± 64.57
@@ -10419,8 +10419,8 @@ production: 11.29 ± 0.94
 dvm: 10.43 ± 2.50
 --------UMZ--------
 sinkdiv_S: -1.08 ± 0.29
-sinkdiv_L: -0.31 ± 0.23
 remin_S: 11.74 ± 1.23
+sinkdiv_L: -0.31 ± 0.23
 remin_L: 2.05 ± 0.26
 aggregation: 0.66 ± 0.41
 disaggregation: 7.92 ± 75.19
@@ -10428,8 +10428,8 @@ production: 0.39 ± 0.14
 dvm: 3.13 ± 1.73
 --------0--------
 sinkdiv_S: 5.14 ± 1.52
-sinkdiv_L: 2.36 ± 1.06
 remin_S: 7.70 ± 2.28
+sinkdiv_L: 2.36 ± 1.06
 remin_L: 0.53 ± 0.24
 aggregation: 3.31 ± 4.12
 disaggregation: 6.88 ± 40.21
@@ -10437,8 +10437,8 @@ production: 6.21 ± 0.46
 dvm: 4.62 ± 1.37
 --------1--------
 sinkdiv_S: -2.08 ± 1.67
-sinkdiv_L: -0.99 ± 1.13
 remin_S: 4.10 ± 1.00
+sinkdiv_L: -0.99 ± 1.13
 remin_L: 0.28 ± 0.09
 aggregation: 1.41 ± 1.69
 disaggregation: 2.33 ± 33.28
@@ -10446,8 +10446,8 @@ production: 2.90 ± 0.24
 dvm: 2.46 ± 0.60
 --------2--------
 sinkdiv_S: -1.65 ± 0.74
-sinkdiv_L: -0.51 ± 0.43
 remin_S: 5.58 ± 1.19
+sinkdiv_L: -0.51 ± 0.43
 remin_L: 0.42 ± 0.10
 aggregation: 1.04 ± 1.23
 disaggregation: 3.49 ± 38.00
@@ -10455,8 +10455,8 @@ production: 2.18 ± 0.35
 dvm: 3.35 ± 0.71
 --------3--------
 sinkdiv_S: -0.59 ± 0.33
-sinkdiv_L: -0.24 ± 0.24
 remin_S: 2.78 ± 0.56
+sinkdiv_L: -0.24 ± 0.24
 remin_L: 0.27 ± 0.06
 aggregation: 0.26 ± 0.30
 disaggregation: 1.57 ± 33.01
@@ -10464,8 +10464,8 @@ production: 0.33 ± 0.11
 dvm: 0.12 ± 0.16
 --------4--------
 sinkdiv_S: -0.16 ± 0.22
-sinkdiv_L: 0.20 ± 0.25
 remin_S: 1.85 ± 0.37
+sinkdiv_L: 0.20 ± 0.25
 remin_L: 0.27 ± 0.06
 aggregation: 0.11 ± 0.13
 disaggregation: 1.35 ± 32.62
@@ -10473,8 +10473,8 @@ production: 0.05 ± 0.03
 dvm: 0.34 ± 0.44
 --------5--------
 sinkdiv_S: -0.19 ± 0.17
-sinkdiv_L: -0.12 ± 0.26
 remin_S: 3.69 ± 0.75
+sinkdiv_L: -0.12 ± 0.26
 remin_L: 0.73 ± 0.16
 aggregation: 0.18 ± 0.21
 disaggregation: 2.65 ± 41.71
@@ -10482,8 +10482,8 @@ production: 0.01 ± 0.01
 dvm: 1.47 ± 1.43
 --------6--------
 sinkdiv_S: -0.15 ± 0.12
-sinkdiv_L: -0.15 ± 0.19
 remin_S: 3.42 ± 0.69
+sinkdiv_L: -0.15 ± 0.19
 remin_L: 0.78 ± 0.16
 aggregation: 0.12 ± 0.13
 disaggregation: 2.35 ± 41.96
@@ -10766,8 +10766,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.41 ± 0.71
-sinkdiv_L: 0.85 ± 0.44
 remin_S: 17.35 ± 5.66
+sinkdiv_L: 0.85 ± 0.44
 remin_L: 1.22 ± 0.47
 aggregation: 5.76 ± 4.74
 disaggregation: 12.68 ± 64.63
@@ -10775,8 +10775,8 @@ production: 11.29 ± 0.94
 dvm: 10.40 ± 5.39
 --------UMZ--------
 sinkdiv_S: -1.08 ± 0.73
-sinkdiv_L: -0.31 ± 0.51
 remin_S: 11.74 ± 3.03
+sinkdiv_L: -0.31 ± 0.51
 remin_L: 2.05 ± 0.58
 aggregation: 0.66 ± 0.41
 disaggregation: 7.92 ± 75.20
@@ -10784,8 +10784,8 @@ production: 0.39 ± 0.14
 dvm: 3.12 ± 2.25
 --------0--------
 sinkdiv_S: 5.13 ± 2.80
-sinkdiv_L: 2.36 ± 1.51
 remin_S: 7.68 ± 4.19
+sinkdiv_L: 2.36 ± 1.51
 remin_L: 0.53 ± 0.34
 aggregation: 3.31 ± 4.12
 disaggregation: 6.86 ± 40.26
@@ -10793,8 +10793,8 @@ production: 6.21 ± 0.46
 dvm: 4.61 ± 2.52
 --------1--------
 sinkdiv_S: -2.07 ± 3.20
-sinkdiv_L: -0.99 ± 1.68
 remin_S: 4.10 ± 2.13
+sinkdiv_L: -0.99 ± 1.68
 remin_L: 0.28 ± 0.16
 aggregation: 1.41 ± 1.69
 disaggregation: 2.33 ± 33.30
@@ -10802,8 +10802,8 @@ production: 2.90 ± 0.24
 dvm: 2.45 ± 1.28
 --------2--------
 sinkdiv_S: -1.65 ± 1.71
-sinkdiv_L: -0.51 ± 0.85
 remin_S: 5.58 ± 2.82
+sinkdiv_L: -0.51 ± 0.85
 remin_L: 0.42 ± 0.21
 aggregation: 1.04 ± 1.23
 disaggregation: 3.49 ± 38.03
@@ -10811,8 +10811,8 @@ production: 2.18 ± 0.35
 dvm: 3.34 ± 1.69
 --------3--------
 sinkdiv_S: -0.59 ± 0.82
-sinkdiv_L: -0.24 ± 0.54
 remin_S: 2.78 ± 1.39
+sinkdiv_L: -0.24 ± 0.54
 remin_L: 0.27 ± 0.14
 aggregation: 0.26 ± 0.30
 disaggregation: 1.57 ± 33.01
@@ -10820,8 +10820,8 @@ production: 0.33 ± 0.11
 dvm: 0.12 ± 0.17
 --------4--------
 sinkdiv_S: -0.16 ± 0.53
-sinkdiv_L: 0.20 ± 0.53
 remin_S: 1.85 ± 0.93
+sinkdiv_L: 0.20 ± 0.53
 remin_L: 0.27 ± 0.14
 aggregation: 0.11 ± 0.13
 disaggregation: 1.35 ± 32.62
@@ -10829,8 +10829,8 @@ production: 0.05 ± 0.03
 dvm: 0.34 ± 0.46
 --------5--------
 sinkdiv_S: -0.19 ± 0.41
-sinkdiv_L: -0.12 ± 0.55
 remin_S: 3.69 ± 1.85
+sinkdiv_L: -0.12 ± 0.55
 remin_L: 0.73 ± 0.37
 aggregation: 0.18 ± 0.21
 disaggregation: 2.65 ± 41.71
@@ -10838,8 +10838,8 @@ production: 0.01 ± 0.01
 dvm: 1.47 ± 1.58
 --------6--------
 sinkdiv_S: -0.15 ± 0.29
-sinkdiv_L: -0.15 ± 0.44
 remin_S: 3.42 ± 1.71
+sinkdiv_L: -0.15 ± 0.44
 remin_L: 0.78 ± 0.39
 aggregation: 0.12 ± 0.13
 disaggregation: 2.35 ± 41.97
@@ -11122,8 +11122,8 @@ Integrated Fluxes
 +++++++++++++++++++++++++++
 --------EZ--------
 sinkdiv_S: 1.41 ± 1.41
-sinkdiv_L: 0.85 ± 0.86
 remin_S: 17.25 ± 10.57
+sinkdiv_L: 0.85 ± 0.86
 remin_L: 1.22 ± 0.79
 aggregation: 5.76 ± 4.74
 disaggregation: 12.60 ± 64.81
@@ -11131,8 +11131,8 @@ production: 11.29 ± 0.94
 dvm: 10.32 ± 10.48
 --------UMZ--------
 sinkdiv_S: -1.08 ± 1.45
-sinkdiv_L: -0.31 ± 1.01
 remin_S: 11.73 ± 6.04
+sinkdiv_L: -0.31 ± 1.01
 remin_L: 2.05 ± 1.14
 aggregation: 0.66 ± 0.41
 disaggregation: 7.90 ± 75.24
@@ -11140,8 +11140,8 @@ production: 0.39 ± 0.14
 dvm: 3.10 ± 3.51
 --------0--------
 sinkdiv_S: 5.09 ± 5.23
-sinkdiv_L: 2.35 ± 2.54
 remin_S: 7.59 ± 7.84
+sinkdiv_L: 2.35 ± 2.54
 remin_L: 0.53 ± 0.57
 aggregation: 3.31 ± 4.12
 disaggregation: 6.80 ± 40.44
@@ -11149,8 +11149,8 @@ production: 6.21 ± 0.46
 dvm: 4.58 ± 4.71
 --------1--------
 sinkdiv_S: -2.03 ± 6.06
-sinkdiv_L: -0.98 ± 2.89
 remin_S: 4.10 ± 4.13
+sinkdiv_L: -0.98 ± 2.89
 remin_L: 0.28 ± 0.29
 aggregation: 1.41 ± 1.69
 disaggregation: 2.34 ± 33.36
@@ -11158,8 +11158,8 @@ production: 2.90 ± 0.24
 dvm: 2.43 ± 2.47
 --------2--------
 sinkdiv_S: -1.66 ± 3.38
-sinkdiv_L: -0.52 ± 1.63
 remin_S: 5.56 ± 5.58
+sinkdiv_L: -0.52 ± 1.63
 remin_L: 0.42 ± 0.42
 aggregation: 1.04 ± 1.23
 disaggregation: 3.47 ± 38.10
@@ -11167,8 +11167,8 @@ production: 2.18 ± 0.35
 dvm: 3.31 ± 3.35
 --------3--------
 sinkdiv_S: -0.59 ± 1.63
-sinkdiv_L: -0.24 ± 1.06
 remin_S: 2.78 ± 2.78
+sinkdiv_L: -0.24 ± 1.06
 remin_L: 0.27 ± 0.28
 aggregation: 0.26 ± 0.30
 disaggregation: 1.57 ± 33.02
@@ -11176,8 +11176,8 @@ production: 0.33 ± 0.11
 dvm: 0.12 ± 0.20
 --------4--------
 sinkdiv_S: -0.16 ± 1.05
-sinkdiv_L: 0.20 ± 1.03
 remin_S: 1.85 ± 1.85
+sinkdiv_L: 0.20 ± 1.03
 remin_L: 0.27 ± 0.27
 aggregation: 0.11 ± 0.13
 disaggregation: 1.35 ± 32.63
@@ -11185,8 +11185,8 @@ production: 0.05 ± 0.03
 dvm: 0.34 ± 0.55
 --------5--------
 sinkdiv_S: -0.19 ± 0.81
-sinkdiv_L: -0.12 ± 1.07
 remin_S: 3.69 ± 3.69
+sinkdiv_L: -0.12 ± 1.07
 remin_L: 0.73 ± 0.73
 aggregation: 0.18 ± 0.21
 disaggregation: 2.64 ± 41.75
@@ -11194,8 +11194,8 @@ production: 0.01 ± 0.01
 dvm: 1.46 ± 2.02
 --------6--------
 sinkdiv_S: -0.15 ± 0.58
-sinkdiv_L: -0.15 ± 0.88
 remin_S: 3.41 ± 3.41
+sinkdiv_L: -0.15 ± 0.88
 remin_L: 0.78 ± 0.78
 aggregation: 0.12 ± 0.13
 disaggregation: 2.35 ± 42.00

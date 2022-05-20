@@ -8,7 +8,7 @@ Created on Wed Aug 12 15:51:02 2020
 compare if two output files are the same
 True == match
 """
-f1 = 'test_full.txt'
+f1 = 'test.txt'
 f2 = 'out.txt'
 
 import filecmp

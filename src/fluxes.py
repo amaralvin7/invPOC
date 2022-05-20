@@ -3,11 +3,7 @@ import numpy as np
 
 from src.budgets import eval_sym_expression
 from src.modelequations import dvm_egestion, production
-"""
-todo:
-- combine for loop statements in get_symbolic_int_fluxes
-(it is the way it is to preserve order in original output file)
-"""
+
 
 def get_symbolic_int_fluxes(umz_start, layers, thick, grid, zg, mld=None):
 
@@ -16,8 +12,6 @@ def get_symbolic_int_fluxes(umz_start, layers, thick, grid, zg, mld=None):
     for size in ('S', 'L'):
         int_fluxes_sym[f'sinkdiv_{size}'] = get_symbolic_sinkdiv(
             size, umz_start, layers)
-        
-    for size in ('S', 'L'):    
         int_fluxes_sym[f'remin_{size}'] = get_symbolic_remin(
             size, umz_start, layers, thick)
     
