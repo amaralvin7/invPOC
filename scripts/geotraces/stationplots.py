@@ -5,6 +5,7 @@ import numpy as np
 import os
 
 from src.colors import *
+from src.tools import get_layer_bounds
 
 results_path = f'../../results/geotraces/'
 pickled_files = [f for f in os.listdir(results_path) if f.endswith('.pkl')]
@@ -81,9 +82,7 @@ for f in pickled_files:
     for i, t in enumerate(residuals):
         ax = axs[i]
         for l in layers:
-            zi = grid[l]
-            zim1 = grid[grid.index(zi) - 1] if l > 0 else 0
-            depths = (zi, zim1)
+            depths = get_layer_bounds(l, grid)
             ax.scatter(residuals[t][l][0], np.mean(depths),
                         marker='o', c=orange, s=100, zorder=3, lw=0.7)
             ax.fill_betweenx(depths, (residuals[t][l][0] - residuals[t][l][1]),
@@ -154,9 +153,7 @@ for f in pickled_files:
                     capsize=6, fillstyle='none', zorder=3,
                     markeredgewidth=1)
             else:
-                zi = grid[l]
-                zim1 = grid[grid.index(zi) - 1] if l > 0 else 0
-                depths = (zi, zim1)
+                depths = get_layer_bounds(l, grid)
                 depth = np.mean(depths)
                 ax.scatter(
                     params[p]['posterior'][l], depth, marker='o',

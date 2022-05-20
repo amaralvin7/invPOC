@@ -3,6 +3,7 @@ import numpy as np
 
 from src.budgets import eval_sym_expression
 from src.modelequations import dvm_egestion, production
+from src.tools import get_layer_bounds
 
 
 def get_symbolic_int_fluxes(umz_start, layers, thick, grid, zg, mld=None):
@@ -96,8 +97,7 @@ def get_symbolic_production(umz_start, layers, grid, mld):
     
     for l in layers:
         Po, Lp = sym.symbols('Po Lp')
-        zi = grid[l]
-        zim1 = grid[grid.index(zi) - 1] if l > 0 else 0
+        zi, zim1 = get_layer_bounds(l, grid)
         profile.append(production(l, Po, Lp, zi, zim1, mld))
     
     return profile_to_dict(profile, umz_start)
@@ -118,8 +118,7 @@ def get_symbolic_dvm(umz_start, layers, thick, grid, zg):
             profile.append(B3*ps_av*thick[l])
     
     for l in layers[umz_start:]:
-        zi = grid[l]
-        zim1 = grid[l - 1]
+        zi, zim1 = get_layer_bounds(l, grid)
         profile.append(dvm_egestion(B3, a, zm, zg, zi, zim1, grid, umz_start))
     
     return profile_to_dict(profile, umz_start)

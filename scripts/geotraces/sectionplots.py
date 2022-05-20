@@ -10,6 +10,7 @@ import os
 import sys
 import src.geotraces.data as data
 from src.colors import *
+from src.tools import get_layer_bounds
 
 text = {'ws': ('Settling speed, 1-51 µm (m d$^{-1}$)',),
         'wl': ('Settling speed, > 51 µm (m d$^{-1}$)',),
@@ -141,9 +142,7 @@ for p in dv_params:
             if 'w' in p:
                 depth = grid[l]
             else:
-                zi = grid[l]
-                zim1 = grid[grid.index(zi) - 1] if l > 0 else 0
-                depth = np.mean((zi, zim1))
+                depth = np.mean(get_layer_bounds(l, grid))
             df.loc[df.shape[0]] = [depth, latitude, params[p]['posterior'][l]]
     
     plot_section(df, p)
@@ -170,8 +169,7 @@ for p in dv_params:
 #             _, _, _, _, int_fluxes, _, _, _, grid, zg, _, layers, *_ = unpickled
 
 #         for l in layers:
-#             zi = grid[l]
-#             zim1 = grid[grid.index(zi) - 1] if l > 0 else 0
+#             zi, zim1 = get_layer_bounds(l, grid)
 #             depth = np.mean((zi, zim1))
 #             if zi <= zg and i == 'dvm':
 #                 df.loc[df.shape[0]] = [depth, latitude, -int_fluxes[i][l][0]]

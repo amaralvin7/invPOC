@@ -8,7 +8,7 @@ import sys
 import src.geotraces.data as data
 import src.geotraces.state as state
 import src.framework as framework
-import src.output as output
+import src.tools as tools
 import src.budgets as budgets
 import src.fluxes as fluxes
 import src.timescales as timescales
@@ -62,9 +62,9 @@ def invert_station(priors_from, station):
         tracers, params, state_elements, xhat, Ckp1, layers)
     tracer_estimates, residual_estimates, param_estimates = estimates
 
-    output.merge_by_keys(tracer_estimates, tracers)
-    output.merge_by_keys(param_estimates, params)
-    output.merge_by_keys(residual_estimates, residuals)
+    tools.merge_by_keys(tracer_estimates, tracers)
+    tools.merge_by_keys(param_estimates, params)
+    tools.merge_by_keys(residual_estimates, residuals)
 
     umz_start = grid.index(zg) + 1
 
@@ -72,7 +72,7 @@ def invert_station(priors_from, station):
         residuals, umz_start, layers)
     residual_estimates_by_zone = budgets.integrate_by_zone(
         residuals_sym, state_elements, Ckp1, residuals=residuals)
-    output.merge_by_keys(residual_estimates_by_zone, residuals)
+    tools.merge_by_keys(residual_estimates_by_zone, residuals)
 
     # NEEDS TO BE CHECKED FOR CORRECTNESS AS APPLIED TO GP15
     # inventories_sym = budgets.get_symbolic_inventories(

@@ -5,6 +5,7 @@ from src.constants import DPY
 from src.unpacking import slice_by_species
 from src.modelequations import evaluate_model_equations
 from src.exports.constants import *
+from src.tools import get_layer_bounds
 
 def load_targets(inversion, gamma, rel_err):
 
@@ -31,8 +32,7 @@ def generate_linear_solution(targets, n_tracer_elements):
 
         tracer, layer = element.split('_')
         l = int(layer)
-        zi = GRID[l]
-        zim1 = GRID[GRID.index(zi) - 1] if l > 0 else 0
+        zi, zim1 = get_layer_bounds(l, GRID)
         h = zi - zim1
 
         iPsi = element_index.index(f'POCS_{l}')
@@ -99,8 +99,7 @@ def generate_nonlinear_solution(targets):
 
     for layer in LAYERS:
         l = int(layer)
-        zi = GRID[l]
-        zim1 = GRID[GRID.index(zi) - 1] if l > 0 else 0
+        zi, zim1 = get_layer_bounds(l, GRID)
         if l == 0:
             b[l] = -Po*MLD
         else:

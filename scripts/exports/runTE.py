@@ -5,7 +5,7 @@ import sys
 import src.exports.twinexperiments as te
 import src.exports.state as state
 import src.framework as framework
-import src.output as output
+import src.tools as tools
 from src.unpacking import unpack_state_estimates
 from src.ati import find_solution
 from src.exports.constants import *
@@ -31,9 +31,9 @@ def run_twin_experiment(priors_from, gamma, rel_err):
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, LAYERS)
     tracer_estimates, residual_estimates, param_estimates = estimates
-    output.merge_by_keys(tracer_estimates, tracers)
-    output.merge_by_keys(param_estimates, params)
-    output.merge_by_keys(residual_estimates, residuals)
+    tools.merge_by_keys(tracer_estimates, tracers)
+    tools.merge_by_keys(param_estimates, params)
+    tools.merge_by_keys(residual_estimates, residuals)
 
     to_pickle = {'tracers': tracers, 'params': params, 'residuals': residuals,
                  'targets': targets}

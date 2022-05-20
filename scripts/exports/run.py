@@ -7,7 +7,7 @@ import sys
 import src.exports.data as data
 import src.exports.state as state
 import src.framework as framework
-import src.output as output
+import src.tools as tools
 import src.budgets as budgets
 import src.fluxes as fluxes
 import src.timescales as timescales
@@ -31,20 +31,20 @@ def run_model(priors_from, gamma, rel_err):
         tracers, state_elements, equation_elements, xo, Co, GRID, ZG,
         UMZ_START, priors_from, None, mld=MLD)  # last 2 args before mld are just for debugging GT inversions, delete later
     xhat, Ckp1, _, _ = ati_results
-    x_resids = output.normalized_state_residuals(xhat, xo, Co)
+    x_resids = tools.normalized_state_residuals(xhat, xo, Co)
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, LAYERS)
     tracer_estimates, residual_estimates, param_estimates = estimates
 
-    output.merge_by_keys(tracer_estimates, tracers)
-    output.merge_by_keys(param_estimates, params)
-    output.merge_by_keys(residual_estimates, residuals)
+    tools.merge_by_keys(tracer_estimates, tracers)
+    tools.merge_by_keys(param_estimates, params)
+    tools.merge_by_keys(residual_estimates, residuals)
 
     residuals_sym = budgets.get_symbolic_residuals(
         residuals, UMZ_START, LAYERS)
     residual_estimates_by_zone = budgets.integrate_by_zone(
         residuals_sym, state_elements, Ckp1, residuals=residuals)
-    output.merge_by_keys(residual_estimates_by_zone, residuals)
+    tools.merge_by_keys(residual_estimates_by_zone, residuals)
 
     inventories_sym = budgets.get_symbolic_inventories(
         tracers, UMZ_START, LAYERS, THICK)
@@ -78,7 +78,7 @@ def run_model(priors_from, gamma, rel_err):
         inventories_sym, int_fluxes_sym, int_fluxes, tracers, params,
         state_elements, Ckp1, ZONE_LAYERS)
     
-    output.calculate_B2(GRID, state_elements, Ckp1, tracers, params)
+    tools.calculate_B2(GRID, state_elements, Ckp1, tracers, params)
     
     to_pickle = {'tracers': tracers,
                  'params': params,

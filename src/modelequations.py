@@ -1,6 +1,8 @@
 import numpy as np
 import sympy as sym
 
+from src.tools import get_layer_bounds
+
 def evaluate_model_equations(
     tracers, state_elements, equation_elements, xk, grid, zg, umz_start,
     mld, targets=None):
@@ -43,8 +45,7 @@ def extract_equation_variables(state_elements, y, xk):
 
 def equation_builder(tracer, layer, grid, zg, umz_start, mld, targets=None):
 
-    zi = grid[layer]
-    zim1 = grid[grid.index(zi) - 1] if layer > 0 else 0
+    zi, zim1 = get_layer_bounds(layer, grid)
     h = zi - zim1
     in_EZ = zi <= zg
     

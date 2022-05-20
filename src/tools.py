@@ -33,4 +33,11 @@ def normalized_state_residuals(xhat, xo, Co):
         x_resids = list((xhat - xo)/np.sqrt(np.diag(Co)))
 
         return x_resids
+
+def get_layer_bounds(layer, grid):
+    
+    zi = grid[layer]
+    zim1 = grid[grid.index(zi) - 1] if layer > 0 else 0
+    
+    return zi, zim1
             
