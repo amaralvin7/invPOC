@@ -1291,9 +1291,9 @@ for inv, fig_label in ((NA_results, 'S11'), (SP_results, 'S12')):
     fig.subplots_adjust(wspace=0.5)
     axs = (ax1, ax2)
 
-    ax1.set_xlabel('$\\varepsilon_{S}$ (mmol m$^{-2}$ d$^{-1}$)',
+    ax1.set_xlabel('$\\overline{\\varepsilon_{S}}h$ (mmol m$^{-2}$ d$^{-1}$)',
                     fontsize=14)
-    ax2.set_xlabel('$\\varepsilon_{L}$ (mmol m$^{-2}$ d$^{-1}$)',
+    ax2.set_xlabel('$\\overline{\\varepsilon_{L}}h$ (mmol m$^{-2}$ d$^{-1}$)',
                     fontsize=14)
     ax1.set_ylabel('Depth (m)', fontsize=14)
 
