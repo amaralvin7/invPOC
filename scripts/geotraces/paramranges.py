@@ -35,12 +35,12 @@ markers = {'MNWA': ('s', radish, 60),
            'ENP': ('D', black, 60),
            'SBB': ('X', 'r', 60)}
 
-def plot_percentage(percent, x, y, ax, name):
+# def plot_percentage(percent, x, y, ax, name):
     
-    i = min(range(len(x)), key=lambda i:abs(x[i] - percent))
-    ax.hlines(y[i], 0, x[i], color='k', ls='--')
-    ax.vlines(x[i], 0, y[i], color='k', ls='--')
-    print(f'{percent}, {name}: {y[i]:.6f}')
+#     i = min(range(len(x)), key=lambda i:abs(x[i] - percent))
+#     ax.hlines(y[i], 0, x[i], color='k', ls='--')
+#     ax.vlines(x[i], 0, y[i], color='k', ls='--')
+#     print(f'{percent}, {name}: {y[i]:.6f}')
         
 def cdf(df, title, name):
     
@@ -50,21 +50,18 @@ def cdf(df, title, name):
     x = [sum(j <= i for j in y)/len(y) for i in y]
     m = sorted['id']
     
-    fig, ax = plt.subplots(1,1,tight_layout=True)
+    fig, (ax1, ax2) = plt.subplots(1, 2, tight_layout=True, figsize=(12,4))
     for i, _ in enumerate(y):
         marker, color, size = markers[m[i]]
-        ax.scatter(x[i], y[i], marker=marker, c=color, label=m[i], s=size)
-        ax.set_yscale('log')
-    ax.set_ylabel(title, fontsize=16)
-    ax.set_xticks(np.arange(0, 1.1, 0.1))
+        ax1.scatter(x[i], y[i], marker=marker, c=color, label=m[i], s=size)
+        ax1.set_yscale('log')
+    ax1.set_ylabel(title, fontsize=16)
+    ax1.set_xticks(np.arange(0, 1.1, 0.1))
 
-    handles, labels = ax.get_legend_handles_labels()
+    handles, labels = ax1.get_legend_handles_labels()
     unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
-    ax.legend(*zip(*unique), fontsize=10, ncol=1, frameon=False, loc='lower right')
-    
-    plot_percentage(0.25, x, y, ax, name)
-    plot_percentage(0.5, x, y, ax, name)
-    plot_percentage(0.75, x, y, ax, name)
+    ax1.legend(*zip(*unique), fontsize=10, ncol=1, frameon=False, loc='lower right')
+    ax2.hist(y, bins=30)
     
     fig.savefig(f'../../results/geotraces/ranges/ranges_{name}')
     plt.close()

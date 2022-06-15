@@ -163,3 +163,14 @@ def load_mixed_layer_depths():
     mld_dict = dict(zip(mld_df['Station No'], mld_df['MLD']))
 
     return mld_dict
+
+def get_median_POCS():
+    
+    poc = poc_by_station()
+    data = pd.DataFrame(columns=['depth', 'POCS'])
+    for  df in poc.values():
+        data = pd.concat([data, df], join='inner', ignore_index=True)
+
+    median = np.median(data['POCS'])
+    
+    return median

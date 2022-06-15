@@ -32,9 +32,9 @@ def calculate_cost(Co, xo, x):
 
 def find_solution(
     tracers, state_elements, equation_elements, xo, Co, grid, zg, umz_start,
-    priors_from, station, mld=None):
+    mld=None):
 
-    max_iterations = 200
+    max_iterations = 100
     convergence_evolution = []
     cost_evolution = []
 
@@ -59,7 +59,4 @@ def find_solution(
     Ckp1 = Co - CoFT @ FCoFTi @ F @ Co
     xhat = xkp1
 
-    if not converged:
-        print(priors_from, station)
-
-    return xhat, Ckp1, convergence_evolution, cost_evolution
+    return xhat, Ckp1, convergence_evolution, cost_evolution, converged

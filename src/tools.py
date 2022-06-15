@@ -40,4 +40,13 @@ def get_layer_bounds(layer, grid):
     zim1 = grid[grid.index(zi) - 1] if layer > 0 else 0
     
     return zi, zim1
+
+
+def nonnegative_check(state_elements, xhat):
+    
+    indexes = [i for i, s in enumerate(state_elements) if 'R' not in s]
+    nonresidual_estimates = [xhat[i] for i in indexes]
+    nonnegative = all(i >= 0 for i in nonresidual_estimates)
+    
+    return nonnegative
             

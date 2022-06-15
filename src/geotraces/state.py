@@ -24,40 +24,23 @@ def define_residuals(prior_error, gamma):
     
     return residuals
 
-def define_params(Lp_prior, Po_prior, B3_prior, priors_from, rel_err):
+def define_params(Lp_prior, Po_prior, B3_prior, mc_params):
     
     params = {}
     
-    # B2p_prior, B2p_error, Bm2_prior, Bm2_error = contextual_priors(
-    #     priors_from, rel_err)
+    B2p = mc_params['B2p']
+    Bm2 = mc_params['Bm2']
+    Bm1s = mc_params['Bm1s']
+    Bm1l = mc_params['Bm1l']
+    ws = mc_params['ws']
+    wl = mc_params['wl']
     
-    # Bm1l = 0.03
-    # Bm1s = 0.01
-    # Bm2 = 0.21
-    # wl = 47
-    # ws = 0.6
-    # B2 = 0.004
-
-    # Bm1l = 0.15
-    # Bm1s = 0.04
-    # Bm2 = 0.73
-    # wl = 62
-    # ws = 0.8
-    # B2 = 0.01
-    
-    Bm1l = 0.68
-    Bm1s = 0.23
-    Bm2 = 2.38
-    wl = 78
-    ws = 1.1
-    B2 = 0.04
-
-    params['ws'] = set_prior(ws, ws)
-    params['wl'] = set_prior(wl, wl)
-    params['B2p'] = set_prior(B2/1.57, B2/1.57)
+    params['B2p'] = set_prior(B2p, B2p)
     params['Bm2'] = set_prior(Bm2, Bm2)
     params['Bm1s'] = set_prior(Bm1s, Bm1s)
     params['Bm1l'] = set_prior(Bm1l, Bm1l)
+    params['ws'] = set_prior(ws, ws)
+    params['wl'] = set_prior(wl, wl)
     params['Po'] = set_prior(Po_prior, Po_prior*0.25, depth_varying=False)
     params['Lp']= set_prior(Lp_prior, Lp_prior*0.25, depth_varying=False)
     params['B3'] = set_prior(B3_prior, B3_prior*0.25, depth_varying=False)
@@ -65,6 +48,7 @@ def define_params(Lp_prior, Po_prior, B3_prior, priors_from, rel_err):
     params['zm'] = set_prior(500, 500, depth_varying=False) 
     
     return params
+
 
 def set_prior(prior, error, depth_varying=True):
     
@@ -76,20 +60,6 @@ def set_prior(prior, error, depth_varying=True):
     
     return data
 
-def contextual_priors(priors_from, rel_err):
-
-    if priors_from == 'NA':  # Murnane et al. 1996, DSR
-        B2p_prior = (2/21) # m^3 mg^-1 y^-1
-        B2p_error = B2p_prior*rel_err
-        Bm2_prior = 156  # y^-1
-        Bm2_error = Bm2_prior*rel_err
-    else:  # Murnane 1994, JGR
-        B2p_prior = (0.8/1.57) # m^3 mg^-1 y^-1
-        B2p_error = B2p_prior*rel_err
-        Bm2_prior = 400  # y^-1
-        Bm2_error = Bm2_prior*rel_err
-    
-    return B2p_prior, B2p_error, Bm2_prior, Bm2_error
 
 def get_Lp_priors(poc_data):
 
@@ -98,19 +68,22 @@ def get_Lp_priors(poc_data):
     
     return Lp_priors
 
+
 def get_ez_depths(Lp_priors):
 
     depths = {station: l*np.log(100) for station, l in Lp_priors.items()}
     
     return depths
 
+
 def get_Po_priors(poc_data, Lp_priors, npp_data, ez_depths):
 
-    Po_priors = {calculate_surface_npp(
+    Po_priors = {s: calculate_surface_npp(
         poc_data[s], Lp_priors[s], npp_data[s], ez_depths[s], volumetric=True
         ) for s in poc_data}
     
     return Po_priors
+
 
 def get_B3_priors(npp_data):
     
@@ -121,14 +94,15 @@ def get_B3_priors(npp_data):
 
     return B3_priors
 
+
 def calculate_surface_npp(poc, Lp, npp, ez_depth, volumetric=False):
-    
+
     z0 = poc.iloc[0]['depth']
     ratio = ((1 - np.exp(-z0/Lp))/(1 - np.exp(-ez_depth/Lp)))
     surface_npp = npp/MMC * ratio
     if volumetric:
         return surface_npp/z0
-    
+
     return surface_npp
 
 def get_residual_prior_error(poc_data, Lp_priors, npp_data, ez_depths):

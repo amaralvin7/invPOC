@@ -29,8 +29,8 @@ def run_model(priors_from, gamma, rel_err):
 
     ati_results = find_solution(
         tracers, state_elements, equation_elements, xo, Co, GRID, ZG,
-        UMZ_START, priors_from, None, mld=MLD)  # last 2 args before mld are just for debugging GT inversions, delete later
-    xhat, Ckp1, _, _ = ati_results
+        UMZ_START, mld=MLD)
+    xhat, Ckp1, *_ = ati_results
     x_resids = tools.normalized_state_residuals(xhat, xo, Co)
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, LAYERS)
