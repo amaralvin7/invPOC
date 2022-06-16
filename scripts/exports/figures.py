@@ -1,24 +1,24 @@
 # Plot all code-generated figures from Amaral et al., 2022
-import sys
-import numpy as np
-import pandas as pd
 import pickle
 
-import matplotlib.pyplot as plt
-import mpl_toolkits.axisartist as AA
-from mpl_toolkits.axes_grid1 import host_subplot
 from matplotlib.lines import Line2D
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import host_subplot
+import mpl_toolkits.axisartist as AA
+import numpy as np
+import pandas as pd
 
 from src.colors import *
 from src.constants import DPY, MMC
 from src.exports.constants import *
+import src.exports.data as data
 
-all_data = pd.read_excel('../../data/exports.xlsx', sheet_name=None)
+all_data = data.load_data()
 
 with open('../../results/exports/NA_0.5_0.5.pkl', 'rb') as pickled:
-            NA_results = pickle.load(pickled)
+    NA_results = pickle.load(pickled)
 with open('../../results/exports/SP_0.5_0.5.pkl', 'rb') as pickled:
-            SP_results = pickle.load(pickled)
+    SP_results = pickle.load(pickled)
             
 results_dict = {'NA': NA_results, 'SP': SP_results}
 Po_prior = NA_results['params']['Po']['prior']
@@ -150,7 +150,7 @@ par4.axis['top'].major_ticks.set_ticksize(6)
 
 for ax in (host1, host2):
     for d in [30, 50, 100, 150, 200, 330, 500]:
-        ax.axhline(d, c='k', ls=':', zorder=1)
+        ax.axhline(d, c=black, ls=':', zorder=1)
 
 fig.savefig('../../results/exports/figures/Figure1.pdf')
 plt.close()
@@ -169,8 +169,8 @@ flux = co*(np.sin(np.pi*(depths - zg)/(zm - zg)))
 fig, ax = plt.subplots(1, 1, tight_layout=True, figsize=(4,4))
 ax.set_ylim([0, zm])
 ax.invert_yaxis()
-ax.plot([0, 0], [0, zg], lw=2, c='k')
-ax.plot(flux, depths, lw=2, c='k')
+ax.plot([0, 0], [0, zg], lw=2, c=black)
+ax.plot(flux, depths, lw=2, c=black)
 ax.set_yticks([0, zg, (zm + zg)/2, zm])
 ax.set_yticklabels(['0', '$z_g$', '$\\frac{z_g + z_m}{2}$','$z_m$'],
                    fontsize=14)
@@ -181,12 +181,12 @@ ax.set_xlabel('$E(z)$', fontsize=14, labelpad=10)
 ax.set_ylabel('Depth, $z$', fontsize=14, labelpad=10)
 ax.xaxis.set_label_position('top')
 
-ax.axvline(0, lw=0.5, ls='--', c='k')
-ax.axvline(co, lw=0.5, ls='--', c='k')
-ax.axhline(0, lw=0.5, ls='--', c='k')
-ax.axhline(zg, lw=0.5, ls='--', c='k')
-ax.axhline(zm, lw=0.5, ls='--', c='k')
-ax.axhline((zm+zg)/2, lw=0.5, ls='--', c='k')
+ax.axvline(0, lw=0.5, ls='--', c=black)
+ax.axvline(co, lw=0.5, ls='--', c=black)
+ax.axhline(0, lw=0.5, ls='--', c=black)
+ax.axhline(zg, lw=0.5, ls='--', c=black)
+ax.axhline(zm, lw=0.5, ls='--', c=black)
+ax.axhline((zm+zg)/2, lw=0.5, ls='--', c=black)
 
 fig.savefig('../../results/exports/figures/Figure3.pdf')
 plt.close()
@@ -623,12 +623,11 @@ plt.close()
 #FIGURE 10, sinking fluxes
 ######################################################
 
-datapath = '../../data/exports.xlsx'
-th_fluxes = pd.read_excel(datapath, sheet_name='POC_fluxes_thorium')
+th_fluxes = all_data['POC_fluxes_thorium']
 th_depths = th_fluxes['depth']
 th_flux = th_fluxes['flux']
 th_flux_u = th_fluxes['flux_u']
-st_fluxes = pd.read_excel(datapath, sheet_name='POC_fluxes_traps')
+st_fluxes = all_data['POC_fluxes_traps']
 st_depths = st_fluxes['depth']
 st_flux = st_fluxes['flux']
 st_flux_u = st_fluxes['flux_u']
@@ -941,7 +940,7 @@ for z, fig_label in (('EZ', 13), ('UMZ', 14)):
 
         for group in ((ax1, 'S', -1, 1), (ax2, 'L', 1, -1)):
             ax, sf, agg_sign, dagg_sign = group
-            ax.axhline(0, c='k', lw=1)
+            ax.axhline(0, c=black, lw=1)
             ax.set_ylim([-16, 15])
             ax.set_xlabel(f'$P_{sf}$ fluxes', fontsize=14)
             labels = ['SFD', 'Remin.', 'Agg.', 'Disagg.', 'Resid.']
@@ -1059,7 +1058,7 @@ for z, fig_label in (('EZ', 'S3'), ('UMZ', 'S4')):
             color = run_colors[i]
             for group in ((ax1, 'S', -1, 1), (ax2, 'L', 1, -1)):
                 ax, sf, agg_sign, dagg_sign = group
-                ax.axhline(0, c='k', lw=0.5)
+                ax.axhline(0, c=black, lw=0.5)
                 ax.set_xlabel(f'$P_{sf}$ fluxes', fontsize=14)
                 ax_labels = ['SFD', 'Remin.', 'Agg.', 'Disagg.', 'Resid.']
                 fluxes = [-rfi[f'sinkdiv_{sf}'][z][0],
@@ -1124,7 +1123,7 @@ for z, fig_label in (('EZ', 'S3'), ('UMZ', 'S4')):
     plt.close()
 
 ######################################################
-#FIGURES S7 & S8, twin experiment POC profiles
+#FIGURES S5 & S6, twin experiment POC profiles
 ######################################################
 
 with open('../../results/exports/NA_0.5_0.5_TE.pkl', 'rb') as pickled:

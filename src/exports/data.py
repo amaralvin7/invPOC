@@ -1,11 +1,17 @@
+from pickle import load
+
 import pandas as pd
 import numpy as np
-from os import path
 
 from src.exports.constants import GRID
 
-import sys
+def load_data():
 
+    with open('../../data/exports/data.pkl', 'rb') as f:
+        data = load(f)
+    
+    return data
+    
 def process_poc_data(to_process):
 
     processed = pd.DataFrame(GRID, columns=['depth'])

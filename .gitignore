@@ -8,7 +8,8 @@ ehthumbs.db
 Thumbs.db
 __pycache__/
 
-*.pkl
+/results
+
 *.png
 *.pdf
 *.egg-info

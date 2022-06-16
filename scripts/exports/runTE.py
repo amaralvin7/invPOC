@@ -1,20 +1,22 @@
-import pickle
-import time
-import pandas as pd
-import sys
-import src.exports.twinexperiments as te
-import src.exports.state as state
-import src.framework as framework
-import src.tools as tools
-from src.unpacking import unpack_state_estimates
+from pickle import dump
+from time import time
+
 from src.ati import find_solution
 from src.exports.constants import *
+import src.exports.data as data
+import src.exports.state as state
+import src.framework as framework
+import src.exports.twinexperiments as te
+import src.tools as tools
+from src.unpacking import unpack_state_estimates
 
-def run_twin_experiment(priors_from, gamma, rel_err):
+def run_twin_experiment(priors_from):
 
+    gamma = 0.5
+    rel_err = 0.5
     targets = te.load_targets(priors_from, gamma, rel_err)
 
-    all_data = pd.read_excel('../../data/exports.xlsx', sheet_name=None)
+    all_data = data.load_data()
     state_elements = targets['state_elements']
     equation_elements = targets['equation_elements']
 
@@ -26,8 +28,8 @@ def run_twin_experiment(priors_from, gamma, rel_err):
 
     ati_results = find_solution(
         tracers, state_elements, equation_elements, xo, Co, GRID, ZG,
-        UMZ_START, priors_from, None, mld=MLD)  # last 2 args before MLD are just for debugging GT inversions, delete later
-    xhat, Ckp1, _, _ = ati_results
+        UMZ_START, mld=MLD)
+    xhat, Ckp1, *_ = ati_results
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, LAYERS)
     tracer_estimates, residual_estimates, param_estimates = estimates
@@ -40,14 +42,14 @@ def run_twin_experiment(priors_from, gamma, rel_err):
     
     save_path = f'../../results/exports/{priors_from}_{rel_err}_{gamma}_TE.pkl'
     with open(save_path, 'wb') as file:
-                pickle.dump(to_pickle, file)
+        dump(to_pickle, file)
 
 
 if __name__ == '__main__':
 
-    start_time = time.time()
+    start_time = time()
 
-    run_twin_experiment('NA', 0.5, 0.5)
-    run_twin_experiment('SP', 0.5, 0.5)
+    run_twin_experiment('NA')
+    run_twin_experiment('SP')
 
-    print(f'--- {(time.time() - start_time)/60} minutes ---')
+    print(f'--- {(time() - start_time)/60} minutes ---')

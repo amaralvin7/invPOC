@@ -1,23 +1,23 @@
-import time
-import pickle
 from itertools import product
 from multiprocessing import Pool
-import pandas as pd
-import sys
+from pickle import dump
+from time import time
+
+from src.ati import find_solution
+import src.budgets as budgets
+from src.exports.constants import *
 import src.exports.data as data
 import src.exports.state as state
+import src.fluxes as fluxes
 import src.framework as framework
 import src.tools as tools
-import src.budgets as budgets
-import src.fluxes as fluxes
 import src.timescales as timescales
 from src.unpacking import unpack_state_estimates
-from src.ati import find_solution
-from src.exports.constants import *
+
 
 def run_model(priors_from, gamma, rel_err):
 
-    all_data = pd.read_excel('../../data/exports.xlsx', sheet_name=None)
+    all_data = data.load_data()
     poc_data = data.process_poc_data(all_data['POC'])
     tracers = state.define_tracers(poc_data)
     params = state.define_params(all_data['NPP'], priors_from, rel_err)
@@ -96,11 +96,11 @@ def run_model(priors_from, gamma, rel_err):
     
     save_path = f'../../results/exports/{priors_from}_{rel_err}_{gamma}.pkl'
     with open(save_path, 'wb') as file:
-                pickle.dump(to_pickle, file)
+        dump(to_pickle, file)
 
 if __name__ == '__main__':
 
-    start_time = time.time()
+    start_time = time()
 
     study_sites = ('NA', 'SP')
     gammas = (0.5, 1, 5, 10)
@@ -109,4 +109,4 @@ if __name__ == '__main__':
     pool = Pool()
     pool.starmap(run_model, product(study_sites, gammas, rel_errs))
 
-    print(f'--- {(time.time() - start_time)/60} minutes ---')
+    print(f'--- {(time() - start_time)/60} minutes ---')
