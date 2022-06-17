@@ -1,3 +1,4 @@
+"""Colors used in figures."""
 black = '#000000'
 orange = '#E69F00'
 sky = '#56B4E9'

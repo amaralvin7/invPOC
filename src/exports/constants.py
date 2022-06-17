@@ -1,3 +1,4 @@
+"""Constants used for for EXPORTS inversions."""
 from numpy import diff
 
 MLD = 30  # mixed layer depth

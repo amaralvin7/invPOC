@@ -1,22 +1,31 @@
+"""Invert EXPORTS POC concentration data."""
 from itertools import product
 from multiprocessing import Pool
 from pickle import dump
 from time import time
 
-from src.ati import find_solution
 import src.budgets as budgets
-from src.exports.constants import *
 import src.exports.data as data
 import src.exports.state as state
 import src.fluxes as fluxes
 import src.framework as framework
-import src.tools as tools
 import src.timescales as timescales
+import src.tools as tools
+from src.ati import find_solution
+from src.exports.constants import *
 from src.unpacking import unpack_state_estimates
 
 
 def run_model(priors_from, gamma, rel_err):
+    """Run the inverse model and pickle results.
 
+    Args:
+        priors_from (str): Location from which to pick B2p and Bm2 priors. Can
+        be NA (North Atlantic) or SP (Station P).
+        gamma (float): Proportionality constant for setting model error.
+        rel_err (float): Relative error for prior estimates for which error
+        must be set arbitrarily.
+    """
     all_data = data.load_data()
     poc_data = data.process_poc_data(all_data['POC'])
     tracers = state.define_tracers(poc_data)
@@ -66,7 +75,7 @@ def run_model(priors_from, gamma, rel_err):
 
     sink_fluxes = fluxes.sinking_fluxes(
         LAYERS, state_elements, Ckp1, tracers, params)
-    
+
     production_profile = fluxes.production_prof(
         LAYERS, state_elements, Ckp1, tracers, params, GRID, mld=MLD)
 
@@ -77,9 +86,9 @@ def run_model(priors_from, gamma, rel_err):
     turnover_times = timescales.calculate_turnover_times(
         inventories_sym, int_fluxes_sym, int_fluxes, tracers, params,
         state_elements, Ckp1, ZONE_LAYERS)
-    
+
     tools.calculate_B2(GRID, state_elements, Ckp1, tracers, params)
-    
+
     to_pickle = {'tracers': tracers,
                  'params': params,
                  'residuals': residuals,
@@ -93,10 +102,11 @@ def run_model(priors_from, gamma, rel_err):
                  'equation_elements': equation_elements,
                  'x_resids': x_resids,
                  'prior_fluxes': prior_fluxes}
-    
+
     save_path = f'../../results/exports/{priors_from}_{rel_err}_{gamma}.pkl'
     with open(save_path, 'wb') as file:
         dump(to_pickle, file)
+
 
 if __name__ == '__main__':
 
@@ -106,7 +116,7 @@ if __name__ == '__main__':
     gammas = (0.5, 1, 5, 10)
     rel_errs = (0.1, 0.2, 0.5, 1)
 
-    pool = Pool()
-    pool.starmap(run_model, product(study_sites, gammas, rel_errs))
+    with Pool() as p:
+        p.starmap(run_model, product(study_sites, gammas, rel_errs))
 
     print(f'--- {(time() - start_time)/60} minutes ---')

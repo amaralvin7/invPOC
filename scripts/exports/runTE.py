@@ -1,17 +1,24 @@
+"""Run twin experiments to validate the inverse model."""
 from pickle import dump
 from time import time
 
-from src.ati import find_solution
-from src.exports.constants import *
 import src.exports.data as data
 import src.exports.state as state
-import src.framework as framework
 import src.exports.twinexperiments as te
+import src.framework as framework
 import src.tools as tools
+from src.ati import find_solution
+from src.exports.constants import *
 from src.unpacking import unpack_state_estimates
 
-def run_twin_experiment(priors_from):
 
+def run_twin_experiment(priors_from):
+    """Run the twin experiment and pickle results.
+
+    Args:
+        priors_from (str): Location from which to pick B2p and Bm2 priors from.
+        Can be NA (North Atlantic) or SP (Station P).
+    """
     gamma = 0.5
     rel_err = 0.5
     targets = te.load_targets(priors_from, gamma, rel_err)
@@ -39,7 +46,7 @@ def run_twin_experiment(priors_from):
 
     to_pickle = {'tracers': tracers, 'params': params, 'residuals': residuals,
                  'targets': targets}
-    
+
     save_path = f'../../results/exports/{priors_from}_{rel_err}_{gamma}_TE.pkl'
     with open(save_path, 'wb') as file:
         dump(to_pickle, file)
