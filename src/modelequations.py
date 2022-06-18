@@ -1,12 +1,34 @@
+"""Construct and evaluate model equations."""
 import numpy as np
 import sympy as sym
 
-from src.tools import get_layer_bounds
+from src.budgets import evaluate_symbolic_expression
 
-def evaluate_model_equations(
-    tracers, state_elements, equation_elements, xk, grid, zg, umz_start,
-    mld, targets=None):
-    
+
+def evaluate_model_equations(tracers, state_elements, equation_elements, xk,
+                             grid, zg, umz_start, mld, targets=None):
+    """Evaluate the model equations.
+
+    Args:
+        tracers (dict): Data container for tracers.
+        state_elements (list[str]): Names of state elements.
+        equation_elements (list[str]): Names of state elements that have
+        associated model equations (tracers only).
+        xk (np.ndarray): State vector of estimates at the beginning of an
+        iteration, k.
+        grid (list[float]): The model grid depths.
+        zg (float): The maximum grazing depth, also the base of the euphotic
+        zone.
+        umz_start (int): Index of grid which corresponds to the depth of the
+        base of the first layer in the upper mesopelagic zone.
+        mld (float): Mixed layer depth.
+        targets (dict): Known model parameters (only provided in twin
+        experiment). Defaults to None.
+
+    Returns:
+        f (np.ndarray): Vector of functions containing the model equations.
+        F (np.ndarray): The Jacobian matrix.
+    """
     n_tracer_elements = len(tracers) * len(grid)
     n_state_elements = len(state_elements)
 
@@ -30,8 +52,23 @@ def evaluate_model_equations(
 
     return f, F
 
-def extract_equation_variables(state_elements, y, xk):
 
+def extract_equation_variables(state_elements, y, xk):
+    """Get unique symbolic and numerical values from a symbolic expression.
+
+    Args:
+        state_elements (list[str]): Names of state elements.
+        y (sympy.core): Symbolic expression from which to extract values.
+        xk (np.ndarray): State vector of estimates at the beginning of an
+        iteration, k.
+
+    Returns:
+        x_symbolic (list): Unique symbolic variables.
+        x_numerical (list): Numerical values corresponding to the symbolic
+        variables.
+        x_indices (list): Indices in state_elements corresponding to entries of
+        x_symbolic and x_numerical.
+    """
     x_symbolic = list(y.free_symbols)
     x_numerical = []
     x_indices = []
@@ -43,12 +80,32 @@ def extract_equation_variables(state_elements, y, xk):
 
     return x_symbolic, x_numerical, x_indices
 
-def equation_builder(tracer, layer, grid, zg, umz_start, mld, targets=None):
 
+def equation_builder(tracer, layer, grid, zg, umz_start, mld, targets=None):
+    """Build a symbolic model equation for a given tracer at a given layer.
+
+    Args:
+        tracer (str): The tracer for which an equation is being built. Can be
+        POCS or POCL.
+        layer (int): Integer index of the model layer corresponding to the
+        equation.
+        grid (list[float]): The model grid depths.
+        zg (float): The maximum grazing depth, also the base of the euphotic
+        zone.
+        umz_start (int): Index of grid which corresponds to the depth of the
+        base of the first layer in the upper mesopelagic zone.
+        mld (float): Mixed layer depth.
+        targets (dict): Known model parameters (only provided in twin
+        experiment). Defaults to None.
+
+    Returns:
+        eq (sympy.core): A symbolic representation of the model equation
+        being built.
+    """
     zi, zim1 = get_layer_bounds(layer, grid)
     h = zi - zim1
     in_EZ = zi <= zg
-    
+
     tracers = get_tracer_symbols(layer)
     if targets:
         params = get_param_targets(layer, targets['params'])
@@ -56,64 +113,69 @@ def equation_builder(tracer, layer, grid, zg, umz_start, mld, targets=None):
     else:
         params = get_param_symbols(layer)
         RPsi, RPli = get_residual_symbols(layer)
-    
+
     Psi, Pli = tracers[:2]
     Bm2, B2p, Bm1s, Bm1l, ws, wl, Po, Lp, B3, a, zm = params[:11]
     if layer != 0:
         Psim1, Plim1, Psa, Pla = tracers[2:]
-        wsm1, wlm1 = params[11:]        
+        wsm1, wlm1 = params[11:]
 
     if tracer == 'POCS':
         eq = 0
-        if targets == None:
+        if targets is None:
             eq += production(layer, Po, Lp, zi, zim1, mld)
         if layer == 0:
-            eq += (-ws*Psi + Bm2*Pli*h - (B2p*Psi + Bm1s)*Psi*h + RPsi
-                   - B3*Psi*h)
+            eq += (-ws * Psi + Bm2 * Pli * h - (B2p * Psi + Bm1s) * Psi * h
+                   - B3 * Psi * h + RPsi)
         else:
-            eq += (-ws*Psi + wsm1*Psim1 + Bm2*Pla*h - (B2p*Psa + Bm1s)*Psa*h 
-                   + RPsi)
+            eq += (-ws * Psi + wsm1 * Psim1 + Bm2 * Pla * h
+                   - (B2p * Psa + Bm1s) * Psa * h + RPsi)
             if in_EZ:
-                eq += -B3*Psa*h
+                eq += -B3 * Psa * h
     else:
         if layer == 0:
-            eq = -wl*Pli + B2p*Psi**2*h - (Bm2 + Bm1l)*Pli*h + RPli
+            eq = -wl * Pli + B2p * Psi**2 * h - (Bm2 + Bm1l) * Pli * h + RPli
         else:
-            eq = (-wl*Pli + wlm1*Plim1 + B2p*Psa**2*h - (Bm2 + Bm1l)*Pla*h
-                  + RPli)
+            eq = (-wl * Pli + wlm1 * Plim1 + B2p * (Psa ** 2) * h
+                  - (Bm2 + Bm1l) * Pla * h + RPli)
             if not in_EZ:
                 eq += dvm_egestion(B3, a, zm, zg, zi, zim1, grid, umz_start)
 
     return eq
 
+
 def production(layer, Po, Lp, zi, zim1, mld):
-    
+    """Build the production term."""
     if mld:
         if layer == 0:
-            return Po*mld
+            return Po * mld
         else:
-            return Lp*Po*(sym.exp(-(zim1 - mld)/Lp) - sym.exp(-(zi - mld)/Lp))
-        
-    return Lp*Po*(sym.exp(-zim1/Lp) - sym.exp(-zi/Lp))
+            return Lp * Po * (sym.exp(-(zim1 - mld) / Lp) -
+                              sym.exp(-(zi - mld) / Lp))
+
+    return Lp * Po * (sym.exp(-zim1 / Lp) - sym.exp(-zi / Lp))
+
 
 def dvm_egestion(B3, a, zm, zg, zi, zim1, grid, umz_start):
-    
+    """Build the DVM egestion term."""
     thick_EZ_layers = np.diff((0,) + grid[:umz_start])
-    ps_syms = [sym.symbols(f'POCS_{l}') for l in list(range(umz_start))]
+    Ps_syms = [sym.symbols(f'POCS_{l}') for l in list(range(umz_start))]
 
-    Ps_avg = ps_syms[0] * thick_EZ_layers[0]
+    Ps_avg = Ps_syms[0] * thick_EZ_layers[0]
     for i, thick in enumerate(thick_EZ_layers[1:]):
-        Ps_avg += (ps_syms[i+1] + ps_syms[i])/2 * thick
+        Ps_avg += (Ps_syms[i + 1] + Ps_syms[i]) / 2 * thick
 
-    B3Ps_a = (B3/zg)*Ps_avg
-    co = np.pi/(2*(zm - zg))*a*zg
-    result = B3Ps_a*co*((zm - zg)/np.pi*(sym.cos(np.pi*(zim1 - zg)/(zm - zg))
-                                         - sym.cos(np.pi*(zi - zg)/(zm - zg))))
-    
+    B3Ps_a = (B3 / zg) * Ps_avg
+    co = np.pi / (2 * (zm - zg)) * a * zg
+    result = B3Ps_a * co * ((zm - zg) / np.pi
+                            * (sym.cos(np.pi * (zim1 - zg) / (zm - zg))
+                               - sym.cos(np.pi * (zi - zg) / (zm - zg))))
+
     return result
 
+
 def get_tracer_symbols(layer):
-    
+    """Get symbolic tracers for a given layer."""
     if layer == 0:
         Psi = sym.symbols('POCS_0')
         Pli = sym.symbols('POCL_0')
@@ -121,12 +183,13 @@ def get_tracer_symbols(layer):
     else:
         Psi, Psim1 = sym.symbols(f'POCS_{layer} POCS_{layer - 1}')
         Pli, Plim1 = sym.symbols(f'POCL_{layer} POCL_{layer - 1}')
-        Psa = (Psi + Psim1)/2
-        Pla = (Pli + Plim1)/2
+        Psa = (Psi + Psim1) / 2
+        Pla = (Pli + Plim1) / 2
         return Psi, Pli, Psim1, Plim1, Psa, Pla
 
+
 def get_param_symbols(layer):
-    
+    """Get symbolic model parameters for a given layer."""
     Bm2 = sym.symbols(f'Bm2_{layer}')
     B2p = sym.symbols(f'B2p_{layer}')
     Bm1s = sym.symbols(f'Bm1s_{layer}')
@@ -138,25 +201,27 @@ def get_param_symbols(layer):
     B3 = sym.symbols('B3')
     a = sym.symbols('a')
     zm = sym.symbols('zm')
-    
+
     params = [Bm2, B2p, Bm1s, Bm1l, ws, wl, Po, Lp, B3, a, zm]
-    
+
     if layer != 0:
         wsm1 = sym.symbols(f'ws_{layer - 1}')
         wlm1 = sym.symbols(f'wl_{layer - 1}')
         params.extend([wsm1, wlm1])
-    
+
     return params
 
+
 def get_residual_symbols(layer):
-    
+    """Get symbolic residuals for a given layer."""
     RPsi = sym.symbols(f'RPOCS_{layer}')
     RPli = sym.symbols(f'RPOCL_{layer}')
-    
+
     return RPsi, RPli
 
+
 def get_param_targets(layer, targets):
-    
+    """Get known parameter values for a given layer (twin experiment only)."""
     Bm2 = targets['Bm2']['posterior'][layer]
     B2p = targets['B2p']['posterior'][layer]
     Bm1s = targets['Bm1s']['posterior'][layer]
@@ -168,20 +233,47 @@ def get_param_targets(layer, targets):
     B3 = targets['B3']['posterior']
     a = targets['a']['posterior']
     zm = targets['zm']['posterior']
-    
+
     params = [Bm2, B2p, Bm1s, Bm1l, ws, wl, Po, Lp, B3, a, zm]
-    
+
     if layer != 0:
-        wsm1 = targets['ws']['posterior'][layer -1]
-        wlm1 = targets['wl']['posterior'][layer -1]
+        wsm1 = targets['ws']['posterior'][layer - 1]
+        wlm1 = targets['wl']['posterior'][layer - 1]
         params.extend([wsm1, wlm1])
-    
+
     return params
 
+
 def get_residual_targets(layer, targets):
-    
+    """Get known residual values for a given layer (twin experiment only)."""
     RPsi = targets['POCS'][layer][0]
     RPli = targets['POCL'][layer][0]
-    
+
     return RPsi, RPli
-    
+
+
+def get_layer_bounds(layer, grid):
+    """Get depths of layer boundaries."""
+    zi = grid[layer]
+    zim1 = grid[grid.index(zi) - 1] if layer > 0 else 0
+
+    return zi, zim1
+
+
+def calculate_B2(grid, state_elements, Ckp1, tracers, params):
+    """Calculate estimates of a first-order aggregation rate constant."""
+    params['B2'] = {'dv': True, 'posterior': [], 'posterior_e': []}
+
+    for i in range(len(grid)):
+        B2p, Psi = sym.symbols(f'B2p_{i} POCS_{i}')
+        if i == 0:
+            Psa = Psi
+        else:
+            Psim1 = sym.symbols(f'POCS_{i-1}')
+            Psa = (Psi + Psim1) / 2
+        y = B2p * Psa
+        estimate, error = evaluate_symbolic_expression(
+            y, state_elements, Ckp1, tracers=tracers, params=params)
+
+        params['B2']['posterior'].append(estimate)
+        params['B2']['posterior_e'].append(error)

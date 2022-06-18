@@ -3,9 +3,8 @@ import pickle
 
 from src.constants import DPY
 from src.unpacking import slice_by_species
-from src.modelequations import evaluate_model_equations
+from src.modelequations import evaluate_model_equations, get_layer_bounds
 from src.exports.constants import *
-from src.tools import get_layer_bounds
 
 
 def load_targets(priors_from):

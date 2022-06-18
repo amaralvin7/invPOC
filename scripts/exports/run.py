@@ -4,15 +4,15 @@ from multiprocessing import Pool
 from pickle import dump
 from time import time
 
+import src.ati as ati
 import src.budgets as budgets
 import src.exports.data as data
 import src.exports.state as state
 import src.fluxes as fluxes
 import src.framework as framework
 import src.timescales as timescales
-import src.tools as tools
-from src.ati import find_solution
 from src.exports.constants import *
+from src.modelequations import calculate_B2
 from src.unpacking import unpack_state_estimates
 
 
@@ -36,24 +36,24 @@ def run_model(priors_from, gamma, rel_err):
     xo = framework.define_prior_vector(tracers, residuals, params, LAYERS)
     Co = framework.define_cov_matrix(tracers, residuals, params, LAYERS)
 
-    ati_results = find_solution(
+    ati_results = ati.find_solution(
         tracers, state_elements, equation_elements, xo, Co, GRID, ZG,
-        UMZ_START, mld=MLD)
+        UMZ_START, MLD)
     xhat, Ckp1, *_ = ati_results
-    x_resids = tools.normalized_state_residuals(xhat, xo, Co)
+    x_resids = ati.normalized_state_residuals(xhat, xo, Co)
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, LAYERS)
     tracer_estimates, residual_estimates, param_estimates = estimates
 
-    tools.merge_by_keys(tracer_estimates, tracers)
-    tools.merge_by_keys(param_estimates, params)
-    tools.merge_by_keys(residual_estimates, residuals)
+    state.merge_by_keys(tracer_estimates, tracers)
+    state.merge_by_keys(param_estimates, params)
+    state.merge_by_keys(residual_estimates, residuals)
 
     residuals_sym = budgets.get_symbolic_residuals(
         residuals, UMZ_START, LAYERS)
     residual_estimates_by_zone = budgets.integrate_by_zone(
         residuals_sym, state_elements, Ckp1, residuals=residuals)
-    tools.merge_by_keys(residual_estimates_by_zone, residuals)
+    state.merge_by_keys(residual_estimates_by_zone, residuals)
 
     inventories_sym = budgets.get_symbolic_inventories(
         tracers, UMZ_START, LAYERS, THICK)
@@ -61,7 +61,7 @@ def run_model(priors_from, gamma, rel_err):
         inventories_sym, state_elements, Ckp1, LAYERS, tracers=tracers)
 
     int_fluxes_sym = fluxes.get_symbolic_int_fluxes(
-        UMZ_START, LAYERS, THICK, GRID, ZG, mld=MLD)
+        UMZ_START, LAYERS, THICK, GRID, ZG, MLD)
     int_fluxes = budgets.integrate_by_zone_and_layer(
         int_fluxes_sym, state_elements, Ckp1, LAYERS, tracers=tracers,
         params=params)
@@ -76,7 +76,7 @@ def run_model(priors_from, gamma, rel_err):
     sink_fluxes = fluxes.sinking_fluxes(
         LAYERS, state_elements, Ckp1, tracers, params)
 
-    production_profile = fluxes.production_prof(
+    production_profile = fluxes.production_profile(
         LAYERS, state_elements, Ckp1, tracers, params, GRID, mld=MLD)
 
     residence_times = timescales.calculate_residence_times(
@@ -87,7 +87,7 @@ def run_model(priors_from, gamma, rel_err):
         inventories_sym, int_fluxes_sym, int_fluxes, tracers, params,
         state_elements, Ckp1, ZONE_LAYERS)
 
-    tools.calculate_B2(GRID, state_elements, Ckp1, tracers, params)
+    calculate_B2(GRID, state_elements, Ckp1, tracers, params)
 
     to_pickle = {'tracers': tracers,
                  'params': params,
@@ -118,5 +118,8 @@ if __name__ == '__main__':
 
     with Pool() as p:
         p.starmap(run_model, product(study_sites, gammas, rel_errs))
+
+    # for s, g, r in product(study_sites, gammas, rel_errs):
+    #     run_model(s, g, r)
 
     print(f'--- {(time() - start_time)/60} minutes ---')

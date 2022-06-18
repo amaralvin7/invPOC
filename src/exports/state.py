@@ -13,7 +13,7 @@ def define_tracers(data):
 
     for t in tracers:
         tracers[t]['prior'] = data[t]
-        tracers[t]['error'] = data[f'{t}_se']
+        tracers[t]['prior_e'] = data[f'{t}_se']
 
     return tracers
 
@@ -24,7 +24,7 @@ def define_residuals(proportional_to, gamma):
 
     for tracer in residuals:
         residuals[tracer]['prior'] = 0
-        residuals[tracer]['error'] = gamma * proportional_to * MLD
+        residuals[tracer]['prior_e'] = gamma * proportional_to * MLD
 
     return residuals
 
@@ -56,7 +56,7 @@ def set_prior(prior, error, depth_varying=True):
     data = {}
 
     data['prior'] = prior
-    data['error'] = error
+    data['prior_e'] = error
     data['dv'] = depth_varying
 
     return data
@@ -131,3 +131,10 @@ def npp_priors(npp_data):
     Lp_error = npp_regression.bse[1] / npp_regression.params[1]**2
 
     return Po_prior, Po_error, Lp_prior, Lp_error
+
+
+def merge_by_keys(merge_this, into_this):
+    """Merge one dict into another. Useful for merging prior/posterior data."""
+    for i in into_this:
+        for j in merge_this[i]:
+            into_this[i][j] = merge_this[i][j]
