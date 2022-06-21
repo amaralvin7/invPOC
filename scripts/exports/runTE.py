@@ -55,6 +55,6 @@ if __name__ == '__main__':
     start_time = time()
 
     run_twin_experiment('NA')
-    # run_twin_experiment('SP')
+    run_twin_experiment('SP')
 
     print(f'--- {(time() - start_time)/60} minutes ---')

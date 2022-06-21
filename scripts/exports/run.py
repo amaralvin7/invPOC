@@ -119,7 +119,4 @@ if __name__ == '__main__':
     with Pool() as p:
         p.starmap(run_model, product(study_sites, gammas, rel_errs))
 
-    # for s, g, r in product(study_sites, gammas, rel_errs):
-    #     run_model(s, g, r)
-
     print(f'--- {(time() - start_time)/60} minutes ---')
