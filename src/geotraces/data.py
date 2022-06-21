@@ -12,7 +12,7 @@ from src.constants import MMC
 
 def load_poc_data():
     
-    metadata = pd.read_csv('../../data/values_v9.csv',
+    metadata = pd.read_csv('../../../geotraces/values_v9.csv',
                            usecols=('GTNum', 'GTStn', 'CastType',
                                     'CorrectedMeanDepthm',
                                     'Latitudedegrees_north', 
@@ -22,9 +22,9 @@ def load_poc_data():
     # SPM_SPT_pM has NaN for intercal samples, useful for dropping later
     cols = ('SPM_SPT_ugL', 'POC_SPT_uM', 'POC_LPT_uM')
     
-    values = pd.read_csv('../../data/values_v9.csv', usecols=cols)
-    errors = pd.read_csv('../../data/error_v9.csv', usecols=cols)
-    flags = pd.read_csv('../../data/flag_v9.csv', usecols=cols)
+    values = pd.read_csv('../../../geotraces/values_v9.csv', usecols=cols)
+    errors = pd.read_csv('../../../geotraces/error_v9.csv', usecols=cols)
+    flags = pd.read_csv('../../../geotraces/flag_v9.csv', usecols=cols)
 
     data = merge_poc_data(metadata, values, errors, flags)
     data.dropna(inplace=True)
@@ -92,7 +92,7 @@ def load_nc_data(dir):
     datainfo = {'modis': {'ext': '.nc', 'dateidx': 3},
                 'cbpm': {'ext': '.hdf', 'dateidx': 1}}
     
-    path = f'../../data/{dir}'
+    path = f'../../../geotraces/{dir}'
     filenames = [f for f in os.listdir(path) if datainfo[dir]['ext'] in f]
     data = {}
 
@@ -159,7 +159,7 @@ def extract_nc_data(poc_data, dir):
 
 def load_mixed_layer_depths():
     
-    mld_df = pd.read_excel('../../data/gp15_mld.xlsx')
+    mld_df = pd.read_excel('../../../geotraces/mld.xlsx')
     mld_dict = dict(zip(mld_df['Station No'], mld_df['MLD']))
 
     return mld_dict

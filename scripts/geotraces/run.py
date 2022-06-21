@@ -7,16 +7,16 @@ from multiprocessing import Pool
 from numpy import diff
 import pandas as pd
 import pickle
-import sys
+
+import src.ati as ati
 import src.geotraces.data as data
 import src.geotraces.state as state
 import src.framework as framework
-import src.tools as tools
 import src.budgets as budgets
 from src.unpacking import unpack_state_estimates
-from src.ati import find_solution
 
-gamma = 0.2
+
+gamma = 0.1
 
 poc_data = data.poc_by_station()
 stations = poc_data.keys()
@@ -33,7 +33,7 @@ resid_prior_err = state.get_residual_prior_error(
 def monte_carlo_table(n_runs):
 
     median_POCS = data.get_median_POCS()
-    compil = pd.read_excel('../../data/paramcompilation.xlsx', sheet_name=None)
+    compil = pd.read_excel('../../../geotraces/paramcompilation.xlsx', sheet_name=None)
     random.seed(0)
 
     rows = []
@@ -73,11 +73,11 @@ def invert_station(station, mc_params):
     xo = framework.define_prior_vector(tracers, residuals, params, layers)
     Co = framework.define_cov_matrix(tracers, residuals, params, layers)
 
-    xhat, Ckp1, convergence_evolution, cost_evolution, converged = find_solution(
+    xhat, Ckp1, convergence_evolution, cost_evolution, converged = ati.find_solution(
         tracers, state_elements, equation_elements, xo, Co, grid, zg,
         umz_start, mld)
 
-    nonnegative = tools.nonnegative_check(state_elements, xhat)
+    nonnegative = ati.nonnegative_check(state_elements, xhat)
     success = converged and nonnegative
     
     return converged, nonnegative, success
@@ -110,7 +110,7 @@ if __name__ == '__main__':
 
     start_time = time.time()
     
-    n_runs = 2000
+    n_runs = 5000
     mc_table = monte_carlo_table(n_runs)
     convergence = []
     nonnegative = []
