@@ -5,7 +5,7 @@ import pandas as pd
 
 from src.colors import *
 
-df = pd.read_excel('../../data/paramcompilation.xlsx', sheet_name=None)
+df = pd.read_excel('../../../geotraces/paramcompilation.xlsx', sheet_name=None)
 bm1s = df['Bm1s']
 bm1l = df['Bm1l']
 bm2 = df['Bm2']
