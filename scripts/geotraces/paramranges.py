@@ -33,7 +33,8 @@ markers = {'MNWA': ('s', radish, 60),
            'V08': ('X', 'r', 60),
            'ENA': ('h', sky, 60),
            'ENP': ('D', black, 60),
-           'SBB': ('X', 'r', 60)}
+           'SBB': ('X', 'r', 60),
+           'BRES': ('d', green, 60),}
 
 # def plot_percentage(percent, x, y, ax, name):
     
@@ -62,6 +63,18 @@ def cdf(df, title, name):
     unique = [(h, l) for i, (h, l) in enumerate(zip(handles, labels)) if l not in labels[:i]]
     ax1.legend(*zip(*unique), fontsize=10, ncol=1, frameon=False, loc='lower right')
     ax2.hist(y, bins=30)
+    
+    q1, q3 = [np.percentile(y, p) for p in (25, 75)]
+    iqr = (q3 - q1)
+    cutoff = iqr * 1.5
+    lower_limit = q1 - cutoff
+    upper_limit = q3 + cutoff
+    
+    ax1.axhline(upper_limit, color='k', ls='--')
+    ax2.axvline(upper_limit, color='k', ls='--')
+    if lower_limit > 0:
+        ax1.axhline(lower_limit, color='k', ls='--')
+        ax2.axvline(lower_limit, color='k', ls='--')
     
     fig.savefig(f'../../results/geotraces/ranges/ranges_{name}')
     plt.close()
