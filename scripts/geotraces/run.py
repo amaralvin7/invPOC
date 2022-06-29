@@ -1,12 +1,12 @@
-#!/usr/bin/env python3
-import random
-import time
+from pickle import dump, load
+from random import seed, uniform
+from sys import exit
+from time import time
 
 from itertools import repeat
 from multiprocessing import Pool
-import numpy as np
-import pandas as pd
-import pickle
+from numpy import percentile
+from pandas import DataFrame, read_excel, read_csv
 
 import src.ati as ati
 import src.geotraces.data as data
@@ -30,38 +30,44 @@ B3_priors = state.get_B3_priors(npp_data)
 resid_prior_err = state.get_residual_prior_error(
     poc_data, Lp_priors, npp_data, ez_depths)
 
-def monte_carlo_table(n_runs):
+
+def generate_param_sets(n_runs):
 
     median_POCS = data.get_median_POCS()
-    mc_params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
-    compil = pd.read_excel('../../../geotraces/paramcompilation.xlsx', sheet_name=None)
-    random.seed(0)
+    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    compilation = read_excel(
+        '../../../geotraces/paramcompilation.xlsx', sheet_name=None)
+    seed(0)
     
-    extrema = {}
-    for p in mc_params:
-        if p == 'B2p':
-            lo, hi = param_range(compil['B2']['val'].to_numpy())
-            lo = lo / median_POCS
-            hi = hi / median_POCS
-        else:
-            lo, hi = param_range(compil[p]['val'].to_numpy())
-        extrema[p] = (lo, hi)
+    extrema = get_param_extrema(compilation, params, median_POCS)
     
     rows = []
     for i in range(n_runs):
         row = {}
         row['id'] = i
-        for p in mc_params:
-            row[p] = random.uniform(*extrema[p])
+        for p in params:
+            row[p] = uniform(*extrema[p])
         rows.append(row)
 
-    df = pd.DataFrame(rows)
+    return DataFrame(rows)
 
-    return df
+def get_param_extrema(compilation, params, median_POCS):
 
-def param_range(values):
+    extrema = {}
+    for p in params:
+        if p == 'B2p':
+            lo, hi = get_param_range(compilation['B2']['val'].to_numpy())
+            lo = lo / median_POCS
+            hi = hi / median_POCS
+        else:
+            lo, hi = get_param_range(compilation[p]['val'].to_numpy())
+        extrema[p] = (lo, hi)
     
-    q1, q3 = [np.percentile(values, p) for p in (25, 75)]
+    return extrema
+
+def get_param_range(values):
+    
+    q1, q3 = [percentile(values, p) for p in (25, 75)]
     iqr = q3 - q1
     lo_limit = q1 - (iqr * 1.5)
     hi_limit = q3 + (iqr * 1.5)
@@ -69,6 +75,7 @@ def param_range(values):
     min_max = (min(inliers), max(inliers))
     
     return min_max
+
 
 def invert_station(station, mc_params):
 
@@ -125,11 +132,12 @@ def invert_station(station, mc_params):
         pickle.dump(to_pickle, file)
 
 if __name__ == '__main__':
-
-    start_time = time.time()
+    
+    start_time = time()
     
     n_runs = 7000
-    mc_table = monte_carlo_table(n_runs)
+    mc_table = generate_param_sets(n_runs)
+    
     convergence = []
     nonnegative = []
     success = []
@@ -143,15 +151,12 @@ if __name__ == '__main__':
         convergence.append(all([r[0] for r in result]))
         nonnegative.append(all([r[1] for r in result]))
         success.append(all([r[2] for r in result]))
-
-        # with open(f'../../results/geotraces/to_delete/{i}.pkl', 'wb') as file:
-        #     pickle.dump(i, file)
-        # for s in stations:
-        #     invert_station(s, row)
     
     mc_table['convergence'] = convergence
     mc_table['nonnegative'] = nonnegative
     mc_table['success'] = success
-    mc_table.to_csv('../../results/geotraces/table.csv', index=False)
+    
+    with open('../../results/geotraces/table_test.pkl', 'wb') as f:
+        dump(mc_table, f)
 
-    print(f'--- {(time.time() - start_time)/60} minutes ---')
+    print(f'--- {(time() - start_time)/60} minutes ---')
