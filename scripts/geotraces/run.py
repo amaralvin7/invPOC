@@ -4,7 +4,7 @@ import time
 
 from itertools import repeat
 from multiprocessing import Pool
-from numpy import diff
+import numpy as np
 import pandas as pd
 import pickle
 
@@ -33,24 +33,42 @@ resid_prior_err = state.get_residual_prior_error(
 def monte_carlo_table(n_runs):
 
     median_POCS = data.get_median_POCS()
+    mc_params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     compil = pd.read_excel('../../../geotraces/paramcompilation.xlsx', sheet_name=None)
     random.seed(0)
-
+    
+    extrema = {}
+    for p in mc_params:
+        if p == 'B2p':
+            lo, hi = param_range(compil['B2']['val'].to_numpy())
+            lo = lo / median_POCS
+            hi = hi / median_POCS
+        else:
+            lo, hi = param_range(compil[p]['val'].to_numpy())
+        extrema[p] = (lo, hi)
+    
     rows = []
     for i in range(n_runs):
         row = {}
         row['id'] = i
-        row['B2p'] = random.choice(compil['B2']['val']) / median_POCS
-        row['Bm2'] = random.choice(compil['Bm2']['val'])
-        row['Bm1s'] = random.choice(compil['Bm1s']['val'])
-        row['Bm1l'] = random.choice(compil['Bm1l']['val'])
-        row['ws'] = random.choice(compil['ws']['val'])
-        row['wl'] = random.choice(compil['wl']['val'])
+        for p in mc_params:
+            row[p] = random.uniform(*extrema[p])
         rows.append(row)
 
     df = pd.DataFrame(rows)
-    
+
     return df
+
+def param_range(values):
+    
+    q1, q3 = [np.percentile(values, p) for p in (25, 75)]
+    iqr = q3 - q1
+    lo_limit = q1 - (iqr * 1.5)
+    hi_limit = q3 + (iqr * 1.5)
+    inliers = [i for i in values if i >= lo_limit and i <= hi_limit]
+    min_max = (min(inliers), max(inliers))
+    
+    return min_max
 
 def invert_station(station, mc_params):
 
@@ -79,7 +97,7 @@ def invert_station(station, mc_params):
 
     nonnegative = ati.nonnegative_check(state_elements, xhat)
     success = converged and nonnegative
-    
+
     return converged, nonnegative, success
     
     estimates = unpack_state_estimates(
@@ -110,23 +128,27 @@ if __name__ == '__main__':
 
     start_time = time.time()
     
-    n_runs = 5000
+    n_runs = 7000
     mc_table = monte_carlo_table(n_runs)
     convergence = []
     nonnegative = []
     success = []
     
-    n_processes = 8
-    for i, row in mc_table.iterrows():
+    n_processes = 22
+    for _, row in mc_table.iterrows():
+        i = int(row['id'])
         print(i)
         pool = Pool(n_processes)
         result = pool.starmap(invert_station, zip(stations, repeat(row)))
         convergence.append(all([r[0] for r in result]))
         nonnegative.append(all([r[1] for r in result]))
         success.append(all([r[2] for r in result]))
+
+        # with open(f'../../results/geotraces/to_delete/{i}.pkl', 'wb') as file:
+        #     pickle.dump(i, file)
         # for s in stations:
         #     invert_station(s, row)
-        
+    
     mc_table['convergence'] = convergence
     mc_table['nonnegative'] = nonnegative
     mc_table['success'] = success

@@ -1,7 +1,7 @@
-from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.lines import Line2D
 
 from src.colors import *
 
@@ -69,6 +69,7 @@ def cdf(df, title, name):
     cutoff = iqr * 1.5
     lower_limit = q1 - cutoff
     upper_limit = q3 + cutoff
+    print(f'{name} interval: {max([0, lower_limit])}, {upper_limit}')
     
     ax1.axhline(upper_limit, color='k', ls='--')
     ax2.axvline(upper_limit, color='k', ls='--')

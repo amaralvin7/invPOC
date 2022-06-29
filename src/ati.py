@@ -88,7 +88,7 @@ def find_solution(tracers, state_elements, equation_elements, xo, Co, grid, zg,
         cost_evolution (list): A history of the cost.
         converged (bool): True if model converged.
     """
-    max_iterations = 100
+    max_iterations = 50
     convergence_evolution = []
     cost_evolution = []
 
@@ -99,7 +99,15 @@ def find_solution(tracers, state_elements, equation_elements, xo, Co, grid, zg,
             tracers, state_elements, equation_elements, xk, grid, zg,
             umz_start, mld)
 
-        xkp1, CoFT, FCoFTi = calculate_xkp1(Co, xo, xk, f, F)
+        try:
+            xkp1, CoFT, FCoFTi = calculate_xkp1(Co, xo, xk, f, F)
+        except np.linalg.LinAlgError as err:
+            if 'Singular matrix' in str(err):
+                print('Singular matrix found!')
+                break
+            else:
+                raise
+
         cost = calculate_cost(Co, xo, xkp1)
 
         cost_evolution.append(cost)
