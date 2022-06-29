@@ -131,10 +131,3 @@ def npp_priors(npp_data):
     Lp_error = npp_regression.bse[1] / npp_regression.params[1]**2
 
     return Po_prior, Po_error, Lp_prior, Lp_error
-
-
-def merge_by_keys(merge_this, into_this):
-    """Merge one dict into another. Useful for merging prior/posterior data."""
-    for i in into_this:
-        for j in merge_this[i]:
-            into_this[i][j] = merge_this[i][j]

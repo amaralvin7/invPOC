@@ -1,3 +1,4 @@
+import os
 from pickle import dump, load
 from random import seed, uniform
 from sys import exit
@@ -6,14 +7,14 @@ from time import time
 from itertools import repeat
 from multiprocessing import Pool
 from numpy import percentile
-from pandas import DataFrame, read_excel, read_csv
+from pandas import DataFrame, read_excel
+from tqdm import tqdm
 
 import src.ati as ati
 import src.geotraces.data as data
 import src.geotraces.state as state
 import src.framework as framework
-import src.budgets as budgets
-from src.unpacking import unpack_state_estimates
+from src.unpacking import unpack_state_estimates, merge_by_keys
 
 
 gamma = 0.1
@@ -102,61 +103,69 @@ def invert_station(station, mc_params):
         tracers, state_elements, equation_elements, xo, Co, grid, zg,
         umz_start, mld)
 
-    nonnegative = ati.nonnegative_check(state_elements, xhat)
-    success = converged and nonnegative
-
-    return converged, nonnegative, success
-    
+    x_resids = ati.normalized_state_residuals(xhat, xo, Co)
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, layers)
     tracer_estimates, residual_estimates, param_estimates = estimates
 
-    tools.merge_by_keys(tracer_estimates, tracers)
-    tools.merge_by_keys(param_estimates, params)
-    tools.merge_by_keys(residual_estimates, residuals)
+    merge_by_keys(tracer_estimates, tracers)
+    merge_by_keys(param_estimates, params)
+    merge_by_keys(residual_estimates, residuals)
 
-    umz_start = grid.index(zg) + 1
+    nonnegative = ati.nonnegative_check(state_elements, xhat)
+    success = converged and nonnegative
 
-    residuals_sym = budgets.get_symbolic_residuals(
-        residuals, umz_start, layers)
-    residual_estimates_by_zone = budgets.integrate_by_zone(
-        residuals_sym, state_elements, Ckp1, residuals=residuals)
-    tools.merge_by_keys(residual_estimates_by_zone, residuals)
+    results = {'station': station,
+               'station_success': success,
+               'tracers': tracers,
+               'params': params,
+               'residuals': residuals,
+               'equation_elements': equation_elements,
+               'x_resids': x_resids,
+               'convergence_evolution': convergence_evolution,
+               'cost_evolution': cost_evolution}
+
+    return results
+
+def pickle_set_results(set_id, results, save_path):
     
-    to_pickle = (tracers, params, residuals, grid, zg, mld,
-                 layers, convergence_evolution, cost_evolution)
+    results_dict = {}
     
-    mcid = int(mc_params['id'])
-    save_path = f'../../results/geotraces/{mcid}_stn{int(station)}.pkl'
-    with open(save_path, 'wb') as file:
-        pickle.dump(to_pickle, file)
+    for r in results:
+        results_dict[r['station']] = r.copy()
+    
+    with open(os.path.join(save_path, f'paramset_{set_id}.pkl'), 'wb') as f:
+        dump(results_dict, f)
+        
 
 if __name__ == '__main__':
     
     start_time = time()
     
+    save_path = '../../results/geotraces/mc_0p1_7k_uniform_iqr_check'
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+        
     n_runs = 7000
     mc_table = generate_param_sets(n_runs)
     
-    convergence = []
-    nonnegative = []
-    success = []
+    set_successes = []
     
-    n_processes = 22
-    for _, row in mc_table.iterrows():
+    for _, row in tqdm(mc_table.iterrows(), total=len(mc_table)):
         i = int(row['id'])
-        print(i)
-        pool = Pool(n_processes)
-        result = pool.starmap(invert_station, zip(stations, repeat(row)))
-        convergence.append(all([r[0] for r in result]))
-        nonnegative.append(all([r[1] for r in result]))
-        success.append(all([r[2] for r in result]))
+        pool = Pool()
+        results = pool.starmap(invert_station, zip(stations, repeat(row)))
+        station_successes = [r['station_success'] for r in results]
+        set_success = all(station_successes)
+        set_successes.append(set_success)
+        if set_success:
+            pickle_set_results(i, results, save_path)
     
-    mc_table['convergence'] = convergence
-    mc_table['nonnegative'] = nonnegative
-    mc_table['success'] = success
+    mc_table['success'] = set_successes
     
-    with open('../../results/geotraces/table_test.pkl', 'wb') as f:
+    with open(os.path.join(save_path, 'table.pkl'), 'wb') as f:
         dump(mc_table, f)
+        
+    mc_table.to_csv(os.path.join(save_path, 'table.csv'))
 
     print(f'--- {(time() - start_time)/60} minutes ---')

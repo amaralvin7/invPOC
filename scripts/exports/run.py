@@ -13,7 +13,7 @@ import src.framework as framework
 import src.timescales as timescales
 from src.exports.constants import *
 from src.modelequations import calculate_B2
-from src.unpacking import unpack_state_estimates
+from src.unpacking import unpack_state_estimates, merge_by_keys
 
 
 def run_model(priors_from, gamma, rel_err):
@@ -45,15 +45,15 @@ def run_model(priors_from, gamma, rel_err):
         tracers, params, state_elements, xhat, Ckp1, LAYERS)
     tracer_estimates, residual_estimates, param_estimates = estimates
 
-    state.merge_by_keys(tracer_estimates, tracers)
-    state.merge_by_keys(param_estimates, params)
-    state.merge_by_keys(residual_estimates, residuals)
+    merge_by_keys(tracer_estimates, tracers)
+    merge_by_keys(param_estimates, params)
+    merge_by_keys(residual_estimates, residuals)
 
     residuals_sym = budgets.get_symbolic_residuals(
         residuals, UMZ_START, LAYERS)
     residual_estimates_by_zone = budgets.integrate_by_zone(
         residuals_sym, state_elements, Ckp1, residuals=residuals)
-    state.merge_by_keys(residual_estimates_by_zone, residuals)
+    merge_by_keys(residual_estimates_by_zone, residuals)
 
     inventories_sym = budgets.get_symbolic_inventories(
         tracers, UMZ_START, LAYERS, THICK)
