@@ -6,7 +6,8 @@ from src.budgets import evaluate_symbolic_expression
 
 
 def evaluate_model_equations(tracers, state_elements, equation_elements, xk,
-                             grid, zg, umz_start, mld, targets=None):
+                             grid, zg, umz_start, mld, targets=None,
+                             soft_constraint=False):
     """Evaluate the model equations.
 
     Args:
@@ -41,7 +42,7 @@ def evaluate_model_equations(tracers, state_elements, equation_elements, xk,
     for i, element in enumerate(equation_elements):
         tracer, layer = element.split('_')
         y = equation_builder(tracer, int(layer), grid, zg, umz_start, mld,
-                             targets=targets)
+                             targets=targets, soft_constraint=soft_constraint)
         x_sym, x_num, x_ind = extract_equation_variables(state_elements, y, xk)
         f[i] = sym.lambdify(x_sym, y)(*x_num)
         for j, x in enumerate(x_sym):
@@ -81,7 +82,8 @@ def extract_equation_variables(state_elements, y, xk):
     return x_symbolic, x_numerical, x_indices
 
 
-def equation_builder(tracer, layer, grid, zg, umz_start, mld, targets=None):
+def equation_builder(tracer, layer, grid, zg, umz_start, mld, targets=None,
+                     soft_constraint=False):
     """Build a symbolic model equation for a given tracer at a given layer.
 
     Args:
@@ -112,7 +114,8 @@ def equation_builder(tracer, layer, grid, zg, umz_start, mld, targets=None):
         RPsi, RPli = get_residual_targets(layer, targets['residuals'])
     else:
         params = get_param_symbols(layer)
-        RPsi, RPli = get_residual_symbols(layer)
+        if soft_constraint:
+            RPsi, RPli = get_residual_symbols(layer)
 
     Psi, Pli = tracers[:2]
     Bm2, B2p, Bm1s, Bm1l, ws, wl, Po, Lp, B3, a, zm = params[:11]
@@ -121,25 +124,28 @@ def equation_builder(tracer, layer, grid, zg, umz_start, mld, targets=None):
         wsm1, wlm1 = params[11:]
 
     if tracer == 'POCS':
-        eq = 0
-        if targets is None:
-            eq += production(layer, Po, Lp, zi, zim1, mld)
         if layer == 0:
-            eq += (-ws * Psi + Bm2 * Pli * h - (B2p * Psi + Bm1s) * Psi * h
-                   - B3 * Psi * h + RPsi)
+            eq = (-ws * Psi + Bm2 * Pli * h - (B2p * Psi + Bm1s) * Psi * h
+                  - B3 * Psi * h)
         else:
-            eq += (-ws * Psi + wsm1 * Psim1 + Bm2 * Pla * h
-                   - (B2p * Psa + Bm1s) * Psa * h + RPsi)
+            eq = (-ws * Psi + wsm1 * Psim1 + Bm2 * Pla * h
+                  - (B2p * Psa + Bm1s) * Psa * h)
             if in_EZ:
                 eq += -B3 * Psa * h
+        if targets is None:
+            eq += production(layer, Po, Lp, zi, zim1, mld)
+        if soft_constraint:
+            eq += RPsi
     else:
         if layer == 0:
-            eq = -wl * Pli + B2p * Psi**2 * h - (Bm2 + Bm1l) * Pli * h + RPli
+            eq = -wl * Pli + B2p * Psi**2 * h - (Bm2 + Bm1l) * Pli * h
         else:
             eq = (-wl * Pli + wlm1 * Plim1 + B2p * (Psa ** 2) * h
-                  - (Bm2 + Bm1l) * Pla * h + RPli)
+                  - (Bm2 + Bm1l) * Pla * h)
             if not in_EZ:
                 eq += dvm_egestion(B3, a, zm, zg, zi, zim1, grid, umz_start)
+        if soft_constraint:
+            eq += RPli
 
     return eq
 

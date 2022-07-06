@@ -31,18 +31,19 @@ def run_model(priors_from, gamma, rel_err):
     tracers = state.define_tracers(poc_data)
     params = state.define_params(all_data['NPP'], priors_from, rel_err)
     residuals = state.define_residuals(params['Po']['prior'], gamma)
-    state_elements = framework.define_state_elements(tracers, params, LAYERS)
+    state_elements = framework.define_state_elements(
+        tracers, params, LAYERS, soft_constraint=True)
     equation_elements = framework.define_equation_elements(tracers, LAYERS)
-    xo = framework.define_prior_vector(tracers, residuals, params, LAYERS)
-    Co = framework.define_cov_matrix(tracers, residuals, params, LAYERS)
+    xo = framework.define_prior_vector(tracers, params, LAYERS, residuals)
+    Co = framework.define_cov_matrix(tracers, params, LAYERS, residuals)
 
-    ati_results = ati.find_solution(
+    xhat, Ckp1, *_ = ati.find_solution(
         tracers, state_elements, equation_elements, xo, Co, GRID, ZG,
-        UMZ_START, MLD)
-    xhat, Ckp1, *_ = ati_results
+        UMZ_START, MLD, soft_constraint=True)
     x_resids = ati.normalized_state_residuals(xhat, xo, Co)
     estimates = unpack_state_estimates(
-        tracers, params, state_elements, xhat, Ckp1, LAYERS)
+        tracers, params, state_elements, xhat, Ckp1, LAYERS,
+        soft_constraint=True)
     tracer_estimates, residual_estimates, param_estimates = estimates
 
     merge_by_keys(tracer_estimates, tracers)
@@ -66,9 +67,8 @@ def run_model(priors_from, gamma, rel_err):
         int_fluxes_sym, state_elements, Ckp1, LAYERS, tracers=tracers,
         params=params)
 
-    prior_estimates = unpack_state_estimates(
-        tracers, params, state_elements, xo, Co, LAYERS)
-    prior_tracers, _, prior_params = prior_estimates
+    prior_tracers, _, prior_params = unpack_state_estimates(
+        tracers, params, state_elements, xo, Co, LAYERS, soft_constraint=True)
     prior_fluxes = budgets.integrate_by_zone_and_layer(
         int_fluxes_sym, state_elements, Co, LAYERS, tracers=prior_tracers,
         params=prior_params)

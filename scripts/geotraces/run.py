@@ -1,5 +1,5 @@
 import os
-from pickle import dump, load
+from pickle import dump
 from random import seed, uniform
 from sys import exit
 from time import time
@@ -16,8 +16,6 @@ import src.geotraces.state as state
 import src.framework as framework
 from src.unpacking import unpack_state_estimates, merge_by_keys
 
-
-gamma = 0.1
 
 poc_data = data.poc_by_station()
 stations = poc_data.keys()
@@ -82,10 +80,8 @@ def invert_station(station, mc_params):
 
     mld = mixed_layer_depths[station]
     tracers = state.define_tracers(poc_data[station])
-    residuals = state.define_residuals(resid_prior_err, gamma)
     params = state.define_params(
-        Lp_priors[station], Po_priors[station], B3_priors[station],
-        mc_params)
+        Lp_priors[station], Po_priors[station], B3_priors[station], mc_params)
 
     grid = tuple(poc_data[station]['depth'].values)
     layers = tuple(range(len(grid)))
@@ -96,21 +92,19 @@ def invert_station(station, mc_params):
 
     state_elements = framework.define_state_elements(tracers, params, layers)
     equation_elements = framework.define_equation_elements(tracers, layers)
-    xo = framework.define_prior_vector(tracers, residuals, params, layers)
-    Co = framework.define_cov_matrix(tracers, residuals, params, layers)
+    xo = framework.define_prior_vector(tracers, params, layers)
+    Co = framework.define_cov_matrix(tracers, params, layers)
 
     xhat, Ckp1, convergence_evolution, cost_evolution, converged = ati.find_solution(
         tracers, state_elements, equation_elements, xo, Co, grid, zg,
         umz_start, mld)
 
     x_resids = ati.normalized_state_residuals(xhat, xo, Co)
-    estimates = unpack_state_estimates(
+    tracer_estimates, param_estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, layers)
-    tracer_estimates, residual_estimates, param_estimates = estimates
 
     merge_by_keys(tracer_estimates, tracers)
     merge_by_keys(param_estimates, params)
-    merge_by_keys(residual_estimates, residuals)
 
     nonnegative = ati.nonnegative_check(state_elements, xhat)
     success = converged and nonnegative
@@ -119,11 +113,14 @@ def invert_station(station, mc_params):
                'station_success': success,
                'tracers': tracers,
                'params': params,
-               'residuals': residuals,
                'equation_elements': equation_elements,
                'x_resids': x_resids,
                'convergence_evolution': convergence_evolution,
-               'cost_evolution': cost_evolution}
+               'cost_evolution': cost_evolution,
+               'mld': mld,
+               'zg': zg,
+               'grid': grid,
+               'layers': layers}
 
     return results
 
@@ -142,30 +139,31 @@ if __name__ == '__main__':
     
     start_time = time()
     
-    save_path = '../../results/geotraces/mc_0p1_7k_uniform_iqr_check'
+    save_path = '../../results/geotraces/mc_hard_21k_uniform_iqr'
     if not os.path.exists(save_path):
         os.makedirs(save_path)
         
-    n_runs = 7000
+    n_runs = 21000
     mc_table = generate_param_sets(n_runs)
-    
+    n_processes = 22
     set_successes = []
     
-    for _, row in tqdm(mc_table.iterrows(), total=len(mc_table)):
+    for _, row in mc_table.iterrows():
         i = int(row['id'])
-        pool = Pool()
-        results = pool.starmap(invert_station, zip(stations, repeat(row)))
-        station_successes = [r['station_success'] for r in results]
-        set_success = all(station_successes)
-        set_successes.append(set_success)
-        if set_success:
-            pickle_set_results(i, results, save_path)
+        if i in (4882, 6666, 8181, 11320, 12166, 12653, 13506, 15590):
+            pool = Pool(n_processes)
+            results = pool.starmap(invert_station, zip(stations, repeat(row)))
+            station_successes = [r['station_success'] for r in results]
+            set_success = all(station_successes)
+            # set_successes.append(set_success)
+            if set_success:
+                pickle_set_results(i, results, save_path)
     
-    mc_table['success'] = set_successes
+    # mc_table['success'] = set_successes
     
-    with open(os.path.join(save_path, 'table.pkl'), 'wb') as f:
-        dump(mc_table, f)
+    # with open(os.path.join(save_path, 'table.pkl'), 'wb') as f:
+    #     dump(mc_table, f)
         
-    mc_table.to_csv(os.path.join(save_path, 'table.csv'))
+    # mc_table.to_csv(os.path.join(save_path, 'table.csv'), index=False)
 
     print(f'--- {(time() - start_time)/60} minutes ---')

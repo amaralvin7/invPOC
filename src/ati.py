@@ -61,7 +61,7 @@ def calculate_cost(Co, xo, x):
 
 
 def find_solution(tracers, state_elements, equation_elements, xo, Co, grid, zg,
-                  umz_start, mld):
+                  umz_start, mld, soft_constraint=False):
     """An iterative approach for finding a solution to a nonlinear system.
 
     Args:
@@ -97,7 +97,7 @@ def find_solution(tracers, state_elements, equation_elements, xo, Co, grid, zg,
     for count in range(max_iterations):
         f, F = evaluate_model_equations(
             tracers, state_elements, equation_elements, xk, grid, zg,
-            umz_start, mld)
+            umz_start, mld, soft_constraint=soft_constraint)
 
         try:
             xkp1, CoFT, FCoFTi = calculate_xkp1(Co, xo, xk, f, F)

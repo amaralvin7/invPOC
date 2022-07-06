@@ -2,6 +2,7 @@ import os
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
@@ -66,14 +67,23 @@ def cluster(df, n_clusters):
     
     return df
 
+def pairplot(path, df):
+
+    df = df[['B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl']]
+    sns.pairplot(df)
+    plt.savefig(os.path.join(path, 'pairplot'))
+    plt.close()
+
 if __name__ == '__main__':
     
-    path = '../../results/geotraces'
+    path = '../../results/geotraces/mc_hard_21k_uniform_iqr'
+    path = '../../results/geotraces/mc_0p1_7k_uniform_iqr'
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     all_sets, good, bad = load_data(path)
     plot_histograms(path, all_sets, params, 'all')
     plot_histograms(path, good, params, 'success')
-    elbow_plot(path, good)
-    labeled_df = cluster(good, 6)
-    stacked_histograms(path, labeled_df, params)
+    pairplot(path, good)
+    # elbow_plot(path, good)
+    # labeled_df = cluster(good, 6)
+    # stacked_histograms(path, labeled_df, params)
     

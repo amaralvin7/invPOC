@@ -2,7 +2,8 @@
 import numpy as np
 
 
-def unpack_state_estimates(tracers, params, state_elements, x, C, layers):
+def unpack_state_estimates(tracers, params, state_elements, x, C, layers,
+                           soft_constraint=False):
     """Unpack solution estimates for all state elements.
 
     Args:
@@ -21,8 +22,10 @@ def unpack_state_estimates(tracers, params, state_elements, x, C, layers):
     x_e = np.sqrt(np.diag(C))
 
     tracer_estimates = unpack_tracers(tracers, state_elements, x, x_e)
-    residual_estimates = unpack_resids(tracers, state_elements, x, x_e, layers)
     param_estimates = unpack_params(params, state_elements, x, x_e)
+    if not soft_constraint:
+        return tracer_estimates, param_estimates
+    residual_estimates = unpack_resids(tracers, state_elements, x, x_e, layers)
 
     return tracer_estimates, residual_estimates, param_estimates
 
