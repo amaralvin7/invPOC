@@ -9,6 +9,7 @@ import netCDF4 as nc
 from geopy.distance import distance
 
 from src.constants import MMC
+from src.framework import define_equation_elements, define_state_elements
 
 def load_poc_data():
     
@@ -57,6 +58,7 @@ def merge_poc_data(metadata, values, errors, flags):
     
     return data
 
+
 def poc_by_station():
     
     df = load_poc_data()
@@ -70,6 +72,7 @@ def poc_by_station():
         data[int(s)] = cleaned.loc[cleaned['depth'] < maxdepth]
     
     return data
+
 
 def clean_by_flags(raw):
     
@@ -87,6 +90,7 @@ def clean_by_flags(raw):
 
     return cleaned
 
+
 def load_nc_data(dir):
     
     datainfo = {'modis': {'ext': '.nc', 'dateidx': 3},
@@ -103,6 +107,7 @@ def load_nc_data(dir):
         data[date] = nc.Dataset(os.path.join(path, f))
     
     return data
+
 
 def extract_nc_data(poc_data, dir):
     
@@ -157,12 +162,14 @@ def extract_nc_data(poc_data, dir):
     
     return var_by_station
 
+
 def load_mixed_layer_depths():
     
     mld_df = pd.read_excel('../../../geotraces/mld.xlsx')
     mld_dict = dict(zip(mld_df['Station No'], mld_df['MLD']))
 
     return mld_dict
+
 
 def get_median_POCS():
     
@@ -174,3 +181,139 @@ def get_median_POCS():
     median = np.median(data['POCS'])
     
     return median
+
+
+def get_station_data(poc_data, params, ez_depths):
+    
+    d = {s: {} for s in poc_data}
+    mixed_layer_depths = load_mixed_layer_depths()
+    
+    for s in poc_data.keys():
+        grid = tuple(poc_data[s]['depth'].values)
+        layers = tuple(range(len(grid)))
+        zg = min(grid, key=lambda x:abs(x - ez_depths[s]))  # grazing depth
+        tracers = define_tracers(poc_data[s])
+        d[s]['mld'] = mixed_layer_depths[s]
+        d[s]['grid'] = grid
+        d[s]['layers'] = layers
+        d[s]['zg'] = zg
+        d[s]['umz_start'] = grid.index(zg) + 1
+        d[s]['tracers'] = tracers
+        d[s]['e_elements'] = define_equation_elements(tracers, layers)
+        d[s]['s_elements'] = define_state_elements(tracers, params, layers)
+        # zone_layers = ('EZ', 'UMZ') + layers
+        # thick = diff((0,) + grid)
+    
+    return d
+
+
+def define_tracers(data):
+    
+    tracers = {'POCS': {}, 'POCL': {}}
+    
+    for t in tracers:
+        tracers[t]['prior'] = data[t]
+        tracers[t]['prior_e'] = data[f'{t}_unc']
+
+    return tracers
+
+
+def define_residuals(prior_error, gamma):
+    
+    residuals = {'POCS': {}, 'POCL': {}}
+    
+    for tracer in residuals:
+        residuals[tracer]['prior'] = 0
+        residuals[tracer]['prior_e'] = gamma * prior_error
+    
+    return residuals
+
+
+def set_param_priors(params, Lp_prior, Po_prior, B3_prior, mc_params):
+
+    def set_prior(param_name, prior, error):
+        
+        params[param_name]['prior'] = prior
+        params[param_name]['prior_e'] = error
+    
+    set_prior('B2p', mc_params['B2p'], mc_params['B2p'])
+    set_prior('Bm2', mc_params['Bm2'], mc_params['Bm2'])
+    set_prior('Bm1s', mc_params['Bm1s'], mc_params['Bm1s'])
+    set_prior('Bm1l', mc_params['Bm1l'], mc_params['Bm1l'])
+    set_prior('ws', mc_params['ws'], mc_params['ws'])
+    set_prior('wl', mc_params['wl'], mc_params['wl'])
+    set_prior('Po', Po_prior, Po_prior*0.25)
+    set_prior('Lp', Lp_prior, Lp_prior*0.25)
+    set_prior('B3', B3_prior, B3_prior*0.25)
+    set_prior('a', 0.3, 0.3)
+    set_prior('zm', 500, 500) 
+
+
+def define_param_uniformity():
+
+    param_uniformity = {}
+
+    nonuniform_params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    uniform_params = ('Po', 'Lp', 'B3', 'a', 'zm')
+    
+    for p in nonuniform_params:
+        param_uniformity[p] = {'dv': True}
+    
+    for p in uniform_params:
+        param_uniformity[p] = {'dv': False}
+
+    return param_uniformity
+
+
+def get_Lp_priors(poc_data):
+
+    Kd = extract_nc_data(poc_data, 'modis')
+    Lp_priors = {station: 1/k for station, k in Kd.items()}
+    
+    return Lp_priors
+
+
+def get_ez_depths(Lp_priors):
+
+    depths = {station: l*np.log(100) for station, l in Lp_priors.items()}
+    
+    return depths
+
+
+def get_Po_priors(poc_data, Lp_priors, npp_data, ez_depths):
+
+    Po_priors = {s: calculate_surface_npp(
+        poc_data[s], Lp_priors[s], npp_data[s], ez_depths[s], volumetric=True
+        ) for s in poc_data}
+    
+    return Po_priors
+
+
+def get_B3_priors(npp_data):
+    
+    B3_priors = {}
+    
+    for s in npp_data:
+        B3_priors[s] = 10**(-2.42 + 0.53*np.log10(npp_data[s]))
+
+    return B3_priors
+
+
+def calculate_surface_npp(poc, Lp, npp, ez_depth, volumetric=False):
+
+    z0 = poc.iloc[0]['depth']
+    ratio = ((1 - np.exp(-z0/Lp))/(1 - np.exp(-ez_depth/Lp)))
+    surface_npp = npp/MMC * ratio
+    if volumetric:
+        return surface_npp/z0
+
+    return surface_npp
+
+
+def get_residual_prior_error(poc_data, Lp_priors, npp_data, ez_depths):
+    
+    products = [calculate_surface_npp(
+        poc_data[s], Lp_priors[s], npp_data[s], ez_depths[s]
+        ) for s in poc_data]
+    
+    return np.mean(products)

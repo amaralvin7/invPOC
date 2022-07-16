@@ -139,7 +139,7 @@ def generate_nonlinear_solution(targets):
     for _ in range(max_iterations):
         f, F = evaluate_model_equations(
             tracers, state_elements, equation_elements, xk, GRID, ZG,
-            UMZ_START, MLD, targets=targets)
+            UMZ_START, MLD, targets=targets, soft_constraint=True)
         xkp1 = np.linalg.solve(F, (F @ xk - f + b))
         change = np.abs((xkp1 - xk) / xk)
         if np.max(change) < max_change_limit:
@@ -149,19 +149,16 @@ def generate_nonlinear_solution(targets):
     return xkp1
 
 
-def generate_pseudodata(priors_from, targets):
+def generate_pseudodata(targets):
     """Generate pseudodata to be used for the twin experiment.
 
     Args:
-        priors_from (str): Location from which to pick B2p and Bm2 priors. Can
-        be NA (North Atlantic) or SP (Station P).
         targets (dict): Results from the inversion defined by priors_from, and
         by gamma and relative error values of 0.5.
 
     Returns:
         pseudodata (dict): Data to be used for twin experiment.
     """
-    targets = load_targets(priors_from)
     x = generate_nonlinear_solution(targets)
 
     pseudodata = targets['tracers'].copy()

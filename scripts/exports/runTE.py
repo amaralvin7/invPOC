@@ -8,7 +8,7 @@ import src.exports.state as state
 import src.exports.twinexperiments as te
 import src.framework as framework
 from src.exports.constants import *
-from src.unpacking import unpack_state_estimates
+from src.unpacking import unpack_state_estimates, merge_by_keys
 
 
 def run_twin_experiment(priors_from):
@@ -25,22 +25,22 @@ def run_twin_experiment(priors_from):
     state_elements = targets['state_elements']
     equation_elements = targets['equation_elements']
 
-    tracers = te.generate_pseudodata(priors_from, targets)
+    tracers = te.generate_pseudodata(targets)
     params = state.define_params(all_data['NPP'], priors_from, rel_err)
     residuals = state.define_residuals(params['Po']['prior'], gamma)
-    xo = framework.define_prior_vector(tracers, residuals, params, LAYERS)
-    Co = framework.define_cov_matrix(tracers, residuals, params, LAYERS)
+    xo = framework.define_prior_vector(tracers, params, LAYERS, residuals)
+    Co = framework.define_cov_matrix(tracers, params, LAYERS, residuals)
 
-    ati_results = ati.find_solution(
+    xhat, Ckp1, *_ = ati.find_solution(
         tracers, state_elements, equation_elements, xo, Co, GRID, ZG,
-        UMZ_START, MLD)
-    xhat, Ckp1, *_ = ati_results
+        UMZ_START, MLD, soft_constraint=True)
     estimates = unpack_state_estimates(
-        tracers, params, state_elements, xhat, Ckp1, LAYERS)
+        tracers, params, state_elements, xhat, Ckp1, LAYERS,
+        soft_constraint=True)
     tracer_estimates, residual_estimates, param_estimates = estimates
-    state.merge_by_keys(tracer_estimates, tracers)
-    state.merge_by_keys(param_estimates, params)
-    state.merge_by_keys(residual_estimates, residuals)
+    merge_by_keys(tracer_estimates, tracers)
+    merge_by_keys(param_estimates, params)
+    merge_by_keys(residual_estimates, residuals)
 
     to_pickle = {'tracers': tracers, 'params': params, 'residuals': residuals,
                  'targets': targets}

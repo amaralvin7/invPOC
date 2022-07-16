@@ -91,6 +91,8 @@ def find_solution(tracers, state_elements, equation_elements, xo, Co, grid, zg,
     max_iterations = 50
     convergence_evolution = []
     cost_evolution = []
+    xhat = np.full(xo.shape, -9999)
+    Ckp1 = np.full(Co.shape, -9999)
 
     xk = xo
     xkp1 = np.ones(len(xk))  # at iteration k+1
@@ -103,7 +105,6 @@ def find_solution(tracers, state_elements, equation_elements, xo, Co, grid, zg,
             xkp1, CoFT, FCoFTi = calculate_xkp1(Co, xo, xk, f, F)
         except np.linalg.LinAlgError as err:
             if 'Singular matrix' in str(err):
-                print('Singular matrix found!')
                 break
             else:
                 raise
@@ -115,11 +116,10 @@ def find_solution(tracers, state_elements, equation_elements, xo, Co, grid, zg,
             converged, max_change = check_convergence(xk, xkp1)
             convergence_evolution.append(max_change)
             if converged:
+                Ckp1 = Co - CoFT @ FCoFTi @ F @ Co
+                xhat = xkp1
                 break
         xk = xkp1
-
-    Ckp1 = Co - CoFT @ FCoFTi @ F @ Co
-    xhat = xkp1
 
     return xhat, Ckp1, convergence_evolution, cost_evolution, converged
 
@@ -131,10 +131,14 @@ def normalized_state_residuals(xhat, xo, Co):
     return x_resids
 
 
-def nonnegative_check(state_elements, xhat):
+def nonnegative_check(state_elements, xhat, Ckp1):
     """Check for negative concentrations and model parameters in a solution."""
     indexes = [i for i, s in enumerate(state_elements) if 'R' not in s]
+    variances = np.diag(Ckp1)
     nonresidual_estimates = [xhat[i] for i in indexes]
-    nonnegative = all(i >= 0 for i in nonresidual_estimates)
+    nonresidual_variances = [variances[i] for i in indexes]
+    nonnegative_estimates = all(i >= 0 for i in nonresidual_estimates)
+    nonnegative_variances = all(i >= 0 for i in nonresidual_variances)
+    nonnegative = nonnegative_estimates and nonnegative_variances
 
     return nonnegative
