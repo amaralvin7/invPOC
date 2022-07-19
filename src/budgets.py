@@ -61,8 +61,8 @@ def evaluate_symbolic_expression(y, state_elements, C, tracers=[],
         else:
             variance_sym += 2 * derivs[i] * derivs[j] * cvm[i, j]
 
-    result = sym.lambdify(x_symbolic, y)(*x_numerical)
-    variance = sym.lambdify(x_symbolic, variance_sym)(*x_numerical)
+    result = sym.lambdify(x_symbolic, y, 'numpy')(*x_numerical)
+    variance = sym.lambdify(x_symbolic, variance_sym, 'numpy')(*x_numerical)
     error = np.sqrt(variance)
 
     return result, error

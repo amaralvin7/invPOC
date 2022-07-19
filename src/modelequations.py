@@ -5,13 +5,12 @@ import sympy as sym
 from src.budgets import evaluate_symbolic_expression
 
 
-def evaluate_model_equations(tracers, state_elements, equation_elements, xk,
-                             grid, zg, umz_start, mld, targets=None,
+def evaluate_model_equations(equation_elements, xk, grid, zg, umz_start, mld,
+                             state_elements=None, targets=None,
                              soft_constraint=False):
     """Evaluate the model equations.
 
     Args:
-        tracers (dict): Data container for tracers.
         state_elements (list[str]): Names of state elements.
         equation_elements (list[str]): Names of state elements that have
         associated model equations (tracers only).
@@ -30,56 +29,23 @@ def evaluate_model_equations(tracers, state_elements, equation_elements, xk,
         f (np.ndarray): Vector of functions containing the model equations.
         F (np.ndarray): The Jacobian matrix.
     """
-    n_tracer_elements = len(tracers) * len(grid)
-    n_state_elements = len(state_elements)
-
-    f = np.zeros(n_tracer_elements)
+    f_sym = []
     if targets:
-        F = np.zeros((n_tracer_elements, n_tracer_elements))
+        x_sym = [sym.symbols(v) for v  in equation_elements]
     else:
-        F = np.zeros((n_tracer_elements, n_state_elements))
+        x_sym = [sym.symbols(v) for v  in state_elements]
 
-    for i, element in enumerate(equation_elements):
+    for element in equation_elements:
         tracer, layer = element.split('_')
         y = equation_builder(tracer, int(layer), grid, zg, umz_start, mld,
                              targets=targets, soft_constraint=soft_constraint)
-        x_sym, x_num, x_ind = extract_equation_variables(state_elements, y, xk)
-        f[i] = sym.lambdify(x_sym, y)(*x_num)
-        for j, x in enumerate(x_sym):
-            dy = y.diff(x)
-            dx_sym, dx_num, _ = extract_equation_variables(state_elements,
-                                                           dy, xk)
-            F[i, x_ind[j]] = sym.lambdify(dx_sym, dy)(*dx_num)
+        f_sym.append(y)
+    
+    f_sym = sym.Matrix(f_sym)
+    f = np.squeeze(sym.lambdify(x_sym, f_sym, 'numpy')(*xk))
+    F = sym.lambdify(x_sym, f_sym.jacobian(x_sym), 'numpy')(*xk)
 
     return f, F
-
-
-def extract_equation_variables(state_elements, y, xk):
-    """Get unique symbolic and numerical values from a symbolic expression.
-
-    Args:
-        state_elements (list[str]): Names of state elements.
-        y (sympy.core): Symbolic expression from which to extract values.
-        xk (np.ndarray): State vector of estimates at the beginning of an
-        iteration, k.
-
-    Returns:
-        x_symbolic (list): Unique symbolic variables.
-        x_numerical (list): Numerical values corresponding to the symbolic
-        variables.
-        x_indices (list): Indices in state_elements corresponding to entries of
-        x_symbolic and x_numerical.
-    """
-    x_symbolic = list(y.free_symbols)
-    x_numerical = []
-    x_indices = []
-
-    for x in x_symbolic:
-        element_index = state_elements.index(x.name)
-        x_indices.append(element_index)
-        x_numerical.append(xk[element_index])
-
-    return x_symbolic, x_numerical, x_indices
 
 
 def equation_builder(tracer, layer, grid, zg, umz_start, mld, targets=None,

@@ -60,12 +60,11 @@ def calculate_cost(Co, xo, x):
     return cost
 
 
-def find_solution(tracers, state_elements, equation_elements, xo, Co, grid, zg,
-                  umz_start, mld, soft_constraint=False):
+def find_solution(equation_elements, xo, Co, grid, zg, umz_start, mld,
+                  state_elements=None, soft_constraint=False):
     """An iterative approach for finding a solution to a nonlinear system.
 
     Args:
-        tracers (dict): Data container for tracer data.
         state_elements (list[str]): Names of state elements.
         equation_elements (list[str]): Names of state elements that have
         associated equations (i.e., the tracers).
@@ -98,8 +97,8 @@ def find_solution(tracers, state_elements, equation_elements, xo, Co, grid, zg,
     xkp1 = np.ones(len(xk))  # at iteration k+1
     for count in range(max_iterations):
         f, F = evaluate_model_equations(
-            tracers, state_elements, equation_elements, xk, grid, zg,
-            umz_start, mld, soft_constraint=soft_constraint)
+            equation_elements, xk, grid, zg, umz_start, mld,
+            state_elements=state_elements, soft_constraint=soft_constraint)
 
         try:
             xkp1, CoFT, FCoFTi = calculate_xkp1(Co, xo, xk, f, F)
