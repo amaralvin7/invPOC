@@ -117,7 +117,7 @@ def equation_builder(tracer, layer, grid, zg, umz_start, mld, targets=None,
 
 
 def production(layer, Po, Lp, zi, zim1, mld):
-    """Build the production term."""
+    """Build the production term. mld==None for GEOTRACES inversions."""
     if mld:
         if layer == 0:
             return Po * mld

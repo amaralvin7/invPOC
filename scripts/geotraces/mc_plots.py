@@ -1,12 +1,13 @@
 import os
-from collections import Counter
+import pickle
 from itertools import product
-from pickle import load
 from time import time
 from sys import exit
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+import scipy.stats as stats
 import seaborn as sns
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
@@ -16,7 +17,7 @@ import src.geotraces.data as data
 def load_data(path):
     """Loads data and returns dfs with all sets and successful sets."""
     with open(os.path.join(path, 'table.pkl'), 'rb') as f:
-        sets = load(f)
+        sets = pickle.load(f)
     good = sets.loc[sets['set_success'] == True].copy()
 
     return sets, good
@@ -81,18 +82,77 @@ def pairplot(path, df):
     plt.savefig(os.path.join(path, 'pairplot'))
     plt.close()
 
-def station_hist(path, df):
+def hist_success(path):
     """Plot # of succesful inversions for each station."""
-    station_successes = df['station_successes'].sum()
-    counter = Counter(station_successes)
-    counter_df = pd.DataFrame.from_dict(counter, orient='index')
-    counter_df.sort_index(inplace=True)
-    counter_df.plot(kind='bar', legend=False)
-    plt.xlabel('Station')
-    plt.ylabel('Number of successful inversions')
-    plt.ylim(top=len(df))
-    plt.savefig(os.path.join(path, 'figs/station_hist'))
+    pickled_files = get_pickled_files(path)
+    stations = list(data.poc_by_station().keys())
+    stations.sort()
+    d = {s: len([i for i in pickled_files if f'stn{s}.pkl' in i]) for s in stations}
+    plt.bar(range(len(d)), list(d.values()), align='center')
+    plt.xticks(range(len(d)), list(d.keys()))
+    plt.savefig(os.path.join(path, 'figs/hist_success'))
     plt.close()
+
+def hist_stats(path):
+
+    poc_data = data.poc_by_station()
+    stations = list(poc_data.keys())
+    stations.sort()
+    npp_data = data.extract_nc_data(poc_data, 'cbpm')
+    Lp_priors = data.get_Lp_priors(poc_data)
+    Po_priors = data.get_Po_priors(poc_data, Lp_priors, npp_data)
+    B3_priors = data.get_B3_priors(npp_data)
+    station_specific_priors = {'Po': [Po_priors[s] for s in stations],
+                               'Lp': [Lp_priors[s] for s in stations],
+                               'B3': [B3_priors[s] for s in stations]}
+    
+    pickled_files = get_pickled_files(path)
+    dv_params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    dc_params = ('Po', 'Lp', 'zm', 'a', 'B3')
+    
+    d = {p: {s: [] for s in stations} for p in dv_params + dc_params}
+    
+    for f in pickled_files:
+        s = int(f.split('.')[0].split('_')[1][3:])
+        with open(os.path.join(path, f), 'rb') as file:
+            results = pickle.load(file)
+        for p in dv_params:
+            d[p][s].extend(results['params'][p]['posterior'])
+        for p in dc_params:
+            d[p][s].append(results['params'][p]['posterior'])
+    
+    for p in dc_params + dv_params:
+        fig, ax = plt.subplots(tight_layout=True)
+        ax.boxplot([d[p][s] for s in stations], positions=range(len(stations)))
+        ax.set_xticks(range(len(stations)), d[p].keys())
+        if p in ('a', 'zm'):
+            ax.axhline(results['params'][p]['prior'], ls=':', c='b')
+        elif p in station_specific_priors.keys():
+            ax.plot(range(len(stations)), station_specific_priors[p], marker='*', c='b', ls='None')
+        fig.savefig(os.path.join(path, f'figs/hist_{p}'))
+        plt.close()
+        
+    
+def get_successful_sets(path):
+    
+    stations = data.poc_by_station().keys()
+    successes = []
+    pickled_files = get_pickled_files(path)
+
+    set_number = 0
+    set_counter = 0
+    for f in pickled_files:
+        f_set = int(f.split('_')[0][2:])
+        if f_set == set_number:
+            set_counter += 1
+            if set_counter == len(stations):
+                print(f_set)
+                successes.append(f_set)
+        else:
+            set_number += 1
+            set_counter = 1
+    print(f'N successful sets: {len(successes)}')
+    print(f'N successful inversions: {len(pickled_files)}')
 
 def stationparam_hists(path, params):
     
@@ -102,10 +162,10 @@ def stationparam_hists(path, params):
     stations = data.poc_by_station().keys()
     data = {s: {p: {'priors': [], 'posteriors': []} for p in all_params} for s in stations}
 
-    pickled_files = [f for f in os.listdir(path) if 'stn' in f]
+    pickled_files = get_pickled_files(path)
     for f in pickled_files:
         with open(os.path.join(path, f), 'rb') as file:
-            results = load(file)
+            results = pickle.load(file)
             _, stn = f.split('.')[0].split('_')
             s = int(stn[3:])
             for p in all_params:
@@ -133,6 +193,13 @@ def stationparam_hists(path, params):
         plt.savefig(os.path.join(path, f'figs/sp_hist_{s}_{p}'))
         plt.close()
 
+def get_pickled_files(path):
+
+    pickled_files = [f for f in os.listdir(path) if 'stn' in f]
+    pickled_files.sort(key = lambda x: int(x.split('_')[0][2:]))
+    
+    return pickled_files
+
 def xresids(path, params):
     
     df = pd.DataFrame(columns=['resid', 'element'])
@@ -148,7 +215,7 @@ def xresids(path, params):
         pickled_files = [f for f in os.listdir(path) if f'stn{stn}.pkl' in f]
         for f in pickled_files:
             with open(os.path.join(path, f), 'rb') as file:
-                results = load(file)
+                results = pickle.load(file)
                 _, stn = f.split('.')[0].split('_')
                 s = int(stn[3:])
                 resids.extend(results['x_resids'])
@@ -171,10 +238,13 @@ if __name__ == '__main__':
     
     start_time = time()
     
-    path = '../../results/geotraces/mc_hard_25k_uniform_iqr'
+    n_sets = 30000
+    path = f'../../results/geotraces/mc_{n_sets}'
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
-    # all_sets, good = load_data(path)
-    xresids(path, params)
+    # hist_success(path)
+    hist_stats(path)
+    # xresids(path, params)
+    # get_successful_sets(path)
     
     print(f'--- {(time() - start_time)/60} minutes ---')
 

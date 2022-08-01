@@ -2,7 +2,7 @@ import numpy as np
 import pickle
 
 from src.constants import DPY
-from src.unpacking import slice_by_species
+from src.unpack import slice_by_species
 from src.modelequations import evaluate_model_equations, get_layer_bounds
 from src.exports.constants import *
 

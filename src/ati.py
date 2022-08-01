@@ -60,7 +60,7 @@ def calculate_cost(Co, xo, x):
     return cost
 
 
-def find_solution(equation_elements, xo, Co, grid, zg, umz_start, mld,
+def find_solution(equation_elements, xo, Co, grid, zg, umz_start, mld=None,
                   state_elements=None, soft_constraint=False):
     """An iterative approach for finding a solution to a nonlinear system.
 
@@ -100,14 +100,7 @@ def find_solution(equation_elements, xo, Co, grid, zg, umz_start, mld,
             equation_elements, xk, grid, zg, umz_start, mld,
             state_elements=state_elements, soft_constraint=soft_constraint)
 
-        try:
-            xkp1, CoFT, FCoFTi = calculate_xkp1(Co, xo, xk, f, F)
-        except np.linalg.LinAlgError as err:
-            if 'Singular matrix' in str(err):
-                break
-            else:
-                raise
-
+        xkp1, CoFT, FCoFTi = calculate_xkp1(Co, xo, xk, f, F)
         cost = calculate_cost(Co, xo, xkp1)
 
         cost_evolution.append(cost)
@@ -130,14 +123,25 @@ def normalized_state_residuals(xhat, xo, Co):
     return x_resids
 
 
-def nonnegative_check(state_elements, xhat, Ckp1):
+def success_check(converged, state_elements, xhat, Ckp1, zg):
     """Check for negative concentrations and model parameters in a solution."""
+    if not converged:
+        return False
+    
     indexes = [i for i, s in enumerate(state_elements) if 'R' not in s]
-    variances = np.diag(Ckp1)
     nonresidual_estimates = [xhat[i] for i in indexes]
+    negative_estimates = any(i < 0 for i in nonresidual_estimates)
+    if negative_estimates:
+        return False
+    
+    variances = np.diag(Ckp1)
     nonresidual_variances = [variances[i] for i in indexes]
-    nonnegative_estimates = all(i >= 0 for i in nonresidual_estimates)
-    nonnegative_variances = all(i >= 0 for i in nonresidual_variances)
-    nonnegative = nonnegative_estimates and nonnegative_variances
+    negative_variances = any(i < 0 for i in nonresidual_variances)
+    if negative_variances:
+        return False
+    
+    zm = xhat[state_elements.index('zm')]
+    if zm < zg:
+        return False
 
-    return nonnegative
+    return True

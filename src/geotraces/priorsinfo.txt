@@ -10,4 +10,4 @@ Po
 - 2160 by 4320 (9km resolution) 8day HDF files from MODIS r2018 (GSM) Data were obtained from Oregon State Ocean Productivity for the 8-day windows that spanned the cruise. These are NPP estimates in mg m-2 d-1
 - For each station, the sampling time was selected from the shallow cast, and was matched with the 8-day satellite average that contained this sampling time
 - NPP was selected from the nearest location where there was an estimate
-- I divide the integrated NPP at a given station by its Lp prior to obtain Po
+- I convert the integrated NPP to mmol, then divde by Lp*0.99 (see code)

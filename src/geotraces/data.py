@@ -4,7 +4,7 @@ import os
 from itertools import product
 from scipy.interpolate import interp1d
 from datetime import datetime
-import sys
+
 import netCDF4 as nc
 from geopy.distance import distance
 
@@ -31,7 +31,7 @@ def load_poc_data():
     data.dropna(inplace=True)
     data = data.loc[:, ~data.columns.str.startswith('SPM_SPT_ugL')]
 
-    data = data[data['station'] != 18.3]  # station 18.3 excludes upper 500m
+    data = data[~data['station'].isin((1, 18.3))]  # exclude stations 1, 18.3
     data = data[data['depth'] < 1000]  # don't need data below 1km
 
     return data
@@ -242,11 +242,11 @@ def set_param_priors(params, Lp_prior, Po_prior, B3_prior, mc_params):
     set_prior('Bm1l', mc_params['Bm1l'], mc_params['Bm1l'])
     set_prior('ws', mc_params['ws'], mc_params['ws'])
     set_prior('wl', mc_params['wl'], mc_params['wl'])
-    set_prior('Po', Po_prior, Po_prior*0.25)
-    set_prior('Lp', Lp_prior, Lp_prior*0.25)
-    set_prior('B3', B3_prior, B3_prior*0.25)
-    set_prior('a', 0.3, 0.3)
-    set_prior('zm', 500, 500) 
+    set_prior('Po', Po_prior, Po_prior*0.5)
+    set_prior('Lp', Lp_prior, Lp_prior*0.5)
+    set_prior('B3', B3_prior, B3_prior*0.5)
+    set_prior('a', 0.3, 0.3*0.5)
+    set_prior('zm', 500, 500*0.5)
 
 
 def define_param_uniformity():
@@ -280,11 +280,22 @@ def get_ez_depths(Lp_priors):
     return depths
 
 
-def get_Po_priors(poc_data, Lp_priors, npp_data, ez_depths):
+def get_Po_priors(poc_data, Lp_priors, npp_data):
+    """Calculate Po priors at each station.
 
-    Po_priors = {s: calculate_surface_npp(
-        poc_data[s], Lp_priors[s], npp_data[s], ez_depths[s], volumetric=True
-        ) for s in poc_data}
+    Args:
+        poc_data (_type_): _description_
+        Lp_priors (_type_): _description_
+        npp_data (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    
+    Full equation for Po is Po = npp / [Lp * (1 - exp[-ez_depth / Lp])],
+    but ez_depth = Lp * ln(100), so (1-exp[]) simplifies to 0.99.
+    """
+    Po_priors = {s: ((npp_data[s] / MMC)
+                     / (Lp_priors[s] * 0.99)) for s in poc_data}
     
     return Po_priors
 
@@ -297,23 +308,3 @@ def get_B3_priors(npp_data):
         B3_priors[s] = 10**(-2.42 + 0.53*np.log10(npp_data[s]))
 
     return B3_priors
-
-
-def calculate_surface_npp(poc, Lp, npp, ez_depth, volumetric=False):
-
-    z0 = poc.iloc[0]['depth']
-    ratio = ((1 - np.exp(-z0/Lp))/(1 - np.exp(-ez_depth/Lp)))
-    surface_npp = npp/MMC * ratio
-    if volumetric:
-        return surface_npp/z0
-
-    return surface_npp
-
-
-def get_residual_prior_error(poc_data, Lp_priors, npp_data, ez_depths):
-    
-    products = [calculate_surface_npp(
-        poc_data[s], Lp_priors[s], npp_data[s], ez_depths[s]
-        ) for s in poc_data]
-    
-    return np.mean(products)
