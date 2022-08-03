@@ -11,3 +11,7 @@ Po
 - For each station, the sampling time was selected from the shallow cast, and was matched with the 8-day satellite average that contained this sampling time
 - NPP was selected from the nearest location where there was an estimate
 - I convert the integrated NPP to mmol, then divde by Lp*0.99 (see code)
+
+POC Data (see notebook notes from 2/25/2022)
+- GT13613 was a failed DCM measurement and should be deleted from all POC data spreadsheets. This allows GT13696 (its redo) to be interpolated from GT13612/4, since it has QF=4.
+- Stn. 37 is missing LSF at 450 (GT15516), so it should be interpolated from a deeper depth. To this end, value was changed to 0 and QF to 4 (both from NaN).

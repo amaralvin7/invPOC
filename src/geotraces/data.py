@@ -13,7 +13,7 @@ from src.framework import define_equation_elements, define_state_elements
 
 def load_poc_data():
     
-    metadata = pd.read_csv('../../../geotraces/values_v9.csv',
+    metadata = pd.read_csv('../../../geotraces/GP15merge.csv',
                            usecols=('GTNum', 'GTStn', 'CastType',
                                     'CorrectedMeanDepthm',
                                     'Latitudedegrees_north', 
@@ -23,9 +23,9 @@ def load_poc_data():
     # SPM_SPT_pM has NaN for intercal samples, useful for dropping later
     cols = ('SPM_SPT_ugL', 'POC_SPT_uM', 'POC_LPT_uM')
     
-    values = pd.read_csv('../../../geotraces/values_v9.csv', usecols=cols)
-    errors = pd.read_csv('../../../geotraces/error_v9.csv', usecols=cols)
-    flags = pd.read_csv('../../../geotraces/flag_v9.csv', usecols=cols)
+    values = pd.read_csv('../../../geotraces/GP15merge.csv', usecols=cols)
+    errors = pd.read_csv('../../../geotraces/GP15mergesd.csv', usecols=cols)
+    flags = pd.read_csv('../../../geotraces/GP15mergeflag.csv', usecols=cols)
 
     data = merge_poc_data(metadata, values, errors, flags)
     data.dropna(inplace=True)
@@ -164,11 +164,11 @@ def extract_nc_data(poc_data, dir):
 
 
 def load_mixed_layer_depths():
-    
-    mld_df = pd.read_excel('../../../geotraces/mld.xlsx')
-    mld_dict = dict(zip(mld_df['Station No'], mld_df['MLD']))
+    pass
+    # mld_df = pd.read_excel('../../../geotraces/mld.xlsx')
+    # mld_dict = dict(zip(mld_df['Station No'], mld_df['MLD']))
 
-    return mld_dict
+    # return mld_dict
 
 
 def get_median_POCS():
@@ -186,14 +186,14 @@ def get_median_POCS():
 def get_station_data(poc_data, params, ez_depths):
     
     d = {s: {} for s in poc_data}
-    mixed_layer_depths = load_mixed_layer_depths()
+    # mixed_layer_depths = load_mixed_layer_depths()
     
     for s in poc_data.keys():
         grid = tuple(poc_data[s]['depth'].values)
         layers = tuple(range(len(grid)))
         zg = min(grid, key=lambda x:abs(x - ez_depths[s]))  # grazing depth
         tracers = define_tracers(poc_data[s])
-        d[s]['mld'] = mixed_layer_depths[s]
+        # d[s]['mld'] = mixed_layer_depths[s]
         d[s]['grid'] = grid
         d[s]['layers'] = layers
         d[s]['zg'] = zg

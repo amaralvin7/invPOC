@@ -2,7 +2,7 @@ import os
 import pickle
 from itertools import product
 from time import time
-from sys import exit
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -82,79 +82,52 @@ def pairplot(path, df):
     plt.savefig(os.path.join(path, 'pairplot'))
     plt.close()
 
-def hist_success(path):
+def hist_success(path, filenames):
     """Plot # of succesful inversions for each station."""
-    pickled_files = get_pickled_files(path)
     stations = list(data.poc_by_station().keys())
     stations.sort()
-    d = {s: len([i for i in pickled_files if f'stn{s}.pkl' in i]) for s in stations}
+    d = {s: len([i for i in filenames if f'stn{s}.pkl' in i]) for s in stations}
     plt.bar(range(len(d)), list(d.values()), align='center')
     plt.xticks(range(len(d)), list(d.keys()))
     plt.savefig(os.path.join(path, 'figs/hist_success'))
     plt.close()
 
-def hist_stats(path):
+def hist_stats(path, filenames, suffix=''):
 
-    poc_data = data.poc_by_station()
-    stations = list(poc_data.keys())
+    stations = list(data.poc_by_station().keys())
     stations.sort()
-    npp_data = data.extract_nc_data(poc_data, 'cbpm')
-    Lp_priors = data.get_Lp_priors(poc_data)
-    Po_priors = data.get_Po_priors(poc_data, Lp_priors, npp_data)
-    B3_priors = data.get_B3_priors(npp_data)
-    station_specific_priors = {'Po': [Po_priors[s] for s in stations],
-                               'Lp': [Lp_priors[s] for s in stations],
-                               'B3': [B3_priors[s] for s in stations]}
     
-    pickled_files = get_pickled_files(path)
     dv_params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     dc_params = ('Po', 'Lp', 'zm', 'a', 'B3')
     
-    d = {p: {s: [] for s in stations} for p in dv_params + dc_params}
+    d = {p: {s: {e: [] for e in ('prior', 'posterior')} for s in stations} for p in dv_params + dc_params}
     
-    for f in pickled_files:
+    for f in filenames:
         s = int(f.split('.')[0].split('_')[1][3:])
         with open(os.path.join(path, f), 'rb') as file:
             results = pickle.load(file)
         for p in dv_params:
-            d[p][s].extend(results['params'][p]['posterior'])
+            d[p][s]['posterior'].extend(results['params'][p]['posterior'])
+            d[p][s]['prior'].append(results['params'][p]['prior'])
         for p in dc_params:
-            d[p][s].append(results['params'][p]['posterior'])
+            d[p][s]['posterior'].append(results['params'][p]['posterior'])
+            d[p][s]['prior'].append(results['params'][p]['prior'])
     
     for p in dc_params + dv_params:
         fig, ax = plt.subplots(tight_layout=True)
-        ax.boxplot([d[p][s] for s in stations], positions=range(len(stations)))
+        ax.boxplot([d[p][s]['posterior'] for s in stations], positions=range(len(stations)))
         ax.set_xticks(range(len(stations)), d[p].keys())
-        if p in ('a', 'zm'):
-            ax.axhline(results['params'][p]['prior'], ls=':', c='b')
-        elif p in station_specific_priors.keys():
-            ax.plot(range(len(stations)), station_specific_priors[p], marker='*', c='b', ls='None')
-        fig.savefig(os.path.join(path, f'figs/hist_{p}'))
-        plt.close()
-        
-    
-def get_successful_sets(path):
-    
-    stations = data.poc_by_station().keys()
-    successes = []
-    pickled_files = get_pickled_files(path)
-
-    set_number = 0
-    set_counter = 0
-    for f in pickled_files:
-        f_set = int(f.split('_')[0][2:])
-        if f_set == set_number:
-            set_counter += 1
-            if set_counter == len(stations):
-                print(f_set)
-                successes.append(f_set)
+        if p in dc_params:
+            ax.plot(range(len(stations)), [d[p][s]['prior'][0] for s in stations], marker='*', c='b', ls='None')
         else:
-            set_number += 1
-            set_counter = 1
-    print(f'N successful sets: {len(successes)}')
-    print(f'N successful inversions: {len(pickled_files)}')
+            ax.plot(range(len(stations)), [min(d[p][s]['prior']) for s in stations], marker='*', c='b', ls='None')
+            ax.plot(range(len(stations)), [max(d[p][s]['prior']) for s in stations], marker='*', c='b', ls='None')
+            
+        fig.savefig(os.path.join(path, f'figs/hist_{p}{suffix}'))
+        plt.close()
 
-def stationparam_hists(path, params):
+
+def stationparam_hists(path, params, filenames):
     
     dv_params = params
     dc_params = ('Po', 'Lp', 'B3', 'a', 'zm')
@@ -162,8 +135,7 @@ def stationparam_hists(path, params):
     stations = data.poc_by_station().keys()
     data = {s: {p: {'priors': [], 'posteriors': []} for p in all_params} for s in stations}
 
-    pickled_files = get_pickled_files(path)
-    for f in pickled_files:
+    for f in filenames:
         with open(os.path.join(path, f), 'rb') as file:
             results = pickle.load(file)
             _, stn = f.split('.')[0].split('_')
@@ -193,12 +165,31 @@ def stationparam_hists(path, params):
         plt.savefig(os.path.join(path, f'figs/sp_hist_{s}_{p}'))
         plt.close()
 
-def get_pickled_files(path):
+def get_filenames(path, successful_sets=False):
 
     pickled_files = [f for f in os.listdir(path) if 'stn' in f]
     pickled_files.sort(key = lambda x: int(x.split('_')[0][2:]))
-    
-    return pickled_files
+
+    if successful_sets == True:
+        stations = data.poc_by_station().keys()
+        filenames = []
+        set_number = 0
+        set_counter = 0
+        for i, f in enumerate(pickled_files):
+            f_set = int(f.split('_')[0][2:])
+            if f_set == set_number:
+                set_counter += 1
+                if set_counter == len(stations):
+                    filenames.extend(pickled_files[i+1-len(stations):i+1])
+            else:
+                set_number += 1
+                set_counter = 1
+        # print(f'N successful sets: {len(filenames) / len(stations)}')
+        # print(f'N successful inversions: {len(pickled_files)}')
+    else:
+        filenames = pickled_files
+
+    return filenames
 
 def xresids(path, params):
     
@@ -238,14 +229,17 @@ if __name__ == '__main__':
     
     start_time = time()
     
-    n_sets = 30000
-    path = f'../../results/geotraces/mc_{n_sets}'
-    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    # n_sets = 200
+    # path = f'../../results/geotraces/mc_{n_sets}'
+    # params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    # all_files = get_filenames(path)
+    # success_files = get_filenames(path, True)
     # hist_success(path)
-    hist_stats(path)
     # xresids(path, params)
     # get_successful_sets(path)
-    
+    # hist_stats(path, all_files)
+    # hist_stats(path, success_files, '_succcess')
+            
     print(f'--- {(time() - start_time)/60} minutes ---')
 
     
