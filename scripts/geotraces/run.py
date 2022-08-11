@@ -130,7 +130,7 @@ if __name__ == '__main__':
     
     start_time = time.time()
     
-    n_param_sets = 30000
+    n_param_sets = 125000
     
     save_path = f'../../results/geotraces/mc_{n_param_sets}'
     if not os.path.exists(save_path):

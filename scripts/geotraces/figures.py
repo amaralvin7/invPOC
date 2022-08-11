@@ -7,10 +7,12 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import scipy.stats as stats
 import seaborn as sns
+from matplotlib.colors import Normalize
+from matplotlib import cm
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from tqdm import tqdm
 
 import src.geotraces.data as data
 
@@ -184,21 +186,16 @@ def get_filenames(path, successful_sets=False):
             else:
                 set_number += 1
                 set_counter = 1
-        # print(f'N successful sets: {len(filenames) / len(stations)}')
-        # print(f'N successful inversions: {len(pickled_files)}')
+        print(f'N successful sets: {len(filenames) / len(stations)}')
+        print(f'N successful inversions: {len(pickled_files)}')
     else:
         filenames = pickled_files
 
     return filenames
 
-def xresids(path, params):
+def xresids(path, station_data):
     
     df = pd.DataFrame(columns=['resid', 'element'])
-    poc_data = data.poc_by_station()
-    param_uniformity = data.define_param_uniformity()
-    Lp_priors = data.get_Lp_priors(poc_data)
-    ez_depths = data.get_ez_depths(Lp_priors)
-    station_data = data.get_station_data(poc_data, param_uniformity, ez_depths)
 
     for stn in poc_data.keys():
         resids = []
@@ -215,7 +212,7 @@ def xresids(path, params):
         _, axs = plt.subplots(1, 2, tight_layout=True)
         
         df = pd.DataFrame({'resid': resids, 'element': elements})
-        dv_elements = params + ('POCS', 'POCL')
+        dv_elements = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl', 'POCS', 'POCL')
         df1 = df[df['element'].isin(dv_elements)]
         df1_piv = df1.pivot(columns='element')['resid'].astype(float)
         df2 = df[~df['element'].isin(dv_elements)]
@@ -225,20 +222,79 @@ def xresids(path, params):
         plt.savefig(os.path.join(path, f'figs/xresids_{stn}'))
         plt.close()
 
+def param_sections(path, filenames, station_data, suffix=''):
+
+    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    df = pd.DataFrame(columns=(('depth', 'latitude') + params))
+
+    for f in tqdm(filenames):
+        with open(os.path.join(path, f), 'rb') as file:
+            results = pickle.load(file)['params']
+            stn = int(f.split('.')[0].split('_')[1][3:])
+            file_dict = {p: results[p]['posterior'] for p in params}
+            file_dict['depth'] = station_data[stn]['grid']
+            file_dict['latitude'] = station_data[stn]['latitude'] * np.ones(len(station_data[stn]['grid']))
+            df = pd.concat([df, pd.DataFrame(file_dict)], ignore_index=True)
+
+    scheme = plt.cm.viridis
+    lats = [station_data[s]['latitude'] for s in station_data]
+    mlds_unsorted = [station_data[s]['mld'] for s in station_data]
+    zgs_unsorted = [station_data[s]['zg'] for s in station_data]
+    mlds = [mld for _, mld in sorted(zip(lats, mlds_unsorted))]
+    zgs = [zg for _, zg in sorted(zip(lats, zgs_unsorted))]
+    lats.sort()
+    
+    for p in params:
+        p_df = df[['depth', 'latitude', p]]
+        mean = p_df.groupby(['depth', 'latitude']).mean().reset_index()
+        sd = p_df.groupby(['depth', 'latitude']).std().reset_index()
+        merged = mean.merge(sd, suffixes=(None, '_sd'), on=['depth', 'latitude'])
+        merged[f'{p}_cv'] = merged[f'{p}_sd'] / merged[p]
+        
+        fig, axs = plt.subplots(2, 1, figsize=(10, 5), tight_layout=True)
+        for i, ax in enumerate(axs):
+            ax.invert_xaxis()
+            ax.invert_yaxis()
+            ax.set_ylabel('Depth (m)', fontsize=14)
+            ax.scatter(merged['latitude'], merged['depth'], c='k', zorder=1, s=1)
+            ax.plot(lats, mlds, c='k', zorder=1, ls='--')
+            ax.plot(lats, zgs, c='k', zorder=1)
+            if i == 0:
+                cbar_label = 'Mean'
+                to_plot = merged[p]
+                for s, d in station_data.items():
+                    ax.text(d['latitude'], -30, s, ha='center')
+            else:
+                cbar_label = 'CoV'
+                to_plot = merged[f'{p}_cv']
+                ax.set_xlabel('Latitude (°N)', fontsize=14)
+            norm = Normalize(to_plot.min(), to_plot.max())
+            cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), ax=ax, pad=0.01)
+            cbar.set_label(cbar_label, rotation=270, labelpad=20, fontsize=14)
+            ax.scatter(merged['latitude'], merged['depth'], c=to_plot, norm=norm, cmap=scheme, zorder=10)
+        fig.savefig(os.path.join(path, f'figs/section_{p}{suffix}.pdf'))
+        plt.close()
+
 if __name__ == '__main__':
     
     start_time = time()
+
+    poc_data = data.poc_by_station()
+    param_uniformity = data.define_param_uniformity()
+    Lp_priors = data.get_Lp_priors(poc_data)
+    ez_depths = data.get_ez_depths(Lp_priors)
+    station_data = data.get_station_data(poc_data, param_uniformity, ez_depths)
     
-    # n_sets = 200
-    # path = f'../../results/geotraces/mc_{n_sets}'
-    # params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
-    # all_files = get_filenames(path)
-    # success_files = get_filenames(path, True)
-    # hist_success(path)
-    # xresids(path, params)
-    # get_successful_sets(path)
-    # hist_stats(path, all_files)
-    # hist_stats(path, success_files, '_succcess')
+    n_sets = 125000
+    path = f'../../results/geotraces/mc_{n_sets}'
+    all_files = get_filenames(path)
+    success_files = get_filenames(path, True)
+    hist_success(path, all_files)
+    xresids(path, station_data)
+    hist_stats(path, all_files)
+    hist_stats(path, success_files, '_success')
+    param_sections(path, all_files, station_data)
+    param_sections(path, success_files, station_data, '_success')
             
     print(f'--- {(time() - start_time)/60} minutes ---')
 

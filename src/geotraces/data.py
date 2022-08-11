@@ -164,11 +164,11 @@ def extract_nc_data(poc_data, dir):
 
 
 def load_mixed_layer_depths():
-    pass
-    # mld_df = pd.read_excel('../../../geotraces/mld.xlsx')
-    # mld_dict = dict(zip(mld_df['Station No'], mld_df['MLD']))
 
-    # return mld_dict
+    mld_df = pd.read_csv('../../../geotraces/MLDextract.csv')
+    mld_dict = dict(zip(mld_df['Station'], mld_df['MLD05']))
+
+    return mld_dict
 
 
 def get_median_POCS():
@@ -186,15 +186,16 @@ def get_median_POCS():
 def get_station_data(poc_data, params, ez_depths):
     
     d = {s: {} for s in poc_data}
-    # mixed_layer_depths = load_mixed_layer_depths()
+    mixed_layer_depths = load_mixed_layer_depths()
     
     for s in poc_data.keys():
         grid = tuple(poc_data[s]['depth'].values)
         layers = tuple(range(len(grid)))
         zg = min(grid, key=lambda x:abs(x - ez_depths[s]))  # grazing depth
         tracers = define_tracers(poc_data[s])
-        # d[s]['mld'] = mixed_layer_depths[s]
+        d[s]['mld'] = mixed_layer_depths[s]
         d[s]['grid'] = grid
+        d[s]['latitude'] = poc_data[s].iloc[0]['latitude']
         d[s]['layers'] = layers
         d[s]['zg'] = zg
         d[s]['umz_start'] = grid.index(zg) + 1
