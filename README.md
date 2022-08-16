@@ -4,7 +4,7 @@ pyrite (Particle cYcling Rates from Inversion of Tracers in the ocEan) is an inv
 
 
 ## Citation
-Amaral VJ, Lam PJ, Marchal O, Roca-Martí M, Fox J, Nelson NB. 2022. Particle cycling rates at Station P as estimated from the inversion of POC concentration data. *Elementa: Science of the Anthropocene* (accepted).
+Amaral, VJ, Lam, PJ, Marchal, O, Roca-Martí, M, Fox, J, Nelson, NB. 2022. Particle cycling rates at Station P as estimated from the inversion of POC concentration data. *Elementa: Science of the Anthropocene* 10(1). DOI: https://doi.org/10.1525/elementa.2021.00018
 
 
 ## Installation (command line)
