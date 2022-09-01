@@ -48,7 +48,7 @@ Figures will be saved in ```./results/exports/figures/```.
 
 
 ## Acknowledgements
-This structure of this repository was inspired by *[The Good Research Code Handbook](https://goodresearch.dev/index.html)* by Patrick Mineault.
+The structure of this repository was inspired by *[The Good Research Code Handbook](https://goodresearch.dev/index.html)* by Patrick Mineault.
 
 ## License
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)

@@ -15,6 +15,7 @@ from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
 import src.geotraces.data as data
+from src.colors import *
 
 def load_data(path):
     """Loads data and returns dfs with all sets and successful sets."""
@@ -218,14 +219,13 @@ def xresids(path, station_data):
         df2 = df[~df['element'].isin(dv_elements)]
         df2_piv = df2.pivot(columns='element')['resid'].astype(float)
         df1_piv.plot(kind='hist', stacked=True, bins=30, ax=axs[0])
-        df2_piv.plot(kind='hist', stacked=True, bins=30, ax=axs[1])
+        df2_piv.plot(kind='hist', stacked=True, bins=30, ax=ax)
         plt.savefig(os.path.join(path, f'figs/xresids_{stn}'))
         plt.close()
 
-def param_sections(path, filenames, station_data, suffix=''):
+def compile_param_estimates(params, filenames):
 
-    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
-    df = pd.DataFrame(columns=(('depth', 'latitude') + params))
+    df_rows = []
 
     for f in tqdm(filenames):
         with open(os.path.join(path, f), 'rb') as file:
@@ -234,8 +234,19 @@ def param_sections(path, filenames, station_data, suffix=''):
             file_dict = {p: results[p]['posterior'] for p in params}
             file_dict['depth'] = station_data[stn]['grid']
             file_dict['latitude'] = station_data[stn]['latitude'] * np.ones(len(station_data[stn]['grid']))
-            df = pd.concat([df, pd.DataFrame(file_dict)], ignore_index=True)
+            file_dict['station'] = stn * np.ones(len(station_data[stn]['grid']))
+            df_rows.append(pd.DataFrame(file_dict))
+    df = pd.concat(df_rows, ignore_index=True)
+    
+    with open(os.path.join(path, 'saved_params.pkl'), 'wb') as f:
+        pickle.dump(df, f)
+            
+def param_sections(path, station_data, suffix=''):
 
+    with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
+        df = pickle.load(f)    
+
+    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     scheme = plt.cm.viridis
     lats = [station_data[s]['latitude'] for s in station_data]
     mlds_unsorted = [station_data[s]['mld'] for s in station_data]
@@ -245,10 +256,10 @@ def param_sections(path, filenames, station_data, suffix=''):
     lats.sort()
     
     for p in params:
-        p_df = df[['depth', 'latitude', p]]
-        mean = p_df.groupby(['depth', 'latitude']).mean().reset_index()
-        sd = p_df.groupby(['depth', 'latitude']).std().reset_index()
-        merged = mean.merge(sd, suffixes=(None, '_sd'), on=['depth', 'latitude'])
+        p_df = df[['depth', 'station', p]]
+        mean = p_df.groupby(['depth', 'station']).mean().reset_index()
+        sd = p_df.groupby(['depth', 'station']).std().reset_index()
+        merged = mean.merge(sd, suffixes=(None, '_sd'), on=['depth', 'station'])
         merged[f'{p}_cv'] = merged[f'{p}_sd'] / merged[p]
         
         fig, axs = plt.subplots(2, 1, figsize=(10, 5), tight_layout=True)
@@ -275,6 +286,111 @@ def param_sections(path, filenames, station_data, suffix=''):
         fig.savefig(os.path.join(path, f'figs/section_{p}{suffix}.pdf'))
         plt.close()
 
+def flux_profiles(path, filenames, station_data):
+
+    df_rows = []
+
+    for f in tqdm(filenames):
+        with open(os.path.join(path, f), 'rb') as file:
+            results = pickle.load(file)
+            stn = int(f.split('.')[0].split('_')[1][3:])
+            file_dict = {'depth': station_data[stn]['grid'],
+                         'station': stn * np.ones(len(station_data[stn]['grid'])),
+                         'ws': np.array(results['params']['ws']['posterior']),
+                         'wl': np.array(results['params']['wl']['posterior']),
+                         'POCS': np.array(results['tracers']['POCS']['posterior']),
+                         'POCL': np.array(results['tracers']['POCL']['posterior'])}
+            df_rows.append(pd.DataFrame(file_dict))
+    df = pd.concat(df_rows, ignore_index=True)
+
+    df['sflux'] = df['ws'] * df['POCS']
+    df['lflux'] = df['wl'] * df['POCL']
+    df['tflux'] = df['sflux'] + df['lflux']
+    df.drop(['ws', 'wl', 'POCS', 'POCL'], axis=1, inplace=True)
+    mean = df.groupby(['depth', 'station']).mean().reset_index()
+    sd = df.groupby(['depth', 'station']).std().reset_index()
+    pump_fluxes = mean.merge(sd, suffixes=(None, '_sd'), on=['depth', 'station'])
+    th234_fluxes = pd.read_csv('../../../geotraces/pocfluxes_from_th234.csv')
+    
+    for s in pump_fluxes['station'].unique():
+        pf_s = pump_fluxes[pump_fluxes['station'] == s]
+        tf_s = th234_fluxes[th234_fluxes['station'] == s].iloc[0]
+        zg = station_data[s]['zg']
+        mld = station_data[s]['mld']
+        _, ax = plt.subplots(tight_layout=True)
+
+        ax.errorbar(pf_s['tflux'], pf_s['depth'], fmt='o', xerr=pf_s['tflux_sd'],
+            ecolor=vermillion, c=vermillion, capsize=4, zorder=3,
+            label='$w_TP_T$', elinewidth=1.5, capthick=1.5,
+            fillstyle='none')
+        ax.errorbar(pf_s['sflux'], pf_s['depth'] + 5, fmt='o', xerr=pf_s['sflux_sd'],
+            ecolor=blue, c=blue, capsize=4, zorder=3,
+            label='$w_SP_S$', elinewidth=1.5, capthick=1.5,
+            fillstyle='none')
+        ax.errorbar(pf_s['lflux'], pf_s['depth'] - 5, fmt='o', xerr=pf_s['lflux_sd'],
+            ecolor=orange, c=orange, capsize=4, zorder=3,
+            label='$w_LP_L$', elinewidth=1.5, capthick=1.5,
+            fillstyle='none')
+        ax.errorbar([tf_s['ppz'], tf_s['100m']], [tf_s['ppzd'], 100], fmt='o',
+                    xerr=[tf_s['ppz_e'], tf_s['100m_e']], ecolor=green,
+                    c=green, capsize=4, zorder=3,
+                    label='$^{234}$Th-based', elinewidth=1.5, capthick=1.5,
+                    fillstyle='none')   
+
+        ax.set_ylabel('Depth (m)', fontsize=14)
+        ax.set_xlabel('Flux (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+        ax.invert_yaxis()
+        ax.set_ylim(top=0, bottom=610)
+        ax.tick_params(axis='both', which='major', labelsize=12)
+        ax.axhline(zg, c='k', ls=':')
+        ax.axhline(mld, c='k', ls='--')
+        ax.legend(loc='lower right', fontsize=12, handletextpad=0.01)
+        
+        plt.savefig(os.path.join(path, f'figs/sinkfluxes_stn{int(s)}'))
+        plt.close()
+
+
+def regress(path, params):
+
+    with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
+        df = pickle.load(f)
+
+    odf_data = pd.read_csv('../../../geotraces/ODFpump.csv',
+                           usecols=['Station', 'CorrectedMeanDepthm', 'CTDTMP_T_VALUE_SENSORdegC', 'CTDOXY_D_CONC_SENSORumolkg'])
+    odf_data = odf_data.rename({'Station': 'station',
+                                'CorrectedMeanDepthm': 'depth',
+                                'CTDTMP_T_VALUE_SENSORdegC': 'T',
+                                'CTDOXY_D_CONC_SENSORumolkg': 'O2'}, axis='columns')
+
+    param_means = df.groupby(['depth', 'station']).mean().reset_index()
+    merged = param_means.merge(odf_data)
+
+    for p in params:
+        sns.scatterplot(x=p, y='T', data=merged, hue='depth')
+        plt.savefig(os.path.join(path, f'figs/scatter_{p}_T'))
+        plt.close()
+        sns.scatterplot(x=p, y='O2', data=merged, hue='depth')
+        plt.savefig(os.path.join(path, f'figs/scatter_{p}_O2'))
+        plt.close()
+
+def param_profile_distribution(path, param):
+
+    with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
+        df = pickle.load(f)
+    
+    for s in df['station'].unique():
+        sdf = df[df['station'] == s]
+        depths = sdf['depth'].unique()
+        _, axs = plt.subplots(len(depths), 1, tight_layout=True, figsize=(5,10))
+        for i, d in enumerate(depths):
+            ddf = sdf[sdf['depth'] == d]
+            axs[i].hist(ddf[param])
+            axs[i].set_ylabel(f'{d:.0f} m')
+            axs[i].axvline(ddf[param].mean(), c=black, ls='--')
+            axs[i].axvline(ddf[param].median(), c=black, ls=':')
+        plt.savefig(os.path.join(path, f'figs/ppd_{param}_stn{int(s)}'))
+        plt.close()
+
 if __name__ == '__main__':
     
     start_time = time()
@@ -287,14 +403,9 @@ if __name__ == '__main__':
     
     n_sets = 125000
     path = f'../../results/geotraces/mc_{n_sets}'
+    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     all_files = get_filenames(path)
-    success_files = get_filenames(path, True)
-    hist_success(path, all_files)
-    xresids(path, station_data)
-    hist_stats(path, all_files)
-    hist_stats(path, success_files, '_success')
-    param_sections(path, all_files, station_data)
-    param_sections(path, success_files, station_data, '_success')
+    flux_profiles(path, all_files, station_data)
             
     print(f'--- {(time() - start_time)/60} minutes ---')
 
