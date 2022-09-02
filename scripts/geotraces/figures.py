@@ -96,7 +96,7 @@ def hist_success(path, filenames):
     plt.close()
 
 def hist_stats(path, filenames, suffix=''):
-
+    """boxplots of param posteriors"""
     stations = list(data.poc_by_station().keys())
     stations.sort()
     
@@ -219,7 +219,7 @@ def xresids(path, station_data):
         df2 = df[~df['element'].isin(dv_elements)]
         df2_piv = df2.pivot(columns='element')['resid'].astype(float)
         df1_piv.plot(kind='hist', stacked=True, bins=30, ax=axs[0])
-        df2_piv.plot(kind='hist', stacked=True, bins=30, ax=ax)
+        df2_piv.plot(kind='hist', stacked=True, bins=30, ax=axs[1])
         plt.savefig(os.path.join(path, f'figs/xresids_{stn}'))
         plt.close()
 
@@ -391,6 +391,41 @@ def param_profile_distribution(path, param):
         plt.savefig(os.path.join(path, f'figs/ppd_{param}_stn{int(s)}'))
         plt.close()
 
+
+def sinkflux_zg_boxplots(path, filenames, station_data):
+
+    stations = list(station_data.keys())
+    stations.sort()
+    
+    th234_data = pd.read_csv('../../../geotraces/pocfluxes_from_th234.csv')
+    th230_data = pd.read_csv('../../../geotraces/hayes_fluxes.csv')
+    
+    # th234_data.sort_values(by=['station'], inplace=True)
+    # th230_data.sort_values(by=['station'], inplace=True)
+    
+    d = {s: [] for s in stations}
+    
+    for f in tqdm(filenames, total=len(filenames)):
+        s = int(f.split('.')[0].split('_')[1][3:])
+        with open(os.path.join(path, f), 'rb') as file:
+            results = pickle.load(file)
+            zg_index = station_data[s]['grid'].index(station_data[s]['zg'])
+            ws = results['params']['ws']['posterior'][zg_index]
+            wl =  results['params']['wl']['posterior'][zg_index]
+            ps = results['tracers']['POCS']['posterior'][zg_index]
+            pl = results['tracers']['POCL']['posterior'][zg_index]
+            d[s].append(ws*ps + wl*pl)
+    
+    fig, ax = plt.subplots(tight_layout=True)
+    ax.boxplot([d[s] for s in stations], positions=stations)
+    ax.plot(th234_data['station'], th234_data['ppz'], marker='*', c='b', ls='None', label='Th234')
+    ax.plot(th230_data['station'], th230_data['flux'], marker='^', c='r', ls='None', label='Th230')
+    ax.set_xticks(stations)
+    ax.legend()
+
+    fig.savefig(os.path.join(path, 'figs/sinkflux_zg_boxplots'))
+    plt.close()
+
 if __name__ == '__main__':
     
     start_time = time()
@@ -405,7 +440,8 @@ if __name__ == '__main__':
     path = f'../../results/geotraces/mc_{n_sets}'
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     all_files = get_filenames(path)
-    flux_profiles(path, all_files, station_data)
+    # flux_profiles(path, all_files, station_data)
+    sinkflux_zg_boxplots(path, all_files, station_data)
             
     print(f'--- {(time() - start_time)/60} minutes ---')
 
