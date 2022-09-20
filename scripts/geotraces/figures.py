@@ -468,22 +468,54 @@ def sinkflux_zg_boxplots(path, filenames, station_data):
     fig.savefig(os.path.join(path, 'figs/sinkflux_zg_boxplots'))
     plt.close()
 
+
+def compare_ppz_zg_ez():
+
+    stations = list(station_data.keys())
+    ppz_data = pd.read_csv('../../../geotraces/PPZstats.csv')
+    ppz_dict = dict(zip(ppz_data['Station'], ppz_data['PPZmean']))
+
+    fig, axs = plt.subplots(1, 3, figsize=(12,5))
+    fig.subplots_adjust(wspace=0.5)
+    scheme = plt.cm.viridis
+    norm = Normalize(min(stations), max(stations))
+    fig.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), ax=axs[2], pad=0.01)
+    
+    axs[0].set_xlabel('PPZ (m)', fontsize=14)
+    axs[0].set_ylabel('zg (m)', fontsize=14)
+
+    axs[1].set_xlabel('PPZ (m)', fontsize=14)
+    axs[1].set_ylabel('EZ (m)', fontsize=14)
+
+    axs[2].set_xlabel('EZ (m)', fontsize=14)
+    axs[2].set_ylabel('zg (m)', fontsize=14)
+
+    for s in stations:  
+        axs[0].scatter(ppz_dict[s], station_data[s]['zg'], c=s, norm=norm, cmap=scheme)
+        axs[1].scatter(ppz_dict[s], ez_depths[s], c=s, norm=norm, cmap=scheme)
+        axs[2].scatter(ez_depths[s], station_data[s]['zg'], c=s, norm=norm, cmap=scheme)
+    
+    for ax in axs:
+        ax.plot(np.linspace(20, 300), np.linspace(20, 300), c='k')
+
+    plt.savefig(f'../../results/geotraces/ppz_zg_ez_compare')
+    plt.close()
+
 if __name__ == '__main__':
     
     start_time = time()
 
-    # poc_data = data.poc_by_station()
-    # param_uniformity = data.define_param_uniformity()
-    # Lp_priors = data.get_Lp_priors(poc_data)
-    # ez_depths = data.get_ez_depths(Lp_priors)
-    # station_data = data.get_station_data(poc_data, param_uniformity, ez_depths)
+    poc_data = data.poc_by_station()
+    param_uniformity = data.define_param_uniformity()
+    Lp_priors = data.get_Lp_priors(poc_data)
+    ez_depths = data.get_ez_depths(Lp_priors)
+    station_data = data.get_station_data(poc_data, param_uniformity, ez_depths)
     
-    n_sets = 125000
-    path = f'../../results/geotraces/mc_{n_sets}'
-    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    # n_sets = 125000
+    # path = f'../../results/geotraces/mc_{n_sets}'
+    # params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     # all_files = get_filenames(path)
-    # flux_profiles(path, all_files, station_data)
-    aou_scatter(path, params)
+    compare_ppz_zg_ez()
             
     print(f'--- {(time() - start_time)/60} minutes ---')
 
