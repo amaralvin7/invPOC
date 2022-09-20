@@ -4,6 +4,7 @@ from itertools import product
 from time import time
 import sys
 
+import gsw
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -350,27 +351,68 @@ def flux_profiles(path, filenames, station_data):
         plt.close()
 
 
-def regress(path, params):
+def aou_scatter(path, params):
+    
+    # def calculate_aou(T, S):
+    #     """From Weiss 70, p. 726"""
+    #     T_K = T + 273.15
+    #     A1 = -58.3877
+    #     A2 = 85.8079
+    #     A3 = 23.8439
+    #     B1 = -0.034892
+    #     B2 = 0.015568
+    #     B3 = -0.0019387
+    #     B = np.exp(A1
+    #                + A2 * (100 / T_K)
+    #                + A3 * np.log(T_K / 100)
+    #                + S * (B1 + B2 * (T_K / 100) + B3 * (T_K / 100)**2))
+    #     print(B*100)
+    
+    def calculate_aou(row):
+        
+        T = row['T']
+        P = row['P']
+        lat = row['lat']
+        lon = row['lon']
+        SP = row['SP']  # practical salinity
+        
+        SA = gsw.conversions.SA_from_SP(SP, P, lon, lat)  # absolute salinity
+        CT = gsw.conversions.CT_from_t(SA, T, P)  # conservative temperature
+        O2_sol = gsw.O2sol(SA, CT, P, lon, lat)
+        AOU = O2_sol - row['O2']
+        
+        return AOU
+        
 
     with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
         df = pickle.load(f)
 
     odf_data = pd.read_csv('../../../geotraces/ODFpump.csv',
-                           usecols=['Station', 'CorrectedMeanDepthm', 'CTDTMP_T_VALUE_SENSORdegC', 'CTDOXY_D_CONC_SENSORumolkg'])
+                           usecols=['Station',
+                                    'CorrectedMeanDepthm',
+                                    'Longitudedegrees_east',
+                                    'Latitudedegrees_north',
+                                    'CTDPRS_T_VALUE_SENSORdbar',
+                                    'CTDTMP_T_VALUE_SENSORdegC',
+                                    'CTDOXY_D_CONC_SENSORumolkg',
+                                    'CTDSAL_D_CONC_SENSORpss78'])
     odf_data = odf_data.rename({'Station': 'station',
                                 'CorrectedMeanDepthm': 'depth',
+                                'Longitudedegrees_east': 'lon',
+                                'Latitudedegrees_north': 'lat',
+                                'CTDPRS_T_VALUE_SENSORdbar': 'P',
                                 'CTDTMP_T_VALUE_SENSORdegC': 'T',
-                                'CTDOXY_D_CONC_SENSORumolkg': 'O2'}, axis='columns')
+                                'CTDOXY_D_CONC_SENSORumolkg': 'O2',
+                                'CTDSAL_D_CONC_SENSORpss78': 'SP'}, axis='columns')
 
     param_means = df.groupby(['depth', 'station']).mean().reset_index()
     merged = param_means.merge(odf_data)
 
+    merged['AOU'] = merged.apply(calculate_aou, axis=1)
+
     for p in params:
-        sns.scatterplot(x=p, y='T', data=merged, hue='depth')
-        plt.savefig(os.path.join(path, f'figs/scatter_{p}_T'))
-        plt.close()
-        sns.scatterplot(x=p, y='O2', data=merged, hue='depth')
-        plt.savefig(os.path.join(path, f'figs/scatter_{p}_O2'))
+        sns.scatterplot(x=p, y='AOU', data=merged, hue='depth')
+        plt.savefig(os.path.join(path, f'figs/aouscatter_{p}'))
         plt.close()
 
 def param_profile_distribution(path, param):
@@ -430,18 +472,18 @@ if __name__ == '__main__':
     
     start_time = time()
 
-    poc_data = data.poc_by_station()
-    param_uniformity = data.define_param_uniformity()
-    Lp_priors = data.get_Lp_priors(poc_data)
-    ez_depths = data.get_ez_depths(Lp_priors)
-    station_data = data.get_station_data(poc_data, param_uniformity, ez_depths)
+    # poc_data = data.poc_by_station()
+    # param_uniformity = data.define_param_uniformity()
+    # Lp_priors = data.get_Lp_priors(poc_data)
+    # ez_depths = data.get_ez_depths(Lp_priors)
+    # station_data = data.get_station_data(poc_data, param_uniformity, ez_depths)
     
     n_sets = 125000
     path = f'../../results/geotraces/mc_{n_sets}'
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
-    all_files = get_filenames(path)
+    # all_files = get_filenames(path)
     # flux_profiles(path, all_files, station_data)
-    sinkflux_zg_boxplots(path, all_files, station_data)
+    aou_scatter(path, params)
             
     print(f'--- {(time() - start_time)/60} minutes ---')
 
