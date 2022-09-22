@@ -44,7 +44,7 @@ def run_model(priors_from, gamma, rel_err):
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, LAYERS,
         soft_constraint=True)
-    tracer_estimates, residual_estimates, param_estimates = estimates
+    tracer_estimates, param_estimates, residual_estimates = estimates
 
     merge_by_keys(tracer_estimates, tracers)
     merge_by_keys(param_estimates, params)
@@ -67,7 +67,7 @@ def run_model(priors_from, gamma, rel_err):
         int_fluxes_sym, state_elements, Ckp1, LAYERS, tracers=tracers,
         params=params)
 
-    prior_tracers, _, prior_params = unpack_state_estimates(
+    prior_tracers, prior_params, _ = unpack_state_estimates(
         tracers, params, state_elements, xo, Co, LAYERS, soft_constraint=True)
     prior_fluxes = budgets.integrate_by_zone_and_layer(
         int_fluxes_sym, state_elements, Co, LAYERS, tracers=prior_tracers,

@@ -37,7 +37,7 @@ def run_twin_experiment(priors_from):
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, LAYERS,
         soft_constraint=True)
-    tracer_estimates, residual_estimates, param_estimates = estimates
+    tracer_estimates, param_estimates, residual_estimates = estimates
     merge_by_keys(tracer_estimates, tracers)
     merge_by_keys(param_estimates, params)
     merge_by_keys(residual_estimates, residuals)

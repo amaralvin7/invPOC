@@ -23,11 +23,19 @@ def unpack_state_estimates(tracers, params, state_elements, x, C, layers,
 
     tracer_estimates = unpack_tracers(tracers, state_elements, x, x_e)
     param_estimates = unpack_params(params, state_elements, x, x_e)
-    if not soft_constraint:
-        return tracer_estimates, param_estimates
-    residual_estimates = unpack_resids(tracers, state_elements, x, x_e, layers)
+    
+    unpacked = [tracer_estimates, param_estimates]
+    
+    if soft_constraint:
+        residual_estimates = unpack_resids(tracers, state_elements, x, x_e, layers)
+        unpacked.append(residual_estimates)
+    
+    if 'ppzf' in state_elements:
+        i = state_elements.index('ppzf')
+        ppzf_estimate = (x[i], x_e[i])      
+        unpacked.append(ppzf_estimate)
 
-    return tracer_estimates, residual_estimates, param_estimates
+    return unpacked
 
 
 def slice_by_species(to_slice, element, state_elements):

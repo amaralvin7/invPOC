@@ -332,11 +332,16 @@ def flux_profiles(path, filenames, station_data):
             ecolor=orange, c=orange, capsize=4, zorder=3,
             label='$w_LP_L$', elinewidth=1.5, capthick=1.5,
             fillstyle='none')
-        ax.errorbar([tf_s['ppz'], tf_s['100m']], [tf_s['ppzd'], 100], fmt='o',
-                    xerr=[tf_s['ppz_e'], tf_s['100m_e']], ecolor=green,
+        # ax.errorbar([tf_s['ppz'], tf_s['100m']], [tf_s['ppzd'], 100], fmt='o',
+        #             xerr=[tf_s['ppz_e'], tf_s['100m_e']], ecolor=green,
+        #             c=green, capsize=4, zorder=3,
+        #             label='$^{234}$Th-based', elinewidth=1.5, capthick=1.5,
+        #             fillstyle='none')
+        ax.errorbar(tf_s['ppz'], tf_s['ppzd'], fmt='o',
+                    xerr=tf_s['ppz_e'], ecolor=green,
                     c=green, capsize=4, zorder=3,
                     label='$^{234}$Th-based', elinewidth=1.5, capthick=1.5,
-                    fillstyle='none')   
+                    fillstyle='none') 
 
         ax.set_ylabel('Depth (m)', fontsize=14)
         ax.set_xlabel('Flux (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
@@ -500,6 +505,26 @@ def compare_ppz_zg_ez():
 
     plt.savefig(f'../../results/geotraces/ppz_zg_ez_compare')
     plt.close()
+    
+def ppz_flux_check(path, filenames):
+    
+    differences = []
+
+    for f in filenames:
+        s = int(f.split('.')[0].split('_')[1][3:])
+        with open(os.path.join(path, f), 'rb') as file:
+            results = pickle.load(file)
+            zg_index = station_data[s]['grid'].index(station_data[s]['zg'])
+            ws = results['params']['ws']['posterior'][zg_index]
+            wl =  results['params']['wl']['posterior'][zg_index]
+            ps = results['tracers']['POCS']['posterior'][zg_index]
+            pl = results['tracers']['POCL']['posterior'][zg_index]
+            ppz_flux = results['ppz_flux'][0]
+            sum_of_fluxes = ws*ps + wl*pl
+            difference = abs(sum_of_fluxes - ppz_flux)
+            differences.append(difference)
+    print(len(differences))
+    print(max(differences))
 
 if __name__ == '__main__':
     
@@ -511,11 +536,12 @@ if __name__ == '__main__':
     ez_depths = data.get_ez_depths(Lp_priors)
     station_data = data.get_station_data(poc_data, param_uniformity, ez_depths)
     
-    # n_sets = 125000
-    # path = f'../../results/geotraces/mc_{n_sets}'
+    n_sets = 1000
+    path = f'../../results/geotraces/mc_{n_sets}'
     # params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
-    # all_files = get_filenames(path)
-    compare_ppz_zg_ez()
+    all_files = get_filenames(path)
+    hist_success(path, all_files)
+    flux_profiles(path, all_files, station_data)
             
     print(f'--- {(time() - start_time)/60} minutes ---')
 

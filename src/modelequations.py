@@ -102,7 +102,7 @@ def equation_builder(tracer, layer, grid, zg, umz_start, mld, targets=None,
             eq += production(layer, Po, Lp, zi, zim1, mld)
         if soft_constraint:
             eq += RPsi
-    else:
+    elif tracer == 'POCL':
         if layer == 0:
             eq = -wl * Pli + B2p * Psi**2 * h - (Bm2 + Bm1l) * Pli * h
         else:
@@ -112,6 +112,9 @@ def equation_builder(tracer, layer, grid, zg, umz_start, mld, targets=None,
                 eq += dvm_egestion(B3, a, zm, zg, zi, zim1, grid, umz_start)
         if soft_constraint:
             eq += RPli
+    else:
+        ppzf = sym.symbols('ppzf')
+        eq = (ws * Psi + wl * Pli) - ppzf
 
     return eq
 

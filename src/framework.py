@@ -4,7 +4,8 @@ from itertools import product
 import numpy as np
 
 
-def define_state_elements(tracers, params, layers, soft_constraint=False):
+def define_state_elements(
+    tracers, params, layers, soft_constraint=False, flux_constraint=False):
     """Build a list of string identifiers for all state elements."""
     state_elements = []
 
@@ -21,17 +22,23 @@ def define_state_elements(tracers, params, layers, soft_constraint=False):
         else:
             state_elements.append(f'{p}')
 
+    if flux_constraint:
+        state_elements.append('ppzf')
+
     return state_elements
 
 
-def define_equation_elements(tracers, layers):
+def define_equation_elements(tracers, layers, flux_constraint_layer=None):
     """Define which state elements have associated equations (tracers only)."""
     equation_elements = [f'{t}_{l}' for t, l in product(tracers, layers)]
+    
+    if flux_constraint_layer is not None:
+        equation_elements.append(f'ppzf_{flux_constraint_layer}')
 
     return equation_elements
 
 
-def define_prior_vector(tracers, params, layers, residuals=None):
+def define_prior_vector(tracers, params, layers, residuals=None, ppz_flux=None):
     """Build the vector of prior state estimates."""
     xo = []
 
@@ -48,10 +55,13 @@ def define_prior_vector(tracers, params, layers, residuals=None):
         else:
             xo.append(params[p]['prior'])
 
+    if ppz_flux:
+        xo.append(ppz_flux)
+
     return np.array(xo)
 
 
-def define_cov_matrix(tracers, params, layers, residuals=None):
+def define_cov_matrix(tracers, params, layers, residuals=None, ppz_flux=None):
     """Build the error covariance matrix of prior estimates."""
     Co = []
 
@@ -67,5 +77,9 @@ def define_cov_matrix(tracers, params, layers, residuals=None):
             Co.extend(np.ones(len(layers)) * params[p]['prior_e']**2)
         else:
             Co.append(params[p]['prior_e']**2)
+
+    if ppz_flux:
+        flux_error = 0.5
+        Co.append((ppz_flux * flux_error)**2)
 
     return np.diag(Co)
