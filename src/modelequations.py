@@ -230,7 +230,7 @@ def get_residual_targets(layer, targets):
 def get_layer_bounds(layer, grid):
     """Get depths of layer boundaries."""
     zi = grid[layer]
-    zim1 = grid[grid.index(zi) - 1] if layer > 0 else 0
+    zim1 = grid[layer - 1] if layer > 0 else 0
 
     return zi, zim1
 
