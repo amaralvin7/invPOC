@@ -38,8 +38,8 @@ def run_model(priors_from, gamma, rel_err):
     Co = framework.define_cov_matrix(tracers, params, LAYERS, residuals)
 
     xhat, Ckp1, *_ = ati.find_solution(
-        equation_elements, xo, Co, GRID, ZG, UMZ_START, mld=MLD,
-        state_elements=state_elements, soft_constraint=True)
+        equation_elements, state_elements, xo, Co, GRID, ZG, UMZ_START,
+        mld=MLD, soft_constraint=True)
     x_resids = ati.normalized_state_residuals(xhat, xo, Co)
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, LAYERS,

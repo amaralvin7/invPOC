@@ -60,8 +60,8 @@ def calculate_cost(Co, xo, x):
     return cost
 
 
-def find_solution(equation_elements, xo, Co, grid, zg, umz_start, mld=None,
-                  state_elements=None, soft_constraint=False):
+def find_solution(equation_elements, state_elements, xo, Co, grid, zg,
+                  umz_start, mld=None, soft_constraint=False):
     """An iterative approach for finding a solution to a nonlinear system.
 
     Args:

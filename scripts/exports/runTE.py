@@ -32,8 +32,8 @@ def run_twin_experiment(priors_from):
     Co = framework.define_cov_matrix(tracers, params, LAYERS, residuals)
 
     xhat, Ckp1, *_ = ati.find_solution(
-        equation_elements, xo, Co, GRID, ZG, UMZ_START, mld=MLD,
-        state_elements=state_elements, soft_constraint=True)
+        equation_elements, state_elements, xo, Co, GRID, ZG, UMZ_START,
+        mld=MLD, soft_constraint=True)
     estimates = unpack_state_estimates(
         tracers, params, state_elements, xhat, Ckp1, LAYERS,
         soft_constraint=True)

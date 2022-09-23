@@ -92,8 +92,7 @@ def invert_station(args):
 
     try:  # if there are numerical instabilies in the ATI, return
         xhat, Ckp1, conv_ev, cost_ev, converged = ati.find_solution(
-            equation_elements, xo, Co, grid, zg, umz_start,
-            state_elements=state_elements)
+            equation_elements, state_elements, xo, Co, grid, zg, umz_start)
     except np.linalg.LinAlgError as err:
         if 'Singular matrix' in str(err):
             print(f'Singular matrix: {int(mc_params["id"])}, {station}')
