@@ -1,10 +1,11 @@
 Explanations of how prior estimates were obtained
 
 Lp
-- 8-day averages with 4km resolution were obtained over the sampling timeline from Modis Aqua (4km)
+- 8-day averages with 4km resolution were obtained over the sampling timeline from Modis Aqua (4km). Giovanni, "Animation" product
 - For each station, the sampling time was selected from the shallow cast, and was matched with the 8-day satellite average that contained this sampling time
 - Kd was selected from the nearest location where there was an estimate
 - reciprocal of nearest Kd was calculated
+- 10/6/2022: I've been using a bounding box of (-157, -20, -151, 57). Verified that expandning it a bit to (-158, -21, -150, 58) makes no difference 
 
 Po
 - 2160 by 4320 (9km resolution) 8day HDF files from MODIS r2018 (GSM) Data were obtained from Oregon State Ocean Productivity for the 8-day windows that spanned the cruise. These are NPP estimates in mg m-2 d-1

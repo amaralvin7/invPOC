@@ -525,7 +525,34 @@ def ppz_flux_check(path, filenames):
             differences.append(difference)
     print(len(differences))
     print(max(differences))
+    
 
+def poc_fluxes():
+    
+    flux_data = pd.read_excel('../../../geotraces/gp15_flux.xlsx',
+                              usecols=('station_number', 'depth', 'POCFlux1d'))
+
+    for s in poc_data:
+        
+        fig, ax = plt.subplots(tight_layout=True)
+        ax.invert_yaxis()
+        ax.set_ylabel('Depth (m)', fontsize=14)
+        ax.set_xlabel('Flux (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+        ax.axvline(0, c=black, ls='--')
+        
+        depths = poc_data[s]['depth']
+        s_df = flux_data.loc[(flux_data['station_number'] == s) & (flux_data['depth'] < 900)]
+        ax.scatter(s_df['POCFlux1d'], s_df['depth'], c=blue, label='from Th')
+        interp = np.interp(depths, s_df['depth'], s_df['POCFlux1d'])
+        ax.scatter(interp, depths, c=orange, label='interpolated')
+        ax.legend()
+        
+        for d in depths:
+            ax.axhline(d, c=black, ls=':')
+        fig.savefig(f'../../fluxes_stn{s}.png')
+        plt.close(fig)
+        
+        
 if __name__ == '__main__':
     
     start_time = time()
@@ -536,12 +563,14 @@ if __name__ == '__main__':
     ez_depths = data.get_ez_depths(Lp_priors)
     station_data = data.get_station_data(poc_data, param_uniformity, ez_depths)
     
-    n_sets = 1000
-    path = f'../../results/geotraces/mc_{n_sets}'
+    # n_sets = 1000
+    # path = f'../../results/geotraces/mc_{n_sets}'
     # params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
-    all_files = get_filenames(path)
-    hist_success(path, all_files)
-    flux_profiles(path, all_files, station_data)
+    # all_files = get_filenames(path)
+    # hist_success(path, all_files)
+    # flux_profiles(path, all_files, station_data)
+    
+    poc_fluxes()
             
     print(f'--- {(time() - start_time)/60} minutes ---')
 
