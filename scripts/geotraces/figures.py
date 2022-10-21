@@ -532,6 +532,8 @@ def poc_fluxes():
     flux_data = pd.read_excel('../../../geotraces/gp15_flux.xlsx',
                               usecols=('station_number', 'depth', 'POCFlux1d'))
 
+    diffs = []
+    
     for s in poc_data:
         
         fig, ax = plt.subplots(tight_layout=True)
@@ -541,17 +543,19 @@ def poc_fluxes():
         ax.axvline(0, c=black, ls='--')
         
         depths = poc_data[s]['depth']
-        s_df = flux_data.loc[(flux_data['station_number'] == s) & (flux_data['depth'] < 900)]
-        ax.scatter(s_df['POCFlux1d'], s_df['depth'], c=blue, label='from Th')
-        interp = np.interp(depths, s_df['depth'], s_df['POCFlux1d'])
-        ax.scatter(interp, depths, c=orange, label='interpolated')
-        ax.legend()
+        s_df = flux_data.loc[(flux_data['station_number'] == s) & (flux_data['depth'] < 620)]
+        ax.scatter(s_df['POCFlux1d'], s_df['depth'], c=blue)
         
         for d in depths:
             ax.axhline(d, c=black, ls=':')
+            nearby = s_df.iloc[(s_df['depth']-d).abs().argsort()[:1]].iloc[0]
+            ax.scatter(nearby['POCFlux1d'], nearby['depth'], c=orange)
+            diffs.append(abs(d - nearby['depth']))
+            # print(s, abs(d - nearby['depth']))
         fig.savefig(f'../../fluxes_stn{s}.png')
         plt.close(fig)
-        
+    # plt.hist(diffs)
+    # plt.show()
         
 if __name__ == '__main__':
     
@@ -563,8 +567,8 @@ if __name__ == '__main__':
     ez_depths = data.get_ez_depths(Lp_priors)
     station_data = data.get_station_data(poc_data, param_uniformity, ez_depths)
     
-    # n_sets = 1000
-    # path = f'../../results/geotraces/mc_{n_sets}'
+    n_sets = 1000
+    path = f'../../results/geotraces/mc_{n_sets}'
     # params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     # all_files = get_filenames(path)
     # hist_success(path, all_files)
