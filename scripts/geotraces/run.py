@@ -82,13 +82,13 @@ def invert_station(args):
     equation_elements = station_data[station]['e_elements']
     tracers = station_data[station]['tracers'].copy()
     params = param_uniformity.copy()
-    ppz_flux = station_data[station]['ppz_flux']
+    Th_fluxes = station_data[station]['Th_fluxes']
 
     data.set_param_priors(params, Lp_priors[station], Po_priors[station],
                           B3_priors[station], mc_params)
 
-    xo = framework.define_prior_vector(tracers, params, layers, ppz_flux=ppz_flux)
-    Co = framework.define_cov_matrix(tracers, params, layers, ppz_flux=ppz_flux)
+    xo = framework.define_prior_vector(tracers, params, layers, Th_fluxes=Th_fluxes)
+    Co = framework.define_cov_matrix(tracers, params, layers, Th_fluxes=Th_fluxes)
 
     try:  # if there are numerical instabilies in the ATI, return
         xhat, Ckp1, conv_ev, cost_ev, converged = ati.find_solution(
@@ -108,7 +108,7 @@ def invert_station(args):
     if success:
 
         x_resids = ati.normalized_state_residuals(xhat, xo, Co)
-        tracer_estimates, param_estimates, ppzf_estimate = unpack.unpack_state_estimates(
+        tracer_estimates, param_estimates, tsf_estimates = unpack.unpack_state_estimates(
             tracers, params, state_elements, xhat, Ckp1, layers)
 
         unpack.merge_by_keys(tracer_estimates, tracers)
@@ -116,7 +116,7 @@ def invert_station(args):
         
         results = {'tracers': tracers,
                    'params': params,
-                   'ppz_flux': ppzf_estimate,
+                   'total_sinking_flux': tsf_estimates,
                    'x_resids': x_resids,
                    'convergence_evolution': conv_ev,
                    'cost_evolution': cost_ev}
@@ -131,7 +131,7 @@ if __name__ == '__main__':
     
     start_time = time.time()
     
-    n_param_sets = 1000
+    n_param_sets = 20000
     
     save_path = f'../../results/geotraces/mc_{n_param_sets}'
     if not os.path.exists(save_path):
@@ -152,5 +152,7 @@ if __name__ == '__main__':
         p.imap_unordered(invert_station, inputs)
         p.close()
         p.join()
+    
+    # invert_station((23, param_sets[0]))
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')

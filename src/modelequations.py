@@ -113,8 +113,8 @@ def equation_builder(tracer, layer, grid, zg, umz_start, mld, targets=None,
         if soft_constraint:
             eq += RPli
     else:
-        ppzf = sym.symbols('ppzf')
-        eq = (ws * Psi + wl * Pli) - ppzf
+        Th_flux = sym.symbols(f'Y_{layer}')
+        eq = (ws * Psi + wl * Pli) - Th_flux
 
     return eq
 

@@ -17,6 +17,7 @@ from tqdm import tqdm
 
 import src.geotraces.data as data
 from src.colors import *
+from src.modelequations import get_layer_bounds
 
 def load_data(path):
     """Loads data and returns dfs with all sets and successful sets."""
@@ -243,6 +244,13 @@ def compile_param_estimates(params, filenames):
         pickle.dump(df, f)
             
 def param_sections(path, station_data, suffix=''):
+    
+    cbar_limits= {'Mean': {'B2p': (0, 0.2), 'Bm1l': (0, 0.3),
+                           'Bm1s': (0, 0.4), 'Bm2': (0, 3),
+                           'wl': (0, 80), 'ws': (0, 1)},
+                  'CoV': {'B2p': (0, 0.8), 'Bm1l': (0, 1.6),
+                          'Bm1s': (0, 1.6), 'Bm2': (0, 1.2),
+                          'wl': (0, 1), 'ws': (0, 1)}}
 
     with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
         df = pickle.load(f)    
@@ -257,10 +265,10 @@ def param_sections(path, station_data, suffix=''):
     lats.sort()
     
     for p in params:
-        p_df = df[['depth', 'station', p]]
-        mean = p_df.groupby(['depth', 'station']).mean().reset_index()
-        sd = p_df.groupby(['depth', 'station']).std().reset_index()
-        merged = mean.merge(sd, suffixes=(None, '_sd'), on=['depth', 'station'])
+        p_df = df[['depth', 'latitude', p]]
+        mean = p_df.groupby(['depth', 'latitude']).mean().reset_index()
+        sd = p_df.groupby(['depth', 'latitude']).std().reset_index()
+        merged = mean.merge(sd, suffixes=(None, '_sd'), on=['depth', 'latitude'])
         merged[f'{p}_cv'] = merged[f'{p}_sd'] / merged[p]
         
         fig, axs = plt.subplots(2, 1, figsize=(10, 5), tight_layout=True)
@@ -268,22 +276,29 @@ def param_sections(path, station_data, suffix=''):
             ax.invert_xaxis()
             ax.invert_yaxis()
             ax.set_ylabel('Depth (m)', fontsize=14)
-            ax.scatter(merged['latitude'], merged['depth'], c='k', zorder=1, s=1)
             ax.plot(lats, mlds, c='k', zorder=1, ls='--')
             ax.plot(lats, zgs, c='k', zorder=1)
             if i == 0:
                 cbar_label = 'Mean'
                 to_plot = merged[p]
                 for s, d in station_data.items():
-                    ax.text(d['latitude'], -30, s, ha='center')
+                    ax.text(d['latitude'], -30, s, ha='center', size=6)
+                ax.get_xaxis().set_visible(False)
             else:
                 cbar_label = 'CoV'
                 to_plot = merged[f'{p}_cv']
                 ax.set_xlabel('Latitude (°N)', fontsize=14)
-            norm = Normalize(to_plot.min(), to_plot.max())
+            # norm = Normalize(to_plot.min(), to_plot.max())
+            norm = Normalize(*cbar_limits[cbar_label][p])
             cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), ax=ax, pad=0.01)
             cbar.set_label(cbar_label, rotation=270, labelpad=20, fontsize=14)
             ax.scatter(merged['latitude'], merged['depth'], c=to_plot, norm=norm, cmap=scheme, zorder=10)
+            if 'w' not in p:
+                for s in station_data: # plot sampling depths
+                    depths = []
+                    for l in station_data[s]['layers']:
+                        depths.append(np.mean(get_layer_bounds(l, station_data[s]['grid'])))
+                    ax.scatter(np.ones(len(depths))*station_data[s]['latitude'], depths, c='k', zorder=1, s=1)
         fig.savefig(os.path.join(path, f'figs/section_{p}{suffix}.pdf'))
         plt.close()
 
@@ -311,11 +326,10 @@ def flux_profiles(path, filenames, station_data):
     mean = df.groupby(['depth', 'station']).mean().reset_index()
     sd = df.groupby(['depth', 'station']).std().reset_index()
     pump_fluxes = mean.merge(sd, suffixes=(None, '_sd'), on=['depth', 'station'])
-    th234_fluxes = pd.read_csv('../../../geotraces/pocfluxes_from_th234.csv')
     
     for s in pump_fluxes['station'].unique():
         pf_s = pump_fluxes[pump_fluxes['station'] == s]
-        tf_s = th234_fluxes[th234_fluxes['station'] == s].iloc[0]
+        Th_fluxes = station_data[s]['Th_fluxes']
         zg = station_data[s]['zg']
         mld = station_data[s]['mld']
         _, ax = plt.subplots(tight_layout=True)
@@ -332,13 +346,8 @@ def flux_profiles(path, filenames, station_data):
             ecolor=orange, c=orange, capsize=4, zorder=3,
             label='$w_LP_L$', elinewidth=1.5, capthick=1.5,
             fillstyle='none')
-        # ax.errorbar([tf_s['ppz'], tf_s['100m']], [tf_s['ppzd'], 100], fmt='o',
-        #             xerr=[tf_s['ppz_e'], tf_s['100m_e']], ecolor=green,
-        #             c=green, capsize=4, zorder=3,
-        #             label='$^{234}$Th-based', elinewidth=1.5, capthick=1.5,
-        #             fillstyle='none')
-        ax.errorbar(tf_s['ppz'], tf_s['ppzd'], fmt='o',
-                    xerr=tf_s['ppz_e'], ecolor=green,
+        ax.errorbar(Th_fluxes['flux'], Th_fluxes['depth'], fmt='o',
+                    xerr=Th_fluxes['flux'], ecolor=green,
                     c=green, capsize=4, zorder=3,
                     label='$^{234}$Th-based', elinewidth=1.5, capthick=1.5,
                     fillstyle='none') 
@@ -506,28 +515,28 @@ def compare_ppz_zg_ez():
     plt.savefig(f'../../results/geotraces/ppz_zg_ez_compare')
     plt.close()
     
-def ppz_flux_check(path, filenames):
+def total_sinking_flux_check(path, filenames, station_data):
     
     differences = []
 
     for f in filenames:
         s = int(f.split('.')[0].split('_')[1][3:])
+        Th_fluxes = station_data[s]['Th_fluxes']
         with open(os.path.join(path, f), 'rb') as file:
             results = pickle.load(file)
-            zg_index = station_data[s]['grid'].index(station_data[s]['zg'])
-            ws = results['params']['ws']['posterior'][zg_index]
-            wl =  results['params']['wl']['posterior'][zg_index]
-            ps = results['tracers']['POCS']['posterior'][zg_index]
-            pl = results['tracers']['POCL']['posterior'][zg_index]
-            ppz_flux = results['ppz_flux'][0]
-            sum_of_fluxes = ws*ps + wl*pl
-            difference = abs(sum_of_fluxes - ppz_flux)
-            differences.append(difference)
-    print(len(differences))
+            for i, l in enumerate(Th_fluxes['layer'].values):
+                ws = results['params']['ws']['posterior'][l]
+                wl =  results['params']['wl']['posterior'][l]
+                ps = results['tracers']['POCS']['posterior'][l]
+                pl = results['tracers']['POCL']['posterior'][l]
+                tsf = results['total_sinking_flux']['posterior'][i]
+                sum_of_fluxes = ws*ps + wl*pl
+                difference = abs(sum_of_fluxes - tsf)
+                differences.append(difference)
     print(max(differences))
     
 
-def poc_fluxes():
+def plot_Th_flux_data():
     
     flux_data = pd.read_excel('../../../geotraces/gp15_flux.xlsx',
                               usecols=('station_number', 'depth', 'POCFlux1d'))
@@ -565,16 +574,17 @@ if __name__ == '__main__':
     param_uniformity = data.define_param_uniformity()
     Lp_priors = data.get_Lp_priors(poc_data)
     ez_depths = data.get_ez_depths(Lp_priors)
-    station_data = data.get_station_data(poc_data, param_uniformity, ez_depths)
+    station_data = data.get_station_data(poc_data, param_uniformity, ez_depths,
+                                         flux_constraint=True)
     
-    n_sets = 1000
+    n_sets = 20000
     path = f'../../results/geotraces/mc_{n_sets}'
-    # params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
-    # all_files = get_filenames(path)
-    # hist_success(path, all_files)
+    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    all_files = get_filenames(path)
+    hist_success(path, all_files)
+    # compile_param_estimates(params, all_files)
     # flux_profiles(path, all_files, station_data)
-    
-    poc_fluxes()
+    # param_sections(path, station_data)
             
     print(f'--- {(time() - start_time)/60} minutes ---')
 

@@ -5,7 +5,7 @@ import numpy as np
 
 
 def define_state_elements(
-    tracers, params, layers, soft_constraint=False, flux_constraint=False):
+    tracers, params, layers, soft_constraint=False, Th_fluxes=None):
     """Build a list of string identifiers for all state elements."""
     state_elements = []
 
@@ -22,30 +22,36 @@ def define_state_elements(
         else:
             state_elements.append(f'{p}')
 
-    if flux_constraint:
-        state_elements.append('ppzf')
+    if Th_fluxes is not None:
+        add_Th_elements(state_elements, Th_fluxes)
 
     return state_elements
 
 
-def define_equation_elements(tracers, layers, flux_constraint_layer=None):
+def define_equation_elements(tracers, layers, Th_fluxes=None):
     """Define which state elements have associated equations (tracers only)."""
     equation_elements = [f'{t}_{l}' for t, l in product(tracers, layers)]
     
-    if flux_constraint_layer is not None:
-        equation_elements.append(f'ppzf_{flux_constraint_layer}')
+    if Th_fluxes is not None:
+        add_Th_elements(equation_elements, Th_fluxes)
 
     return equation_elements
 
 
-def define_prior_vector(tracers, params, layers, residuals=None, ppz_flux=None):
+def add_Th_elements(element_list, Th_fluxes):
+
+    for _, r in Th_fluxes.iterrows(): 
+        element_list.append(f'Y_{int(r["layer"])}')
+        
+            
+def define_prior_vector(tracers, params, layers, residuals=None, Th_fluxes=None):
     """Build the vector of prior state estimates."""
     xo = []
 
     for t in tracers:
         xo.extend(tracers[t]['prior'])
 
-    if residuals:
+    if residuals is not None:
         for r in residuals:
             xo.extend(np.ones(len(layers)) * residuals[r]['prior'])
 
@@ -55,20 +61,20 @@ def define_prior_vector(tracers, params, layers, residuals=None, ppz_flux=None):
         else:
             xo.append(params[p]['prior'])
 
-    if ppz_flux:
-        xo.append(ppz_flux)
+    if Th_fluxes is not None:
+        xo.extend(Th_fluxes['flux'].values)
 
     return np.array(xo)
 
 
-def define_cov_matrix(tracers, params, layers, residuals=None, ppz_flux=None):
+def define_cov_matrix(tracers, params, layers, residuals=None, Th_fluxes=None):
     """Build the error covariance matrix of prior estimates."""
     Co = []
 
     for t in tracers:
         Co.extend(tracers[t]['prior_e']**2)
 
-    if residuals:
+    if residuals is not None:
         for r in residuals:
             Co.extend(np.ones(len(layers)) * residuals[r]['prior_e']**2)
 
@@ -78,8 +84,7 @@ def define_cov_matrix(tracers, params, layers, residuals=None, ppz_flux=None):
         else:
             Co.append(params[p]['prior_e']**2)
 
-    if ppz_flux:
-        flux_error = 0.5
-        Co.append((ppz_flux * flux_error)**2)
+    if Th_fluxes is not None:
+        Co.extend([f**2 for f in Th_fluxes['flux'].values])
 
     return np.diag(Co)

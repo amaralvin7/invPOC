@@ -170,12 +170,12 @@ def load_mixed_layer_depths():
 
     return mld_dict
 
-def load_ppz_fluxes():
+def load_Th_fluxes():
 
-    flux_df = pd.read_csv('../../../geotraces/pocfluxes_from_th234.csv')
-    flux_dict = dict(zip(flux_df['station'], flux_df['ppz']))
+    df = pd.read_excel('../../../geotraces/gp15_flux.xlsx',
+                       usecols=('station_number', 'depth', 'POCFlux1d'))
 
-    return flux_dict
+    return df
 
 
 def get_median_POCS():
@@ -190,12 +190,29 @@ def get_median_POCS():
     return median
 
 
+def get_station_Th_fluxes(grid, max_depth, station, flux_df):
+
+    flux_layers = []
+    flux_depths = []
+    flux_vals = []
+    s_df = flux_df.loc[(flux_df['station_number'] == station) & (flux_df['depth'] < max_depth)]
+    for i, depth in enumerate(grid):
+        nearby = s_df.iloc[(s_df['depth'] - depth).abs().argsort()[:1]].iloc[0]
+        if nearby['POCFlux1d'] > 0:
+            flux_layers.append(i)
+            flux_depths.append(nearby['depth'])
+            flux_vals.append(nearby['POCFlux1d'])
+    fluxes = pd.DataFrame(list(zip(flux_layers, flux_depths, flux_vals)), columns=['layer', 'depth', 'flux'])
+    
+    return fluxes  
+
 def get_station_data(poc_data, params, ez_depths, flux_constraint=False):
     
     d = {s: {} for s in poc_data}
     mixed_layer_depths = load_mixed_layer_depths()
     if flux_constraint:
-        ppz_fluxes = load_ppz_fluxes()
+        max_depth = 620
+        flux_df = load_Th_fluxes()
     
     for s in poc_data.keys():
         grid = tuple(poc_data[s]['depth'].values)
@@ -209,13 +226,13 @@ def get_station_data(poc_data, params, ez_depths, flux_constraint=False):
         d[s]['zg'] = zg
         d[s]['umz_start'] = grid.index(zg) + 1
         d[s]['tracers'] = tracers
-        d[s]['e_elements'] = define_equation_elements(tracers, layers, flux_constraint_layer=grid.index(zg))
-        d[s]['s_elements'] = define_state_elements(tracers, params, layers, flux_constraint=True)
         if flux_constraint:
-            d[s]['ppz_flux'] = ppz_fluxes[s]
-        # zone_layers = ('EZ', 'UMZ') + layers
-        # thick = diff((0,) + grid)
-    
+            d[s]['Th_fluxes'] = get_station_Th_fluxes(grid, max_depth, s, flux_df)
+        else:
+            d[s]['Th_fluxes'] = None
+        d[s]['e_elements'] = define_equation_elements(tracers, layers, Th_fluxes=d[s]['Th_fluxes'])
+        d[s]['s_elements'] = define_state_elements(tracers, params, layers, Th_fluxes=d[s]['Th_fluxes'])
+        
     return d
 
 

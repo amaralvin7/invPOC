@@ -30,10 +30,9 @@ def unpack_state_estimates(tracers, params, state_elements, x, C, layers,
         residual_estimates = unpack_resids(tracers, state_elements, x, x_e, layers)
         unpacked.append(residual_estimates)
     
-    if 'ppzf' in state_elements:
-        i = state_elements.index('ppzf')
-        ppzf_estimate = (x[i], x_e[i])      
-        unpacked.append(ppzf_estimate)
+    if 'Y' in state_elements[-1]:  # Th fluxes are added last
+        tsf_estimates = unpack_total_sinking_fluxes(state_elements, x, x_e)     
+        unpacked.append(tsf_estimates)
 
     return unpacked
 
@@ -57,6 +56,16 @@ def unpack_tracers(tracers, state_elements, x, x_e):
             x_e, t, state_elements)
 
     return tracer_estimates
+
+
+def unpack_total_sinking_fluxes(state_elements, x, x_e):
+    """Unpack total sinking flux estimates into a dictionary."""
+
+    tsf_estimates = {}
+    tsf_estimates['posterior'] = slice_by_species(x, 'Y', state_elements)
+    tsf_estimates['posterior_e'] = slice_by_species(x_e, 'Y', state_elements)
+
+    return tsf_estimates
 
 
 def unpack_resids(tracers, state_elements, x, x_e, layers):
