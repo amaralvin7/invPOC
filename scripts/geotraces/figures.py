@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from matplotlib.colors import Normalize
+from matplotlib.colors import Normalize, BoundaryNorm
 from matplotlib import cm
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
@@ -45,40 +45,6 @@ def stacked_histograms(path, df, params):
         plt.savefig(os.path.join(path, f'stackedhist_{n_clusters}_{p}'))
         plt.close()
 
-def elbow_plot(path, df):
-    
-    df_scaled = StandardScaler().fit_transform(df)
-    inertia = []
-    
-    k_vals = range(1, 21)
-    for i in k_vals:
-        kmeans = KMeans(n_clusters=i, random_state=0)
-        result = kmeans.fit(df_scaled)
-        inertia.append(result.inertia_)
-
-    plt.figure()
-    plt.plot(k_vals, inertia, marker='o', ls='--')
-    plt.xlabel('Number of Clusters')
-    plt.xticks(k_vals)
-    plt.ylabel('Inertia')
-    plt.savefig(os.path.join(path, 'elbowplot'))
-    plt.close()
-
-def cluster(df, n_clusters):
-
-    df_scaled = StandardScaler().fit_transform(df)
-
-    kmeans = KMeans(n_clusters=n_clusters, random_state=0)
-    result = kmeans.fit(df_scaled)
-    df['label'] = result.labels_
-    
-    unique_labels = df['label'].unique()
-    unique_labels.sort()
-    for l in unique_labels:
-        label_df = df[df['label'] == l]
-        print(f'Fraction of successful sets in cluster {l}: {len(label_df)/len(df):.2f}')
-    
-    return df
 
 def pairplot(path, df):
 
@@ -242,7 +208,78 @@ def compile_param_estimates(params, filenames):
     
     with open(os.path.join(path, 'saved_params.pkl'), 'wb') as f:
         pickle.dump(df, f)
-            
+
+
+def cluster_means(path, saved_params):
+
+    def elbowplot(df):
+        
+        inertia = []
+        k_vals = range(1, 21)
+        for i in k_vals:
+            kmeans = KMeans(n_clusters=i, random_state=0)
+            result = kmeans.fit(df)
+            inertia.append(result.inertia_)
+
+        plt.figure()
+        plt.plot(k_vals, inertia, marker='o', ls='--')
+        plt.xlabel('Number of Clusters')
+        plt.xticks(k_vals)
+        plt.ylabel('Inertia')
+        plt.savefig(os.path.join(path, 'figs/elbowplot'))
+        plt.close()
+        
+    with open(os.path.join(path, saved_params), 'rb') as f:
+        df = pickle.load(f)
+        merge_on = ['depth', 'latitude', 'station']
+        means = df.groupby(merge_on).mean().reset_index()
+        means_dropped = means.drop(merge_on, axis=1)
+        means_scaled = StandardScaler().fit_transform(means_dropped)
+        
+    # labels = hdbscan.HDBSCAN(  # doesn't work very well, N is too low?
+    #     min_samples=1,
+    #     min_cluster_size=4
+    #     ).fit_predict(means_scaled)
+    # means['cluster'] = labels
+    
+    kmeans = KMeans(n_clusters=4, random_state=0)  # elbowplot suggests 5-7
+    labels = kmeans.fit(means_scaled).labels_
+
+    means['cluster'] = labels
+    scheme = plt.cm.tab10
+    lats = [station_data[s]['latitude'] for s in station_data]
+    mlds_unsorted = [station_data[s]['mld'] for s in station_data]
+    zgs_unsorted = [station_data[s]['zg'] for s in station_data]
+    mlds = [mld for _, mld in sorted(zip(lats, mlds_unsorted))]
+    zgs = [zg for _, zg in sorted(zip(lats, zgs_unsorted))]
+    lats.sort()
+    
+    fig, ax = plt.subplots(1, 1, tight_layout=True)
+    ax.invert_xaxis()
+    ax.invert_yaxis()
+    ax.set_ylabel('Depth (m)', fontsize=14)
+    ax.set_xlabel('Latitude (°N)', fontsize=14)
+    ax.plot(lats, mlds, c='k', zorder=1, ls='--')
+    ax.plot(lats, zgs, c='k', zorder=1)
+    cbar_label = 'Cluster'
+    for s, d in station_data.items():
+        ax.text(d['latitude'], -30, s, ha='center', size=6)
+
+    bounds = np.arange(min(labels), max(labels) + 2, 1)
+    bounds_mid = (bounds[1:] + bounds[:-1]) / 2
+    norm = BoundaryNorm(bounds, scheme.N)
+    cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), ax=ax, pad=0.01, ticks=bounds_mid)
+    cbar.ax.set_yticklabels(bounds[:-1])
+    cbar.set_label(cbar_label, rotation=270, labelpad=20, fontsize=14)
+    ax.scatter(means['latitude'], means['depth'], c=means['cluster'],norm=norm, cmap=scheme, zorder=10)
+    for s in station_data: # plot sampling depths
+        depths = []
+        for l in station_data[s]['layers']:
+            depths.append(np.mean(get_layer_bounds(l, station_data[s]['grid'])))
+        ax.scatter(np.ones(len(depths))*station_data[s]['latitude'], depths, c='k', zorder=1, s=1)
+    fig.savefig(os.path.join(path, f'figs/clusteredsection.pdf'))
+        
+
 def param_sections(path, station_data, suffix=''):
     
     cbar_limits= {'Mean': {'B2p': (0, 0.2), 'Bm1l': (0, 0.3),
@@ -581,10 +618,7 @@ if __name__ == '__main__':
     path = f'../../results/geotraces/mc_{n_sets}'
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     all_files = get_filenames(path)
-    hist_success(path, all_files)
-    # compile_param_estimates(params, all_files)
-    # flux_profiles(path, all_files, station_data)
-    # param_sections(path, station_data)
+    cluster_means(path, 'saved_params.pkl')
             
     print(f'--- {(time() - start_time)/60} minutes ---')
 
