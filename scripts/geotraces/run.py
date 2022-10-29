@@ -30,8 +30,7 @@ def generate_param_sets(n_runs):
 
     median_POCS = data.get_median_POCS()
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
-    compilation = pd.read_excel(
-        '../../../geotraces/paramcompilation.xlsx', sheet_name=None)
+    compilation = pd.read_csv('../../../geotraces/paramcompilation.csv')
     random.seed(0)
     
     extrema = get_param_extrema(compilation, params, median_POCS)
@@ -51,11 +50,13 @@ def get_param_extrema(compilation, params, median_POCS):
     extrema = {}
     for p in params:
         if p == 'B2p':
-            lo, hi = get_param_range(compilation['B2']['val'].to_numpy())
+            df = compilation.loc[compilation['param'] == 'B2']
+            lo, hi = get_param_range(df['val'].to_numpy())
             lo = lo / median_POCS
             hi = hi / median_POCS
         else:
-            lo, hi = get_param_range(compilation[p]['val'].to_numpy())
+            df = compilation.loc[compilation['param'] == p]
+            lo, hi = get_param_range(df['val'].to_numpy())
         extrema[p] = (lo, hi)
     
     return extrema
@@ -131,7 +132,7 @@ if __name__ == '__main__':
     
     start_time = time.time()
     
-    n_param_sets = 20000
+    n_param_sets = 10000
     
     save_path = f'../../results/geotraces/mc_{n_param_sets}'
     if not os.path.exists(save_path):

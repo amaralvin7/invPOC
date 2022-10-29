@@ -172,8 +172,8 @@ def load_mixed_layer_depths():
 
 def load_Th_fluxes():
 
-    df = pd.read_excel('../../../geotraces/gp15_flux.xlsx',
-                       usecols=('station_number', 'depth', 'POCFlux1d'))
+    df = pd.read_csv('../../../geotraces/gp15_flux.csv',
+                     usecols=('station_number', 'depth', 'POCFlux1d'))
 
     return df
 

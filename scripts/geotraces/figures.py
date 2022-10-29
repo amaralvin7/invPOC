@@ -614,11 +614,14 @@ if __name__ == '__main__':
     station_data = data.get_station_data(poc_data, param_uniformity, ez_depths,
                                          flux_constraint=True)
     
-    n_sets = 20000
+    n_sets = 10000
     path = f'../../results/geotraces/mc_{n_sets}'
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     all_files = get_filenames(path)
-    cluster_means(path, 'saved_params.pkl')
+    compile_param_estimates(params, all_files)
+    hist_success(path, all_files)
+    param_sections(path, station_data)
+    
             
     print(f'--- {(time() - start_time)/60} minutes ---')
 
