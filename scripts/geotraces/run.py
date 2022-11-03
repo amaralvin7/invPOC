@@ -13,6 +13,7 @@ import pandas as pd
 import src.ati as ati
 import src.geotraces.data as data
 import src.framework as framework
+import src.fluxes as fluxes
 import src.unpack as unpack
 
 warnings.simplefilter('error')
@@ -115,9 +116,12 @@ def invert_station(args):
         unpack.merge_by_keys(tracer_estimates, tracers)
         unpack.merge_by_keys(param_estimates, params)
         
+        sink_fluxes = fluxes.sinking_fluxes(layers, state_elements, Ckp1, tracers, params)
+        
         results = {'tracers': tracers,
                    'params': params,
                    'total_sinking_flux': tsf_estimates,
+                   'sink_fluxes': sink_fluxes,
                    'x_resids': x_resids,
                    'convergence_evolution': conv_ev,
                    'cost_evolution': cost_ev}

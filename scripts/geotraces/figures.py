@@ -349,17 +349,12 @@ def flux_profiles(path, filenames, station_data):
             stn = int(f.split('.')[0].split('_')[1][3:])
             file_dict = {'depth': station_data[stn]['grid'],
                          'station': stn * np.ones(len(station_data[stn]['grid'])),
-                         'ws': np.array(results['params']['ws']['posterior']),
-                         'wl': np.array(results['params']['wl']['posterior']),
-                         'POCS': np.array(results['tracers']['POCS']['posterior']),
-                         'POCL': np.array(results['tracers']['POCL']['posterior'])}
+                         'sflux': np.array([i[0] for i in results['sink_fluxes']['S']]),
+                         'lflux': np.array([i[0] for i in results['sink_fluxes']['L']]),
+                         'tflux': np.array([i[0] for i in results['sink_fluxes']['T']]),}
             df_rows.append(pd.DataFrame(file_dict))
     df = pd.concat(df_rows, ignore_index=True)
 
-    df['sflux'] = df['ws'] * df['POCS']
-    df['lflux'] = df['wl'] * df['POCL']
-    df['tflux'] = df['sflux'] + df['lflux']
-    df.drop(['ws', 'wl', 'POCS', 'POCL'], axis=1, inplace=True)
     mean = df.groupby(['depth', 'station']).mean().reset_index()
     sd = df.groupby(['depth', 'station']).std().reset_index()
     pump_fluxes = mean.merge(sd, suffixes=(None, '_sd'), on=['depth', 'station'])
@@ -562,12 +557,8 @@ def total_sinking_flux_check(path, filenames, station_data):
         with open(os.path.join(path, f), 'rb') as file:
             results = pickle.load(file)
             for i, l in enumerate(Th_fluxes['layer'].values):
-                ws = results['params']['ws']['posterior'][l]
-                wl =  results['params']['wl']['posterior'][l]
-                ps = results['tracers']['POCS']['posterior'][l]
-                pl = results['tracers']['POCL']['posterior'][l]
                 tsf = results['total_sinking_flux']['posterior'][i]
-                sum_of_fluxes = ws*ps + wl*pl
+                sum_of_fluxes = results['sink_fluxes']['T'][l][0]
                 difference = abs(sum_of_fluxes - tsf)
                 differences.append(difference)
     print(max(differences))
@@ -618,10 +609,11 @@ if __name__ == '__main__':
     path = f'../../results/geotraces/mc_{n_sets}'
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     all_files = get_filenames(path)
-    compile_param_estimates(params, all_files)
-    hist_success(path, all_files)
-    param_sections(path, station_data)
-    
+    # compile_param_estimates(params, all_files)
+    # hist_success(path, all_files)
+    # param_sections(path, station_data)
+    # flux_profiles(path, all_files, station_data)
+    total_sinking_flux_check(path, all_files, station_data)
             
     print(f'--- {(time() - start_time)/60} minutes ---')
 
