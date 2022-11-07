@@ -16,7 +16,7 @@ import src.framework as framework
 import src.fluxes as fluxes
 import src.unpack as unpack
 
-warnings.simplefilter('error')
+# warnings.simplefilter('error')
 
 poc_data = data.poc_by_station()
 param_uniformity = data.define_param_uniformity()
@@ -59,6 +59,8 @@ def get_param_extrema(compilation, params, median_POCS):
             df = compilation.loc[compilation['param'] == p]
             lo, hi = get_param_range(df['val'].to_numpy())
         extrema[p] = (lo, hi)
+        print(f'{p}: {lo, hi}')
+    print(f'median_POCS: {median_POCS}')
     
     return extrema
 
@@ -144,19 +146,19 @@ if __name__ == '__main__':
         
     param_sets = generate_param_sets(n_param_sets)
 
-    stations = poc_data.keys()
-    station_list = []
-    set_list = []
+    # stations = poc_data.keys()
+    # station_list = []
+    # set_list = []
 
-    for s in param_sets:
-        station_list.extend(stations)
-        set_list.extend(itertools.repeat(s, len(stations)))
+    # for s in param_sets:
+    #     station_list.extend(stations)
+    #     set_list.extend(itertools.repeat(s, len(stations)))
 
-    inputs = zip(station_list, set_list)
-    with mp.Pool(64, maxtasksperchild=1) as p:
-        p.imap_unordered(invert_station, inputs)
-        p.close()
-        p.join()
+    # inputs = zip(station_list, set_list)
+    # with mp.Pool(64, maxtasksperchild=1) as p:
+    #     p.imap_unordered(invert_station, inputs)
+    #     p.close()
+    #     p.join()
     
     # invert_station((23, param_sets[0]))
 
