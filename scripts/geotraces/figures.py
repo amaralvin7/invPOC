@@ -593,27 +593,67 @@ def plot_Th_flux_data():
         plt.close(fig)
     # plt.hist(diffs)
     # plt.show()
+
+
+def plot_ctd_data():
+    
+    # pigrath (ODF) casts from Jen's POC flux table for all staitons except
+    # 8, 14, 29, and 39, which are from GTC
+    station_cast = {3: 4, 4: 5, 5: 5, 6: 5, 8: 6, 10: 5, 12: 6, 14: 6, 16: 5,
+                    18: 5, 19: 4, 21: 5, 23: 4, 25: 5, 27: 5, 29: 6, 31: 5,
+                    33: 5, 35: 5, 37: 5, 39: 6}
+    
+    station_fname = {}
+
+    path = '../../../geotraces/ctd'
+    
+    # get filenames for each station
+    fnames = [f for f in os.listdir(path) if '.csv' in f]
+    for f in fnames:
+        prefix  = f.split('_')[0]
+        station = int(prefix[:3])
+        cast = int(prefix[3:])
+        if station in station_cast and station_cast[station] == cast:
+            station_fname[station] = f
+
+    for s in station_fname:
+        
+        df = pd.read_csv(os.path.join(path, station_fname[s]), header=12)
+        
+        df.drop([0, len(df) - 1], inplace=True)  # don't want first and last rows (non-numerical)
+        for c in ['CTDPRS', 'CTDTMP', 'CTDOXY']:
+            df[c] = pd.to_numeric(df[c])
+        df = df.loc[df['CTDPRS'] <= 600]
+         
+        for c in ['CTDTMP', 'CTDOXY']:
+            _, ax = plt.subplots(tight_layout=True)
+            ax.set_ylabel('Depth (dbar)', fontsize=14)
+            ax.invert_yaxis()
+            ax.plot(df[c], df['CTDPRS'], 'b')
+            plt.savefig(os.path.join(path, f'figs/{c}_stn{int(s)}'))
+            plt.close()
+    
         
 if __name__ == '__main__':
     
     start_time = time()
 
-    poc_data = data.poc_by_station()
-    param_uniformity = data.define_param_uniformity()
-    Lp_priors = data.get_Lp_priors(poc_data)
-    ez_depths = data.get_ez_depths(Lp_priors)
-    station_data = data.get_station_data(poc_data, param_uniformity, ez_depths,
-                                         flux_constraint=True)
+    # poc_data = data.poc_by_station()
+    # param_uniformity = data.define_param_uniformity()
+    # Lp_priors = data.get_Lp_priors(poc_data)
+    # ez_depths = data.get_ez_depths(Lp_priors)
+    # station_data = data.get_station_data(poc_data, param_uniformity, ez_depths,
+    #                                      flux_constraint=True)
     
-    n_sets = 10000
-    path = f'../../results/geotraces/mc_{n_sets}'
-    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
-    all_files = get_filenames(path)
+    # n_sets = 10000
+    # path = f'../../results/geotraces/mc_{n_sets}'
+    # params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    # all_files = get_filenames(path)
     # compile_param_estimates(params, all_files)
     # hist_success(path, all_files)
     # param_sections(path, station_data)
     # flux_profiles(path, all_files, station_data)
-    total_sinking_flux_check(path, all_files, station_data)
+    plot_ctd_data()
             
     print(f'--- {(time() - start_time)/60} minutes ---')
 
