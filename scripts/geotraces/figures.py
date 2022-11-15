@@ -8,7 +8,9 @@ import gsw
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import scipy
 import seaborn as sns
+import statsmodels.api as sm
 from matplotlib.colors import Normalize, BoundaryNorm
 from matplotlib import cm
 from sklearn.cluster import KMeans
@@ -461,6 +463,77 @@ def aou_scatter(path, params):
         plt.savefig(os.path.join(path, f'figs/aouscatter_{p}'))
         plt.close()
 
+def ctd_scatter(path, params):
+        
+    # get mean param df across all stations
+    with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
+        df = pickle.load(f)
+    param_means = df.groupby(['depth', 'station']).mean().reset_index()
+
+    # pigrath (ODF) casts from Jen's POC flux table for all staitons except
+    # 8, 14, 29, and 39, which are from GTC
+    station_cast = {3: 4, 4: 5, 5: 5, 6: 5, 8: 6, 10: 5, 12: 6, 14: 6, 16: 5,
+                    18: 5, 19: 4, 21: 5, 23: 4, 25: 5, 27: 5, 29: 6, 31: 5,
+                    33: 5, 35: 5, 37: 5, 39: 6}
+    
+    station_fname = {}
+    fnames = [f for f in os.listdir('../../../geotraces/ctd') if '.csv' in f]  # get filenames for each station
+    for f in fnames:
+        prefix  = f.split('_')[0]
+        station = int(prefix[:3])
+        cast = int(prefix[3:])
+        if station in station_cast and station_cast[station] == cast:
+            station_fname[station] = f
+
+    # for each station, get the CTD and param dfs
+    df_list = []
+    for s in station_fname:
+
+        ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
+        ctd_df.drop([0, len(ctd_df) - 1], inplace=True)  # don't want first and last rows (non-numerical)
+        for c in ['CTDPRS', 'CTDTMP', 'CTDOXY']:
+            ctd_df[c] = pd.to_numeric(ctd_df[c])
+        ctd_df = ctd_df.loc[ctd_df['CTDPRS'] <= 600]
+        ctd_df = ctd_df[['CTDPRS', 'CTDTMP', 'CTDOXY']]
+        ctd_df = ctd_df.rename({'CTDPRS': 'depth'}, axis='columns')
+        param_df = param_means.loc[param_means['station'] == s].copy()
+        df_list.append(pd.merge_asof(param_df, ctd_df, on='depth', direction='nearest'))
+
+    merged = pd.concat(df_list)
+
+    # plot the scatterplots
+    for (p, t) in product(params, ('CTDTMP', 'CTDOXY')):
+        f, ax = plt.subplots(figsize=(7, 7))
+        # ax.set(xscale='log', yscale='log')
+        sns.scatterplot(x=p, y=t, data=merged, hue='depth', ax=ax)
+        plt.savefig(os.path.join(path, f'figs/ctdscatter_{p}_{t}'))
+        plt.close()
+    
+    for p in params:
+        # print(f'-----{p}-----')
+        p_df = merged[['CTDTMP', 'CTDOXY', p]]
+        X = p_df[['CTDTMP', 'CTDOXY']]
+        y = p_df[p] 
+        X = sm.add_constant(X) 
+        est = sm.OLS(y, X).fit()  # multiple linear regression
+        print(f'{p}: {est.rsquared_adj:.3f}')
+        print(est.summary())
+        
+        c0, cT, cO2 = est.params  # linear combo plots
+        yp = c0 + p_df['CTDTMP']*cT + p_df['CTDOXY']*cO2
+        _, ax = plt.subplots(tight_layout=True)
+        sns.scatterplot(x=yp, y=p_df[p], hue=merged['depth'], ax=ax)
+        ax.set_xlabel('predicted')
+        ax.set_ylabel('actual')
+        plt.savefig(os.path.join(path, f'figs/lincombo_{p}'))
+        plt.close()
+        
+        p_df = p_df.sort_values(p)
+        for t in ['CTDTMP', 'CTDOXY']:
+            tau, pval = scipy.stats.kendalltau(p_df[p], p_df[t])
+            print(f'Tau stats for {p}, {t} (tau, pval) = {tau:0.3f}, {pval:0.3f}')
+            
+
 def param_profile_distribution(path, param):
 
     with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
@@ -645,16 +718,16 @@ if __name__ == '__main__':
     # station_data = data.get_station_data(poc_data, param_uniformity, ez_depths,
     #                                      flux_constraint=True)
     
-    # n_sets = 10000
-    # path = f'../../results/geotraces/mc_{n_sets}'
-    # params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    n_sets = 10000
+    path = f'../../results/geotraces/mc_{n_sets}'
+    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     # all_files = get_filenames(path)
     # compile_param_estimates(params, all_files)
     # hist_success(path, all_files)
     # param_sections(path, station_data)
     # flux_profiles(path, all_files, station_data)
-    plot_ctd_data()
-            
+    ctd_scatter(path, params)
+
     print(f'--- {(time() - start_time)/60} minutes ---')
 
     
