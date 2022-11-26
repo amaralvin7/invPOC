@@ -13,6 +13,8 @@ import seaborn as sns
 import statsmodels.api as sm
 from matplotlib.colors import Normalize, BoundaryNorm
 from matplotlib import cm
+from mpl_toolkits.axes_grid1 import host_subplot
+from mpl_toolkits.axisartist import Axes
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
@@ -203,6 +205,7 @@ def compile_param_estimates(params, filenames):
             stn = int(f.split('.')[0].split('_')[1][3:])
             file_dict = {p: results[p]['posterior'] for p in params}
             file_dict['depth'] = station_data[stn]['grid']
+            file_dict['avg_depth'] = [np.mean(get_layer_bounds(l, station_data[stn]['grid'])) for l in station_data[stn]['layers']]
             file_dict['latitude'] = station_data[stn]['latitude'] * np.ones(len(station_data[stn]['grid']))
             file_dict['station'] = stn * np.ones(len(station_data[stn]['grid']))
             df_rows.append(pd.DataFrame(file_dict))
@@ -282,7 +285,7 @@ def cluster_means(path, saved_params):
     fig.savefig(os.path.join(path, f'figs/clusteredsection.pdf'))
         
 
-def param_sections(path, station_data, suffix=''):
+def param_sections(path, station_data):
     
     cbar_limits= {'Mean': {'B2p': (0, 0.2), 'Bm1l': (0, 0.3),
                            'Bm1s': (0, 0.4), 'Bm2': (0, 3),
@@ -304,16 +307,17 @@ def param_sections(path, station_data, suffix=''):
     lats.sort()
     
     for p in params:
-        p_df = df[['depth', 'latitude', p]]
-        mean = p_df.groupby(['depth', 'latitude']).mean().reset_index()
-        sd = p_df.groupby(['depth', 'latitude']).std().reset_index()
-        merged = mean.merge(sd, suffixes=(None, '_sd'), on=['depth', 'latitude'])
+        p_df = df[['depth', 'avg_depth', 'latitude', p]]
+        mean = p_df.groupby(['depth', 'avg_depth', 'latitude']).mean().reset_index()
+        sd = p_df.groupby(['depth', 'avg_depth', 'latitude']).std().reset_index()
+        merged = mean.merge(sd, suffixes=(None, '_sd'), on=['depth', 'avg_depth', 'latitude'])
         merged[f'{p}_cv'] = merged[f'{p}_sd'] / merged[p]
         
         fig, axs = plt.subplots(2, 1, figsize=(10, 5), tight_layout=True)
         for i, ax in enumerate(axs):
             ax.invert_xaxis()
             ax.invert_yaxis()
+            ax.set_ylim(top=0, bottom=610)
             ax.set_ylabel('Depth (m)', fontsize=14)
             ax.plot(lats, mlds, c='k', zorder=1, ls='--')
             ax.plot(lats, zgs, c='k', zorder=1)
@@ -331,14 +335,48 @@ def param_sections(path, station_data, suffix=''):
             norm = Normalize(*cbar_limits[cbar_label][p])
             cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), ax=ax, pad=0.01)
             cbar.set_label(cbar_label, rotation=270, labelpad=20, fontsize=14)
-            ax.scatter(merged['latitude'], merged['depth'], c=to_plot, norm=norm, cmap=scheme, zorder=10)
             if 'w' not in p:
+                depth_str = 'avg_depth'
                 for s in station_data: # plot sampling depths
-                    depths = []
-                    for l in station_data[s]['layers']:
-                        depths.append(np.mean(get_layer_bounds(l, station_data[s]['grid'])))
+                    depths = station_data[s]['grid']
                     ax.scatter(np.ones(len(depths))*station_data[s]['latitude'], depths, c='k', zorder=1, s=1)
-        fig.savefig(os.path.join(path, f'figs/section_{p}{suffix}.pdf'))
+            else:
+                depth_str = 'depth'
+            ax.scatter(merged['latitude'], merged[depth_str], c=to_plot, norm=norm, cmap=scheme, zorder=10)
+        fig.savefig(os.path.join(path, f'figs/section_{p}.pdf'))
+        plt.close()
+
+        
+def param_profiles_all_stations(path, station_data):
+
+    param_text = get_param_text()
+    
+    with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
+        df = pickle.load(f)    
+
+    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    scheme = plt.cm.plasma
+    colors = scheme(np.linspace(0, 1, len(station_data)))
+    
+    for p in params:
+        depth_str = 'depth' if 'w' in params else 'avg_depth'
+        p_df = df[[depth_str, 'station', 'latitude', p]]
+        mean = p_df.groupby([depth_str, 'station', 'latitude']).mean().reset_index()
+        
+        fig, ax = plt.subplots(tight_layout=True)
+        ax.set_ylim(0, 600)
+        ax.invert_yaxis()
+        ax.set_ylabel('Depth (m)', fontsize=14)
+        ax.set_xlabel(f'{param_text[p][0]} ({param_text[p][1]})', fontsize=14)
+        norm = Normalize(-20, 60)  # min and max latitudes
+        cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), ax=ax, pad=0.01)
+        cbar.set_label('Latitude (°N)', rotation=270, labelpad=20, fontsize=14)
+        
+        for i, s in enumerate(station_data):
+            s_df = mean.loc[mean['station'] == s]
+            ax.plot(s_df[p], s_df[depth_str], c=colors[i])
+
+        fig.savefig(os.path.join(path, f'figs/allstnprof_{p}'))
         plt.close()
 
 def flux_profiles(path, filenames, station_data):
@@ -463,12 +501,13 @@ def aou_scatter(path, params):
         plt.savefig(os.path.join(path, f'figs/aouscatter_{p}'))
         plt.close()
 
-def ctd_scatter(path, params):
+
+def ctd_plots(path, params):
         
     # get mean param df across all stations
     with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
         df = pickle.load(f)
-    param_means = df.groupby(['depth', 'station']).mean().reset_index()
+    param_means = df.groupby(['depth', 'avg_depth', 'station']).mean().reset_index()
 
     # pigrath (ODF) casts from Jen's POC flux table for all staitons except
     # 8, 14, 29, and 39, which are from GTC
@@ -499,39 +538,108 @@ def ctd_scatter(path, params):
         param_df = param_means.loc[param_means['station'] == s].copy()
         df_list.append(pd.merge_asof(param_df, ctd_df, on='depth', direction='nearest'))
 
-    merged = pd.concat(df_list)
+    # merged = pd.concat(df_list)
 
-    # plot the scatterplots
-    for (p, t) in product(params, ('CTDTMP', 'CTDOXY')):
-        f, ax = plt.subplots(figsize=(7, 7))
-        # ax.set(xscale='log', yscale='log')
-        sns.scatterplot(x=p, y=t, data=merged, hue='depth', ax=ax)
-        plt.savefig(os.path.join(path, f'figs/ctdscatter_{p}_{t}'))
-        plt.close()
+    # profiles of T, O2, params
+    for (s, p) in product(station_fname, params):
+        
+        s_p_df = param_means.loc[param_means['station'] == s][['depth', 'avg_depth', p]]
+        ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
+        ctd_df.drop([0, len(ctd_df) - 1], inplace=True)  # don't want first and last rows (non-numerical)
+        for c in ['CTDPRS', 'CTDTMP', 'CTDOXY']:
+            ctd_df[c] = pd.to_numeric(ctd_df[c])
+        ctd_df = ctd_df.loc[ctd_df['CTDPRS'] <= 600]
+        ctd_df = ctd_df[['CTDPRS', 'CTDTMP', 'CTDOXY']]
+        ctd_df = ctd_df.rename({'CTDPRS': 'depth'}, axis='columns')
+
+        fig = plt.figure()
+        host1 = host_subplot(111, axes_class=Axes, figure=fig)
+        host1.axis['right'].toggle(all=False)
+        plt.subplots_adjust(top=0.75, bottom=0.1)
+        par1 = host1.twiny()
+        par2 = host1.twiny()
+
+        par1.axis['top'].toggle(all=True)
+        offset = 40
+        new_fixed_axis = par2.get_grid_helper().new_fixed_axis
+        par2.axis['top'] = new_fixed_axis(loc='top', axes=par2, offset=(0, offset))
+        par2.axis['top'].toggle(all=True)
+
+        host1.set_ylim(0, 600)
+        host1.invert_yaxis()
+
+        host1.set_ylabel('Depth (m)')
+        host1.set_xlabel(p)
+        par1.set_xlabel('Temperature (°C)')
+        par2.set_xlabel('Dissolved O$_2$ (µmol kg$^{-1}$)')
+
+        host1.axis['bottom'].label.set_color(green)
+        par1.axis['top'].label.set_color(vermillion)
+        par2.axis['top'].label.set_color(blue)
+
+        host1.axis['bottom', 'left'].label.set_fontsize(14)
+        par1.axis['top'].label.set_fontsize(14)
+        par2.axis['top'].label.set_fontsize(14)
+
+        host1.axis['bottom', 'left'].major_ticklabels.set_fontsize(11)
+        par1.axis['top'].major_ticklabels.set_fontsize(11)
+        par2.axis['top'].major_ticklabels.set_fontsize(11)
+
+        host1.axis['bottom', 'left'].major_ticks.set_ticksize(6)
+        host1.axis['left'].major_ticks.set_tick_out('out')
+        par1.axis['top'].major_ticks.set_ticksize(6)
+        par2.axis['top'].major_ticks.set_ticksize(6)
+
+        par1.plot(ctd_df['CTDTMP'], ctd_df['depth'], c=vermillion, ms=2)
+        par2.plot(ctd_df['CTDOXY'], ctd_df['depth'], c=blue, ms=2)
+        
+
+        if 'w' not in p:
+            host1.plot(s_p_df[p], s_p_df['avg_depth'], c=green)
+            for i, (_, r) in enumerate(s_p_df.iterrows()):
+                ymin, ymax = get_layer_bounds(i, s_p_df['depth'].values)
+                host1.vlines(r[p], ymin, ymax, colors=green, zorder=3)
+        else:
+            host1.plot(s_p_df[p], s_p_df['depth'], c=green)
+
+        fig.savefig(os.path.join(path, f'figs/profile_T_O2_{p}_s{s}'))
+        plt.close() 
+
+    # # plot the scatterplots
+    # for (p, t) in product(params, ('CTDTMP', 'CTDOXY')):
+    #     f, ax = plt.subplots(figsize=(7, 7))
+    #     # ax.set(xscale='log', yscale='log')
+    #     sns.scatterplot(x=p, y=t, data=merged, hue='depth', ax=ax)
+    #     plt.savefig(os.path.join(path, f'figs/ctdscatter_{p}_{t}'))
+    #     plt.close()
     
-    for p in params:
-        # print(f'-----{p}-----')
-        p_df = merged[['CTDTMP', 'CTDOXY', p]]
-        X = p_df[['CTDTMP', 'CTDOXY']]
-        y = p_df[p] 
-        X = sm.add_constant(X) 
-        est = sm.OLS(y, X).fit()  # multiple linear regression
-        print(f'{p}: {est.rsquared_adj:.3f}')
-        print(est.summary())
+    # for p in params:
         
-        c0, cT, cO2 = est.params  # linear combo plots
-        yp = c0 + p_df['CTDTMP']*cT + p_df['CTDOXY']*cO2
-        _, ax = plt.subplots(tight_layout=True)
-        sns.scatterplot(x=yp, y=p_df[p], hue=merged['depth'], ax=ax)
-        ax.set_xlabel('predicted')
-        ax.set_ylabel('actual')
-        plt.savefig(os.path.join(path, f'figs/lincombo_{p}'))
-        plt.close()
+    #     p_df = merged[['CTDTMP', 'CTDOXY', p]]
         
-        p_df = p_df.sort_values(p)
-        for t in ['CTDTMP', 'CTDOXY']:
-            tau, pval = scipy.stats.kendalltau(p_df[p], p_df[t])
-            print(f'Tau stats for {p}, {t} (tau, pval) = {tau:0.3f}, {pval:0.3f}')
+    #     # multiple linear regression
+    #     X = p_df[['CTDTMP', 'CTDOXY']]
+    #     y = p_df[p] 
+    #     X = sm.add_constant(X) 
+    #     est = sm.OLS(y, X).fit()  
+    #     print(f'{p}: {est.rsquared_adj:.3f}')
+    #     print(est.summary())
+        
+    #     # linear combo plots
+    #     c0, cT, cO2 = est.params  
+    #     yp = c0 + p_df['CTDTMP']*cT + p_df['CTDOXY']*cO2
+    #     _, ax = plt.subplots(tight_layout=True)
+    #     sns.scatterplot(x=yp, y=p_df[p], hue=merged['depth'], ax=ax)
+    #     ax.set_xlabel('predicted')
+    #     ax.set_ylabel('actual')
+    #     plt.savefig(os.path.join(path, f'figs/lincombo_{p}'))
+    #     plt.close()
+        
+    #     # kendal tau
+    #     p_df = p_df.sort_values(p)
+    #     for t in ['CTDTMP', 'CTDOXY']:
+    #         tau, pval = scipy.stats.kendalltau(p_df[p], p_df[t])
+    #         print(f'Tau stats for {p}, {t} (tau, pval) = {tau:0.3f}, {pval:0.3f}')
             
 
 def param_profile_distribution(path, param):
@@ -705,28 +813,42 @@ def plot_ctd_data():
             ax.plot(df[c], df['CTDPRS'], 'b')
             plt.savefig(os.path.join(path, f'figs/{c}_stn{int(s)}'))
             plt.close()
+
+
+def get_param_text():
+
+    param_text = {'ws': ('$w_S$', 'm d$^{-1}$'), 'wl': ('$w_L$', 'm d$^{-1}$'),
+                'B2p': ('$\\beta^,_2$', 'm$^3$ mmol$^{-1}$ d$^{-1}$'),
+                'Bm2': ('$\\beta_{-2}$', 'd$^{-1}$'),
+                'Bm1s': ('$\\beta_{-1,S}$', 'd$^{-1}$'),
+                'Bm1l': ('$\\beta_{-1,L}$', 'd$^{-1}$'),
+                'B2': ('$\\beta_2$', 'd$^{-1}$'),
+                'Po': ('$\\.P_{S,ML}$', 'mmol m$^{-3}$ d$^{-1}$'),
+                'Lp': ('$L_P$', 'm'), 'B3': ('$\\beta_3$', 'd$^{-1}$'),
+                'a': ('$\\alpha$', None), 'zm': ('$z_m$', 'm')}
+    
+    return param_text
     
         
 if __name__ == '__main__':
     
     start_time = time()
 
-    # poc_data = data.poc_by_station()
-    # param_uniformity = data.define_param_uniformity()
-    # Lp_priors = data.get_Lp_priors(poc_data)
-    # ez_depths = data.get_ez_depths(Lp_priors)
-    # station_data = data.get_station_data(poc_data, param_uniformity, ez_depths,
-    #                                      flux_constraint=True)
+    poc_data = data.poc_by_station()
+    param_uniformity = data.define_param_uniformity()
+    Lp_priors = data.get_Lp_priors(poc_data)
+    ez_depths = data.get_ez_depths(Lp_priors)
+    station_data = data.get_station_data(poc_data, param_uniformity, ez_depths,
+                                         flux_constraint=True)
     
-    n_sets = 10000
+    n_sets = 50000
     path = f'../../results/geotraces/mc_{n_sets}'
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
-    # all_files = get_filenames(path)
+    all_files = get_filenames(path)
     # compile_param_estimates(params, all_files)
-    # hist_success(path, all_files)
-    # param_sections(path, station_data)
-    # flux_profiles(path, all_files, station_data)
-    ctd_scatter(path, params)
+    # ctd_plots(path, params)
+    param_sections(path, station_data)
+    param_profiles_all_stations(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
