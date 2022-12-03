@@ -31,7 +31,7 @@ def load_poc_data():
     data.dropna(inplace=True)
     data = data.loc[:, ~data.columns.str.startswith('SPM_SPT_ugL')]
 
-    data = data[~data['station'].isin((1, 18.3))]  # exclude stations 1, 18.3
+    data = data[~data['station'].isin((1, 3, 18.3))]  # exclude stations 1, 18.3
     data = data[data['depth'] < 1000]  # don't need data below 1km
 
     return data
@@ -70,7 +70,7 @@ def poc_by_station():
         raw.sort_values('depth', inplace=True, ignore_index=True)
         cleaned = clean_by_flags(raw)
         data[int(s)] = cleaned.loc[cleaned['depth'] < maxdepth]
-    
+
     return data
 
 
@@ -222,6 +222,7 @@ def get_station_data(poc_data, params, ez_depths, flux_constraint=False):
         d[s]['mld'] = mixed_layer_depths[s]
         d[s]['grid'] = grid
         d[s]['latitude'] = poc_data[s].iloc[0]['latitude']
+        d[s]['longitude'] = poc_data[s].iloc[0]['longitude']
         d[s]['layers'] = layers
         d[s]['zg'] = zg
         d[s]['umz_start'] = grid.index(zg) + 1
