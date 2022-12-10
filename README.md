@@ -2,6 +2,8 @@
 
 pyrite (Particle cYcling Rates from Inversion of Tracers in the ocEan) is an inverse model that uses chemical tracer data obtained from the [NASA EXPORTS](https://oceanexports.org/) North Pacific campaign to infer rates of particle cycling processes in the ocean. The model currently uses concentrations of particulate organic carbon (POC) to estimate rates of particle production, settling, remineralization, aggregation, disaggregation, and transport from zooplankton diel vertical migration.
 
+*All files in \*/geotraces/\* paths are under active development.*
+
 
 ## Citation
 Amaral, VJ, Lam, PJ, Marchal, O, Roca-Martí, M, Fox, J, Nelson, NB. 2022. Particle cycling rates at Station P as estimated from the inversion of POC concentration data. *Elementa: Science of the Anthropocene* 10(1). DOI: https://doi.org/10.1525/elementa.2021.00018
