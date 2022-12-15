@@ -947,27 +947,46 @@ def get_param_text():
     return param_text
 
 
+def get_ml_pigs(station_data):
+    
+    names = ('but', 'hex', 'allo', 'chla', 'chlb', 'fuco', 'peri', 'zea')
+    ml_pigs = {s: {n: {} for n in names} for s in station_data}
+
+    # pigments data
+    pig_data = pd.read_csv('../../../geotraces/pigments.csv',
+                           usecols=['station', 'depth', 'but', 'hex', 'allo',
+                                    'chla', 'chlb', 'fuco', 'peri', 'zea'])
+    
+    for s in station_data:
+        ml = station_data[s]['mld']
+        s_df = pig_data.loc[(pig_data['station'] == s) & (pig_data['depth'] <= ml)]
+        for n in names:
+            ml_pigs[s][n] = s_df[n].mean()
+    
+    return ml_pigs
+
+
 def multipanel_context(station_data):
     
-    def phyto_size_index(r):
+    def phyto_size_index(d):
         '''r is a row of the pig data, formulas from Bricaud et al 2004'''
-        dp = (0.86 * r['zea'] + 1.01 * r['chlb'] + 0.6 * r['allo']
-              + 0.35 * r['but'] + 1.27 * r['hex'] + 1.41 * r['fuco']
-              + 1.41 * r['peri'])
-        pico = 100 * (0.86 * r['zea'] + 1.01 * r['chlb']) / dp
-        nano = 100 * (0.6 * r['allo'] + 0.35 * r['but'] + 1.27 * r['hex']) / dp
-        micro = 100 * (1.41 * r['fuco'] + 1.41 * r['peri']) / dp
-        # size_index = (1 * pico + 5 * nano + 50 * micro) / 100
+        dp = (0.86 * d['zea'] + 1.01 * d['chlb'] + 0.6 * d['allo']
+              + 0.35 * d['but'] + 1.27 * d['hex'] + 1.41 * d['fuco']
+              + 1.41 * d['peri'])
+        pico = 100 * (0.86 * d['zea'] + 1.01 * d['chlb']) / dp
+        nano = 100 * (0.6 * d['allo'] + 0.35 * d['but'] + 1.27 * d['hex']) / dp
+        micro = 100 * (1.41 * d['fuco'] + 1.41 * d['peri']) / dp
 
         return pico, nano, micro
     
+    pig_data = get_ml_pigs(station_data)
     
     ylabels = {0: 'Nitrate\n(µmol kg$^{-1}$)',
                1: 'Silicate\n(µmol kg$^{-1}$)',
                2: 'Chl. a\n(ng L$^{-1}$)',
-               3: 'Frac. pico', 4: 'Frac. nano', # 3: 'Phytoplankton\nsize index\n(µm)',
-               5: 'EZ flux\n(mmol m$^{-2}$ d$^{-1}$)',
-               6: 'Transfer\nefficiency'}
+               3: 'Frac. pico', 4: 'Frac. nano', 5: 'Frac. micro',
+               6: 'EZ flux\n(mmol m$^{-2}$ d$^{-1}$)',
+               7: 'Transfer\nefficiency'}
 
     # get flux data
     flux_data = {}
@@ -1007,45 +1026,23 @@ def multipanel_context(station_data):
                                 'NITRATE_D_CONC_BOTTLEumolkg': 'N',
                                 'SILICATE_D_CONC_BOTTLEumolkg': 'S'}, axis='columns')
 
-    # pigments data
-    pig_data = pd.read_csv('../../../geotraces/pigmentspump.csv',
-                           usecols=['Station',
-                                    'DEPTH',
-                                    'ButngL',
-                                    'HexngL',
-                                    'AllongL',
-                                    'ChlangL',
-                                    'ChlbngL',
-                                    'FucongL',
-                                    'PeringL',
-                                    'ZeangL'
-                                    ])
-    pig_data.dropna(inplace=True)
-    pig_data = pig_data.rename({'Station': 'station', 'DEPTH': 'depth',
-                                'ButngL': 'but', 'HexngL': 'hex',
-                                'AllongL': 'allo', 'ChlangL': 'chla',
-                                'ChlbngL': 'chlb', 'FucongL': 'fuco',
-                                'PeringL': 'peri', 'ZeangL': 'zea'}, axis='columns')
-
-
-    fig, axs = plt.subplots(7, 1, figsize=(5, 10), tight_layout=True)
+    fig, axs = plt.subplots(8, 1, figsize=(5, 12), tight_layout=True)
     fig.subplots_adjust(left=0.2)
     for s in flux_data:
         lat = station_data[s]['latitude']
         s_odf = odf_data.loc[odf_data['station'] == s].iloc[0]
-        s_pig = pig_data.loc[pig_data['station'] == s].iloc[0]
-        pico, nano, _ = phyto_size_index(s_pig)
+        pico, nano, micro = phyto_size_index(pig_data[s])
         axs[0].scatter(lat, s_odf['N'], c=black, s=16)
         axs[1].scatter(lat, s_odf['S'], c=black, s=16)
-        axs[2].scatter(lat, s_pig['chla'], c=black, s=16)
-        # axs[3].scatter(lat, size_index, c=black, s=16)
+        axs[2].scatter(lat, pig_data[s]['chla'], c=black, s=16)
         axs[3].scatter(lat, pico/100, c=black, s=16)
         axs[4].scatter(lat, nano/100, c=black, s=16)
-        axs[5].errorbar(lat, flux_data[s]['zg_flux'][0],
+        axs[5].scatter(lat, micro/100, c=black, s=16)
+        axs[6].errorbar(lat, flux_data[s]['zg_flux'][0],
                         yerr=flux_data[s]['zg_flux'][1], fmt='o',
                         c=black, elinewidth=1, ecolor=black, ms=4,
                         capsize=2)
-        axs[6].errorbar(lat, flux_data[s]['TE'][0],
+        axs[7].errorbar(lat, flux_data[s]['TE'][0],
                         yerr=flux_data[s]['TE'][1], fmt='o',
                         c=black, elinewidth=1, ecolor=black, ms=4,
                         capsize=2)
@@ -1129,17 +1126,12 @@ if __name__ == '__main__':
     station_data = data.get_station_data(poc_data, param_uniformity, ez_depths,
                                          flux_constraint=True)
     
-    n_sets = 50000
+    n_sets = 100000
     path = f'../../results/geotraces/mc_{n_sets}'
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     all_files = get_filenames(path)
     # compile_param_estimates(params, all_files)
-    ctd_plots(path, params, station_data, False)
-    # param_section_compilation(path, station_data)
-    # spaghetti_params(path, station_data, all_files)
-    # flux_profiles(path, all_files, station_data)
-    # multipanel_context(station_data)
-    # poc_profiles(path, station_data)
+    multipanel_context(station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
