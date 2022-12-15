@@ -461,6 +461,47 @@ def spaghetti_params(path, station_data, filenames):
     plt.close()
 
 
+def spaghetti_ctd(path, station_data):
+
+    station_fname = ctd_files_by_station()
+    fig, axs = plt.subplots(1, 2, figsize=(6, 4))
+    norm = Normalize(-20, 60)  # min and max latitudes
+    scheme = plt.cm.plasma
+
+    # profiles of T, O2, N2, params
+    for s in station_fname:
+        
+        ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
+        ctd_df.drop([0, len(ctd_df) - 1], inplace=True)  # don't want first and last rows (non-numerical)
+        for c in ['CTDPRS', 'CTDOXY', 'CTDTMP']:
+            ctd_df[c] = pd.to_numeric(ctd_df[c])
+        ctd_df = ctd_df.loc[ctd_df['CTDPRS'] <= 600]
+        ctd_df = ctd_df[['CTDPRS', 'CTDOXY', 'CTDTMP']]
+
+        lat = station_data[s]['latitude']
+        depth = -gsw.z_from_p(ctd_df['CTDPRS'].values, lat)
+
+        axs[0].set_ylabel('Depth (m)', fontsize=14, labelpad=10)
+        axs[0].set_xlabel('Temperature (°C)', fontsize=14)
+        axs[0].plot(ctd_df['CTDTMP'], depth, c=scheme(norm(station_data[s]['latitude'])))
+        
+        axs[1].yaxis.set_ticklabels([])
+        axs[1].set_xlabel('Dissolved O$_2$ (µmol kg$^{-1}$)', fontsize=14)
+        axs[1].plot(ctd_df['CTDOXY'], depth, c=scheme(norm(station_data[s]['latitude'])))
+            
+        for ax in axs:
+            ax.set_ylim(0, 600)
+            ax.invert_yaxis()
+
+    fig.subplots_adjust(right=0.8, wspace=0.05, top=0.98, bottom=0.15)
+    cbar_ax = fig.add_axes([0.85, 0.06, 0.03, 0.92])
+    cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), cax=cbar_ax)
+    cbar.set_label('Latitude (°N)', rotation=270, labelpad=10, fontsize=14)
+
+    fig.savefig(os.path.join(path, f'figs/spaghetti_ctd.pdf'))
+    plt.close()
+
+
 def flux_profiles(path, filenames, station_data):
 
     df_rows = []
@@ -581,14 +622,9 @@ def aou_scatter(path, params):
         sns.scatterplot(x=p, y='AOU', data=merged, hue='depth')
         plt.savefig(os.path.join(path, f'figs/aouscatter_{p}'))
         plt.close()
-
-
-def ctd_plots(path, params, station_data, axes=True):
         
-    # get mean param df across all stations
-    with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
-        df = pickle.load(f)
-    param_means = df.groupby(['depth', 'avg_depth', 'station']).mean().reset_index()
+
+def ctd_files_by_station():
 
     # pigrath (ODF) casts from Jen's POC flux table for all staitons except
     # 8, 14, 29, and 39, which are from GTC
@@ -604,6 +640,19 @@ def ctd_plots(path, params, station_data, axes=True):
         cast = int(prefix[3:])
         if station in station_cast and station_cast[station] == cast:
             station_fname[station] = f
+    
+    return station_fname
+
+
+
+def ctd_plots(path, params, station_data, axes=True):
+        
+    # get mean param df across all stations
+    with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
+        df = pickle.load(f)
+    param_means = df.groupby(['depth', 'avg_depth', 'station']).mean().reset_index()
+
+    station_fname = ctd_files_by_station()
 
     # profiles of T, O2, N2, params
     for (s, p) in product(station_fname, params):
@@ -999,19 +1048,57 @@ def get_ml_nuts(station_data):
     
     return ml_nuts
 
+def zg_phyto_scatter(station_data):
+
+    pig_data = get_ml_pigs(station_data)
+    fig, axs = plt.subplots(1, 4, tight_layout=True, figsize=(12, 4))
+    
+    axs[0].set_ylabel('EZ flux (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+    for ax in axs[1:]:
+        ax.yaxis.set_ticklabels([])
+    
+    axs[0].set_xlabel('Chl. a (ng L$^{-1}$)', fontsize=14)
+    axs[1].set_xlabel('Frac. pico', fontsize=14)
+    axs[2].set_xlabel('Frac. nano', fontsize=14)
+    axs[3].set_xlabel('Frac. micro', fontsize=14)
+    
+    for s in station_data:
+        
+        grid = np.array(station_data[s]['grid'])
+        zg = station_data[s]['zg']
+        zgi = list(grid).index(zg)
+        zg_fluxes = []
+        pickled_files = [f for f in os.listdir(path) if f'stn{s}.pkl' in f]
+        for f in pickled_files:
+            with open(os.path.join(path, f), 'rb') as file:
+                fluxes = pickle.load(file)['sink_fluxes']['T']
+                zg_fluxes.append(fluxes[zgi][0])
+        zg_flux = np.mean(zg_fluxes)
+        
+        pico, nano, micro = phyto_size_index(pig_data[s])
+        
+        axs[0].scatter(pig_data[s]['chla'], zg_flux, c=black, s=16)
+        axs[1].scatter(pico/100, zg_flux, c=black, s=16)  
+        axs[2].scatter(nano/100, zg_flux, c=black, s=16)  
+        axs[3].scatter(micro/100, zg_flux, c=black, s=16)  
+
+    fig.savefig(os.path.join(path, f'figs/zg_phyto_scatter.pdf'))
+    plt.close()
+
+
+def phyto_size_index(d):
+    '''r is a row of the pig data, formulas from Bricaud et al 2004'''
+    dp = (0.86 * d['zea'] + 1.01 * d['chlb'] + 0.6 * d['allo']
+            + 0.35 * d['but'] + 1.27 * d['hex'] + 1.41 * d['fuco']
+            + 1.41 * d['peri'])
+    pico = 100 * (0.86 * d['zea'] + 1.01 * d['chlb']) / dp
+    nano = 100 * (0.6 * d['allo'] + 0.35 * d['but'] + 1.27 * d['hex']) / dp
+    micro = 100 * (1.41 * d['fuco'] + 1.41 * d['peri']) / dp
+
+    return pico, nano, micro
+
 
 def multipanel_context(station_data):
-    
-    def phyto_size_index(d):
-        '''r is a row of the pig data, formulas from Bricaud et al 2004'''
-        dp = (0.86 * d['zea'] + 1.01 * d['chlb'] + 0.6 * d['allo']
-              + 0.35 * d['but'] + 1.27 * d['hex'] + 1.41 * d['fuco']
-              + 1.41 * d['peri'])
-        pico = 100 * (0.86 * d['zea'] + 1.01 * d['chlb']) / dp
-        nano = 100 * (0.6 * d['allo'] + 0.35 * d['but'] + 1.27 * d['hex']) / dp
-        micro = 100 * (1.41 * d['fuco'] + 1.41 * d['peri']) / dp
-
-        return pico, nano, micro
     
     pig_data = get_ml_pigs(station_data)
     nut_data = get_ml_nuts(station_data)
@@ -1027,8 +1114,6 @@ def multipanel_context(station_data):
     # get flux data
     flux_data = {}
     for s in station_data:
-        if s == 3:
-            continue
         grid = np.array(station_data[s]['grid'])
         zg = station_data[s]['zg']
         zgi = list(grid).index(zg)
@@ -1156,7 +1241,8 @@ if __name__ == '__main__':
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     all_files = get_filenames(path)
     # compile_param_estimates(params, all_files)
-    multipanel_context(station_data)
+    # multipanel_context(station_data)
+    zg_phyto_scatter(station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
