@@ -196,24 +196,35 @@ def xresids(path, station_data):
         plt.savefig(os.path.join(path, f'figs/xresids_{stn}'))
         plt.close()
 
-def compile_param_estimates(params, filenames):
+def compile_param_estimates(filenames):
+    
+    dv_params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    dc_params = ('Po', 'Lp', 'zm', 'a', 'B3')
 
-    df_rows = []
+    dv_rows = []
+    dc_rows = []
 
     for f in tqdm(filenames):
         with open(os.path.join(path, f), 'rb') as file:
             results = pickle.load(file)['params']
             stn = int(f.split('.')[0].split('_')[1][3:])
-            file_dict = {p: results[p]['posterior'] for p in params}
-            file_dict['depth'] = station_data[stn]['grid']
-            file_dict['avg_depth'] = [np.mean(get_layer_bounds(l, station_data[stn]['grid'])) for l in station_data[stn]['layers']]
-            file_dict['latitude'] = station_data[stn]['latitude'] * np.ones(len(station_data[stn]['grid']))
-            file_dict['station'] = stn * np.ones(len(station_data[stn]['grid']))
-            df_rows.append(pd.DataFrame(file_dict))
-    df = pd.concat(df_rows, ignore_index=True)
+            dv_dict = {p: results[p]['posterior'] for p in dv_params}
+            dc_dict = {p: [results[p]['posterior']] for p in dc_params}
+            dv_dict['depth'] = station_data[stn]['grid']
+            dv_dict['avg_depth'] = [np.mean(get_layer_bounds(l, station_data[stn]['grid'])) for l in station_data[stn]['layers']]
+            dv_dict['latitude'] = station_data[stn]['latitude'] * np.ones(len(station_data[stn]['grid']))
+            dc_dict['latitude'] = [station_data[stn]['latitude']]
+            dv_dict['station'] = stn * np.ones(len(station_data[stn]['grid']))
+            dc_dict['station'] = [stn] 
+            dv_rows.append(pd.DataFrame(dv_dict))
+            dc_rows.append(pd.DataFrame(dc_dict))
+    dv_df = pd.concat(dv_rows, ignore_index=True)
+    dc_df = pd.concat(dc_rows, ignore_index=True)
     
-    with open(os.path.join(path, 'saved_params.pkl'), 'wb') as f:
-        pickle.dump(df, f)
+    with open(os.path.join(path, 'saved_params_dv.pkl'), 'wb') as f:
+        pickle.dump(dv_df, f)
+    with open(os.path.join(path, 'saved_params_dc.pkl'), 'wb') as f:
+        pickle.dump(dc_df, f)
 
 
 def cluster_means(path, saved_params):
@@ -286,7 +297,7 @@ def cluster_means(path, saved_params):
     fig.savefig(os.path.join(path, f'figs/clusteredsection.pdf'))
         
 
-def param_sections(path, station_data):
+def param_sections_dv(path, station_data):
     
     param_text = get_param_text()
     
@@ -297,7 +308,7 @@ def param_sections(path, station_data):
                           'Bm1s': (0, 1.6), 'Bm2': (0, 1.2),
                           'wl': (0, 1), 'ws': (0, 1)}}
 
-    with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
+    with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
         df = pickle.load(f)    
 
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
@@ -352,11 +363,11 @@ def param_sections(path, station_data):
         plt.close()
 
 
-def param_section_compilation(path, station_data):
+def param_section_compilation_dv(path, station_data):
     
     param_text = get_param_text()
 
-    with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
+    with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
         df = pickle.load(f)    
 
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
@@ -405,7 +416,62 @@ def param_section_compilation(path, station_data):
         else:
             depth_str = 'depth'
         ax.scatter(merged['latitude'], merged[depth_str], c=to_plot, norm=norm, cmap=scheme, zorder=10)
-    fig.savefig(os.path.join(path, f'figs/param_section_compilation.pdf'))
+    fig.savefig(os.path.join(path, f'figs/param_section_compilation_dv.pdf'))
+    plt.close()
+
+
+def param_section_compilation_dc(path, station_data, filenames):
+    
+    param_text = get_param_text()
+
+    with open(os.path.join(path, 'saved_params_dc.pkl'), 'rb') as f:
+        df = pickle.load(f)    
+
+    params = ('Po', 'Lp', 'zm', 'a', 'B3')
+    lats = [station_data[s]['latitude'] for s in station_data]
+    
+    # get priors
+    stations_checked = []
+    priors = {p: {} for p in params}
+    for f in filenames:
+        s = int(f.split('.')[0].split('_')[1][3:])
+        if s not in stations_checked:
+            with open(os.path.join(path, f), 'rb') as file:
+                results = pickle.load(file)
+                for p in params:
+                    priors[p][s] = results['params'][p]['prior']
+            
+    fig, axs = plt.subplots(len(params), 1, figsize=(6, 10), tight_layout=True)
+    fig.subplots_adjust(right=0.8)
+    
+    for i, p in enumerate(params):
+        p_df = df[['latitude', p]]
+        mean = p_df.groupby(['latitude']).mean().reset_index()
+        sd = p_df.groupby(['latitude']).std().reset_index()
+        merged = mean.merge(sd, suffixes=(None, '_sd'), on=['latitude'])
+        ax = axs[i]
+        if param_text[p][1]:
+            units = f'\n({param_text[p][1]})'
+        else:
+            units = ''
+        ax.set_ylabel(f'{param_text[p][0]}{units}', fontsize=14)
+        ax.errorbar(merged['latitude'], merged[p],
+                        yerr=merged[f'{p}_sd'], fmt='o',
+                        c=black, elinewidth=1, ecolor=black, ms=4,
+                        capsize=2)
+        ax.invert_xaxis()
+        ax.scatter(lats, [priors[p][s] for s in station_data], c=orange, s=16, marker='d', zorder=10)
+        if i < len(axs) - 1:
+            ax.tick_params(axis='x',label1On=False)
+        else:
+            ax.set_xlabel('Latitude (°N)')
+        
+    for s in station_data:  # station labels and faint gridlines
+        axs[0].text(station_data[s]['latitude'], 6, s, ha='center', size=6)
+        for ax in axs:
+            ax.axvline(station_data[s]['latitude'], c=black, alpha=0.2, zorder=1)
+
+    fig.savefig(os.path.join(path, f'figs/param_section_compilation_dc.pdf'))
     plt.close()
 
         
@@ -413,7 +479,7 @@ def spaghetti_params(path, station_data, filenames):
 
     param_text = get_param_text()
     
-    with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
+    with open(os.path.join(path, 'saved_param_dv.pkl'), 'rb') as f:
         df = pickle.load(f)    
 
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
@@ -592,7 +658,7 @@ def aou_scatter(path, params):
         
         return AOU      
 
-    with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
+    with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
         df = pickle.load(f)
 
     odf_data = pd.read_csv('../../../geotraces/ODFpump.csv',
@@ -648,7 +714,7 @@ def ctd_files_by_station():
 def ctd_plots(path, params, station_data, axes=True):
         
     # get mean param df across all stations
-    with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
+    with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
         df = pickle.load(f)
     param_means = df.groupby(['depth', 'avg_depth', 'station']).mean().reset_index()
 
@@ -788,7 +854,7 @@ def ctd_plots(path, params, station_data, axes=True):
 
 def param_profile_distribution(path, param):
 
-    with open(os.path.join(path, 'saved_params.pkl'), 'rb') as f:
+    with open(os.path.join(path, 'saved_params_sv.pkl'), 'rb') as f:
         df = pickle.load(f)
     
     for s in df['station'].unique():
@@ -989,7 +1055,7 @@ def get_param_text():
                 'Bm1s': ('$\\beta_{-1,S}$', 'd$^{-1}$'),
                 'Bm1l': ('$\\beta_{-1,L}$', 'd$^{-1}$'),
                 'B2': ('$\\beta_2$', 'd$^{-1}$'),
-                'Po': ('$\\.P_{S,ML}$', 'mmol m$^{-3}$ d$^{-1}$'),
+                'Po': ('$\\.P_{S,0}$', 'mmol m$^{-3}$ d$^{-1}$'),
                 'Lp': ('$L_P$', 'm'), 'B3': ('$\\beta_3$', 'd$^{-1}$'),
                 'a': ('$\\alpha$', None), 'zm': ('$z_m$', 'm')}
     
@@ -1240,9 +1306,10 @@ if __name__ == '__main__':
     path = f'../../results/geotraces/mc_{n_sets}'
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     all_files = get_filenames(path)
-    # compile_param_estimates(params, all_files)
+    # compile_param_estimates(all_files)
     # multipanel_context(station_data)
-    zg_phyto_scatter(station_data)
+    # zg_phyto_scatter(station_data)
+    param_section_compilation_dc(path, station_data, all_files)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
