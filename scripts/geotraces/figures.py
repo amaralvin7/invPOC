@@ -952,7 +952,6 @@ def get_ml_pigs(station_data):
     names = ('but', 'hex', 'allo', 'chla', 'chlb', 'fuco', 'peri', 'zea')
     ml_pigs = {s: {n: {} for n in names} for s in station_data}
 
-    # pigments data
     pig_data = pd.read_csv('../../../geotraces/pigments.csv',
                            usecols=['station', 'depth', 'but', 'hex', 'allo',
                                     'chla', 'chlb', 'fuco', 'peri', 'zea'])
@@ -964,6 +963,41 @@ def get_ml_pigs(station_data):
             ml_pigs[s][n] = s_df[n].mean()
     
     return ml_pigs
+
+def get_ml_nuts(station_data):
+    
+    names = ('nitrate', 'phosphate', 'silicate')
+    ml_nuts = {s: {n: {} for n in names} for s in station_data}
+
+    # ODF data
+    nut_data = pd.read_csv('../../../geotraces/bottledata.csv',
+                           usecols=['STNNBR',
+                                    'CTDPRS',
+                                    'NITRATE_D_CONC_BOTTLE_bugat8',
+                                    'Flag_NITRATE_D_CONC_BOTTLE_bugat8',
+                                    'PHOSPHATE_D_CONC_BOTTLE_d0rgav',
+                                    'Flag_PHOSPHATE_D_CONC_BOTTLE_d0rgav',
+                                    'SILICATE_D_CONC_BOTTLE_3fot83',
+                                    'Flag_SILICATE_D_CONC_BOTTLE_3fot83',])
+    nut_data = nut_data.rename({'STNNBR': 'station',
+                                'CTDPRS': 'depth',
+                                'NITRATE_D_CONC_BOTTLE_bugat8': 'nitrate',
+                                'Flag_NITRATE_D_CONC_BOTTLE_bugat8': 'nitrate_flag',
+                                'PHOSPHATE_D_CONC_BOTTLE_d0rgav': 'phosphate',
+                                'Flag_PHOSPHATE_D_CONC_BOTTLE_d0rgav': 'phosphate_flag',
+                                'SILICATE_D_CONC_BOTTLE_3fot83': 'silicate',
+                                'Flag_SILICATE_D_CONC_BOTTLE_3fot83': 'silicate_flag',}, axis='columns')
+    nut_data.replace('nd', np.nan, inplace=True)
+    nut_data = nut_data.apply(pd.to_numeric)
+    
+    for s in station_data:
+        ml = station_data[s]['mld']
+        s_df = nut_data.loc[(nut_data['station'] == s) & (nut_data['depth'] <= ml)]
+        for n in names:
+            n_df = s_df.loc[s_df[f'{n}_flag'] < 3]
+            ml_nuts[s][n] = n_df[n].mean()
+    
+    return ml_nuts
 
 
 def multipanel_context(station_data):
@@ -980,13 +1014,15 @@ def multipanel_context(station_data):
         return pico, nano, micro
     
     pig_data = get_ml_pigs(station_data)
+    nut_data = get_ml_nuts(station_data)
     
     ylabels = {0: 'Nitrate\n(µmol kg$^{-1}$)',
                1: 'Silicate\n(µmol kg$^{-1}$)',
-               2: 'Chl. a\n(ng L$^{-1}$)',
-               3: 'Frac. pico', 4: 'Frac. nano', 5: 'Frac. micro',
-               6: 'EZ flux\n(mmol m$^{-2}$ d$^{-1}$)',
-               7: 'Transfer\nefficiency'}
+               2: 'Phosphate\n(µmol kg$^{-1}$)',
+               3: 'Chl. a\n(ng L$^{-1}$)',
+               4: 'Frac. pico', 5: 'Frac. nano', 6: 'Frac. micro',
+               7: 'EZ flux\n(mmol m$^{-2}$ d$^{-1}$)',
+               8: 'Transfer\nefficiency'}
 
     # get flux data
     flux_data = {}
@@ -1015,41 +1051,30 @@ def multipanel_context(station_data):
         flux_data[s]['zgp_flux'] = np.mean(zgp_fluxes), np.std(zgp_fluxes, ddof=1)
         flux_data[s]['TE'] = np.mean(xfer_effs), np.std(xfer_effs, ddof=1)
 
-    # ODF data
-    odf_data = pd.read_csv('../../../geotraces/ODFpump.csv',
-                           usecols=['Station',
-                                    'CorrectedMeanDepthm',
-                                    'NITRATE_D_CONC_BOTTLEumolkg',
-                                    'SILICATE_D_CONC_BOTTLEumolkg'])
-    odf_data = odf_data.rename({'Station': 'station',
-                                'CorrectedMeanDepthm': 'depth',
-                                'NITRATE_D_CONC_BOTTLEumolkg': 'N',
-                                'SILICATE_D_CONC_BOTTLEumolkg': 'S'}, axis='columns')
-
-    fig, axs = plt.subplots(8, 1, figsize=(5, 12), tight_layout=True)
+    fig, axs = plt.subplots(9, 1, figsize=(5, 12), tight_layout=True)
     fig.subplots_adjust(left=0.2)
     for s in flux_data:
         lat = station_data[s]['latitude']
-        s_odf = odf_data.loc[odf_data['station'] == s].iloc[0]
         pico, nano, micro = phyto_size_index(pig_data[s])
-        axs[0].scatter(lat, s_odf['N'], c=black, s=16)
-        axs[1].scatter(lat, s_odf['S'], c=black, s=16)
-        axs[2].scatter(lat, pig_data[s]['chla'], c=black, s=16)
-        axs[3].scatter(lat, pico/100, c=black, s=16)
-        axs[4].scatter(lat, nano/100, c=black, s=16)
-        axs[5].scatter(lat, micro/100, c=black, s=16)
-        axs[6].errorbar(lat, flux_data[s]['zg_flux'][0],
+        axs[0].scatter(lat, nut_data[s]['nitrate'], c=black, s=16)
+        axs[1].scatter(lat, nut_data[s]['silicate'], c=black, s=16)
+        axs[2].scatter(lat, nut_data[s]['phosphate'], c=black, s=16)
+        axs[3].scatter(lat, pig_data[s]['chla'], c=black, s=16)
+        axs[4].scatter(lat, pico/100, c=black, s=16)
+        axs[5].scatter(lat, nano/100, c=black, s=16)
+        axs[6].scatter(lat, micro/100, c=black, s=16)
+        axs[7].errorbar(lat, flux_data[s]['zg_flux'][0],
                         yerr=flux_data[s]['zg_flux'][1], fmt='o',
                         c=black, elinewidth=1, ecolor=black, ms=4,
                         capsize=2)
-        axs[7].errorbar(lat, flux_data[s]['TE'][0],
+        axs[8].errorbar(lat, flux_data[s]['TE'][0],
                         yerr=flux_data[s]['TE'][1], fmt='o',
                         c=black, elinewidth=1, ecolor=black, ms=4,
                         capsize=2)
         for ax in axs:  # faint gridlines
             ax.axvline(lat, c=black, alpha=0.2)
 
-    axs[6].axhline(1, c=black, ls = ':')  # TE = 1
+    axs[8].axhline(1, c=black, ls = ':')  # TE = 1
     
     for s in flux_data:  # station labels
         axs[0].text(station_data[s]['latitude'], 13, s, ha='center', size=6)
