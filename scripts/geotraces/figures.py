@@ -719,9 +719,27 @@ def ctd_plots(path, params, station_data, axes=True):
     param_means = df.groupby(['depth', 'avg_depth', 'station']).mean().reset_index()
 
     station_fname = ctd_files_by_station()
+    
+    param_text = get_param_text()
+    
+    splots, axs = plt.subplots(3, 6, tight_layout=True, figsize=(14, 6))
+    t_axs, o_axs, n_axs = axs
+    
+    t_axs[0].set_ylabel('Temperature (°C)')
+    o_axs[0].set_ylabel('Dissolved O$_2$ (µmol kg$^{-1}$)')
+    n_axs[0].set_ylabel('N$^2$ (s$^{-2}$)')
+    
+    for i, p in enumerate(params):
+        n_axs[i].set_xlabel(f'{param_text[p][0]}\n({param_text[p][1]})')
+        t_axs[i].xaxis.set_ticklabels([])
+        o_axs[i].xaxis.set_ticklabels([])
+        if i > 0:
+            t_axs[i].yaxis.set_ticklabels([])
+            o_axs[i].yaxis.set_ticklabels([])
+            n_axs[i].yaxis.set_ticklabels([])
 
     # profiles of T, O2, N2, params
-    for (s, p) in product(station_fname, params):
+    for (s, (i, p)) in product(station_fname, enumerate(params)):
         
         s_p_df = param_means.loc[param_means['station'] == s][['depth', 'avg_depth', p]]
         ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
@@ -733,11 +751,12 @@ def ctd_plots(path, params, station_data, axes=True):
 
         lat = station_data[s]['latitude']
         lon = station_data[s]['longitude']
-        depth = -gsw.z_from_p(ctd_df['CTDPRS'].values, lat)
+        ctd_df['depth'] = -gsw.z_from_p(ctd_df['CTDPRS'].values, lat)
         S_abs = gsw.conversions.SA_from_SP(ctd_df['CTDSAL'].values, ctd_df['CTDPRS'].values, lon, lat)  # absolute salinity
         T_cons = gsw.conversions.CT_from_t(S_abs, ctd_df['CTDTMP'].values, ctd_df['CTDPRS'].values)  # conservative temperature
         n2, n2_press = gsw.Nsquared(S_abs, T_cons, ctd_df['CTDPRS'].values, lat)
         n2_depth = -gsw.z_from_p(n2_press, lat)
+        n2_df = pd.DataFrame(list(zip(n2, n2_depth)), columns = ['n2', 'depth'])
 
         fig = plt.figure(figsize=(4, 5))
         fig.suptitle(f'Stn. {s}, {p}', fontsize=14)
@@ -752,18 +771,36 @@ def ctd_plots(path, params, station_data, axes=True):
         host1.invert_yaxis()
 
         par3.plot(n2, n2_depth, c=black, ms=2, alpha=0.3)
-        par1.plot(ctd_df['CTDTMP'], depth, c=vermillion, ms=2)
-        par2.plot(ctd_df['CTDOXY'], depth, c=blue, ms=2)
+        par1.plot(ctd_df['CTDTMP'], ctd_df['depth'], c=vermillion, ms=2)
+        par2.plot(ctd_df['CTDOXY'], ctd_df['depth'], c=blue, ms=2)
         
         host1.axhline(station_data[s]['zg'], c=black, ls=':')
         
         if 'w' not in p:
             host1.plot(s_p_df[p], s_p_df['avg_depth'], c=green)
-            # for i, (_, r) in enumerate(s_p_df.iterrows()):
-            #     ymin, ymax = get_layer_bounds(i, s_p_df['depth'].values)
-            #     host1.vlines(r[p], ymin, ymax, colors=green, zorder=3)
+            for j, (_, r) in enumerate(s_p_df.iterrows()):
+                
+                ydeep, yshal = get_layer_bounds(j, s_p_df['depth'].values)
+                ctd_in_layer = ctd_df.loc[(ctd_df['depth'] < ydeep) & (ctd_df['depth'] > yshal)]
+                n2_in_layer = n2_df.loc[(n2_df['depth'] < ydeep) & (n2_df['depth'] > yshal)]
+                avg_T = ctd_in_layer['CTDTMP'].mean()
+                avg_O = ctd_in_layer['CTDOXY'].mean()
+                avg_N2 = n2_in_layer['n2'].mean()
+                host1.vlines(r[p], ydeep, yshal, colors=green, zorder=3)
+                par1.vlines(avg_T, ydeep, yshal, colors=vermillion, zorder=3)
+                par2.vlines(avg_O, ydeep, yshal, colors=blue, zorder=3)
+                par3.vlines(avg_N2, ydeep, yshal, colors=black, alpha=0.3, zorder=3)
+                
+                t_axs[i].scatter(r[p], avg_T, c=black, s=16)
+                o_axs[i].scatter(r[p], avg_O, c=black, s=16)
+                n_axs[i].scatter(r[p], avg_N2, c=black, s=16)
         else:
             host1.plot(s_p_df[p], s_p_df['depth'], c=green)
+            closest_ctd = pd.merge_asof(s_p_df, ctd_df, on='depth', direction='nearest')
+            closest_n2 = pd.merge_asof(s_p_df, n2_df, on='depth', direction='nearest')
+            t_axs[i].scatter(s_p_df[p], closest_ctd['CTDTMP'], c=black, s=16)
+            o_axs[i].scatter(s_p_df[p], closest_ctd['CTDOXY'], c=black, s=16)
+            n_axs[i].scatter(s_p_df[p], closest_n2['n2'], c=black, s=16)
 
         if axes:
             plt.subplots_adjust(top=0.6, bottom=0.1)
@@ -813,7 +850,10 @@ def ctd_plots(path, params, station_data, axes=True):
             par3.axis[:].toggle(all=False)
             
         fig.savefig(os.path.join(path, f'figs/ctd_{p}_s{s}.pdf'))
-        plt.close() 
+        plt.close()
+
+    splots.savefig(os.path.join(path, f'figs/scatterplots.pdf'))
+    plt.close() 
 
     # # plot the scatterplots
     # for (p, t) in product(params, ('CTDTMP', 'CTDOXY')):
@@ -850,6 +890,7 @@ def ctd_plots(path, params, station_data, axes=True):
     #     for t in ['CTDTMP', 'CTDOXY']:
     #         tau, pval = scipy.stats.kendalltau(p_df[p], p_df[t])
     #         print(f'Tau stats for {p}, {t} (tau, pval) = {tau:0.3f}, {pval:0.3f}')
+
             
 
 def param_profile_distribution(path, param):
@@ -1309,7 +1350,8 @@ if __name__ == '__main__':
     # compile_param_estimates(all_files)
     # multipanel_context(station_data)
     # zg_phyto_scatter(station_data)
-    param_section_compilation_dc(path, station_data, all_files)
+    # param_section_compilation_dc(path, station_data, all_files)
+    ctd_plots(path, params, station_data, axes=False)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
