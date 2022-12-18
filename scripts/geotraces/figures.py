@@ -393,9 +393,6 @@ def param_section_compilation_dv(path, station_data):
     for i, p in enumerate(params):
         p_df = df[['depth', 'avg_depth', 'latitude', p]]
         mean = p_df.groupby(['depth', 'avg_depth', 'latitude']).mean().reset_index()
-        sd = p_df.groupby(['depth', 'avg_depth', 'latitude']).std().reset_index()
-        merged = mean.merge(sd, suffixes=(None, '_sd'), on=['depth', 'avg_depth', 'latitude'])
-        merged[f'{p}_cv'] = merged[f'{p}_sd'] / merged[p]
         
         ax = axs[i]
         ax.invert_xaxis()
@@ -409,7 +406,7 @@ def param_section_compilation_dv(path, station_data):
         else:
             units = ''
         cbar_label  = f'{param_text[p][0]}{units}'
-        to_plot = merged[p]
+        to_plot = mean[p]
         if i < len(params) - 1:
             ax.tick_params(axis='x', label1On=False)
             if i == 0:
@@ -427,7 +424,7 @@ def param_section_compilation_dv(path, station_data):
                 ax.scatter(np.ones(len(depths))*station_data[s]['latitude'], depths, c='k', zorder=1, s=1)
         else:
             depth_str = 'depth'
-        ax.scatter(merged['latitude'], merged[depth_str], c=to_plot, norm=norm, cmap=scheme, zorder=10)
+        ax.scatter(mean['latitude'], mean[depth_str], c=to_plot, norm=norm, cmap=scheme, zorder=10)
     fig.savefig(os.path.join(path, f'figs/param_section_compilation_dv.pdf'))
     plt.close()
 
@@ -459,8 +456,8 @@ def param_section_compilation_dc(path, station_data, filenames):
     for i, p in enumerate(params):
         p_df = df[['latitude', p]]
         mean = p_df.groupby(['latitude']).mean().reset_index()
-        sd = p_df.groupby(['latitude']).std().reset_index()
-        merged = mean.merge(sd, suffixes=(None, '_sd'), on=['latitude'])
+        sd = p_df.groupby(['latitude']).sem().reset_index()
+        merged = mean.merge(sd, suffixes=(None, '_se'), on=['latitude'])
         ax = axs[i]
         if param_text[p][1]:
             units = f'\n({param_text[p][1]})'
@@ -468,7 +465,7 @@ def param_section_compilation_dc(path, station_data, filenames):
             units = ''
         ax.set_ylabel(f'{param_text[p][0]}{units}', fontsize=14)
         ax.errorbar(merged['latitude'], merged[p],
-                        yerr=merged[f'{p}_sd'], fmt='o',
+                        yerr=merged[f'{p}_se'], fmt='o',
                         c=black, elinewidth=1, ecolor=black, ms=4,
                         capsize=2)
         ax.invert_xaxis()
@@ -487,7 +484,7 @@ def param_section_compilation_dc(path, station_data, filenames):
     plt.close()
 
         
-def spaghetti_params(path, station_data, filenames):
+def spaghetti_params(path, station_data):
 
     param_text = get_param_text()
     
@@ -547,7 +544,7 @@ def spaghetti_params(path, station_data, filenames):
 def spaghetti_ctd(path, station_data):
 
     station_fname = ctd_files_by_station()
-    fig, axs = plt.subplots(1, 2, figsize=(6, 4))
+    fig, axs = plt.subplots(1, 2, figsize=(6, 5))
     norm = Normalize(-20, 60)  # min and max latitudes
     scheme = plt.cm.plasma
 
@@ -565,11 +562,11 @@ def spaghetti_ctd(path, station_data):
         depth = -gsw.z_from_p(ctd_df['CTDPRS'].values, lat)
 
         axs[0].set_ylabel('Depth (m)', fontsize=14, labelpad=10)
-        axs[0].set_xlabel('Temperature (°C)', fontsize=14)
+        axs[0].set_xlabel('Temperature\n(°C)', fontsize=14)
         axs[0].plot(ctd_df['CTDTMP'], depth, c=scheme(norm(station_data[s]['latitude'])))
         
         axs[1].yaxis.set_ticklabels([])
-        axs[1].set_xlabel('Dissolved O$_2$ (µmol kg$^{-1}$)', fontsize=14)
+        axs[1].set_xlabel('Dissolved O$_2$\n(µmol kg$^{-1}$)', fontsize=14)
         axs[1].plot(ctd_df['CTDOXY'], depth, c=scheme(norm(station_data[s]['latitude'])))
             
         for ax in axs:
@@ -577,7 +574,7 @@ def spaghetti_ctd(path, station_data):
             ax.invert_yaxis()
 
     fig.subplots_adjust(right=0.8, wspace=0.05, top=0.98, bottom=0.15)
-    cbar_ax = fig.add_axes([0.85, 0.06, 0.03, 0.92])
+    cbar_ax = fig.add_axes([0.85, 0.15, 0.03, 0.83])
     cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), cax=cbar_ax)
     cbar.set_label('Latitude (°N)', rotation=270, labelpad=10, fontsize=14)
 
@@ -1393,13 +1390,14 @@ if __name__ == '__main__':
     path = f'../../results/geotraces/mc_{n_sets}'
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     all_files = get_filenames(path)
-    # compile_param_estimates(all_files)
+    compile_param_estimates(all_files)
     multipanel_context(path, station_data)
     zg_phyto_scatter(station_data)
     param_section_compilation_dc(path, station_data, all_files)
     param_section_compilation_dv(path, station_data)
     ctd_plots(path, station_data, axes=False)
     spaghetti_params(path, station_data, all_files)
+    spaghetti_ctd(path, station_data)
     poc_profiles(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
