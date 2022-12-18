@@ -206,16 +206,24 @@ def compile_param_estimates(filenames):
 
     for f in tqdm(filenames):
         with open(os.path.join(path, f), 'rb') as file:
-            results = pickle.load(file)['params']
+            results = pickle.load(file)
             stn = int(f.split('.')[0].split('_')[1][3:])
-            dv_dict = {p: results[p]['posterior'] for p in dv_params}
-            dc_dict = {p: [results[p]['posterior']] for p in dc_params}
+            dv_dict = {p: results['params'][p]['posterior'] for p in dv_params}
+            dc_dict = {p: [results['params'][p]['posterior']] for p in dc_params}
             dv_dict['depth'] = station_data[stn]['grid']
             dv_dict['avg_depth'] = [np.mean(get_layer_bounds(l, station_data[stn]['grid'])) for l in station_data[stn]['layers']]
             dv_dict['latitude'] = station_data[stn]['latitude'] * np.ones(len(station_data[stn]['grid']))
             dc_dict['latitude'] = [station_data[stn]['latitude']]
             dv_dict['station'] = stn * np.ones(len(station_data[stn]['grid']))
-            dc_dict['station'] = [stn] 
+            dc_dict['station'] = [stn]
+            avg_ps = []
+            ps_post = results['tracers']['POCS']['posterior']
+            for i, ps in enumerate(ps_post):
+                if i == 0:
+                    avg_ps.append(ps)
+                else:
+                    avg_ps.append(np.mean([ps, ps_post[i-1]]))
+            dv_dict['aggratio'] = dv_dict['B2p']*np.array(avg_ps)/dv_dict['Bm2']
             dv_rows.append(pd.DataFrame(dv_dict))
             dc_rows.append(pd.DataFrame(dc_dict))
     dv_df = pd.concat(dv_rows, ignore_index=True)
@@ -370,7 +378,7 @@ def param_section_compilation_dv(path, station_data):
     with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
         df = pickle.load(f)    
 
-    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    params = ('B2p', 'Bm2', 'aggratio', 'Bm1s', 'Bm1l', 'ws', 'wl')
     scheme = plt.cm.viridis
     lats = [station_data[s]['latitude'] for s in station_data]
     mlds_unsorted = [station_data[s]['mld'] for s in station_data]
@@ -379,7 +387,7 @@ def param_section_compilation_dv(path, station_data):
     zgs = [zg for _, zg in sorted(zip(lats, zgs_unsorted))]
     lats.sort()
     
-    fig, axs = plt.subplots(len(params), 1, figsize=(6, 10), tight_layout=True)
+    fig, axs = plt.subplots(len(params), 1, figsize=(6, 11), tight_layout=True)
     fig.subplots_adjust(right=0.8)
     
     for i, p in enumerate(params):
@@ -396,7 +404,11 @@ def param_section_compilation_dv(path, station_data):
         ax.set_ylabel('Depth (m)', fontsize=14)
         ax.plot(lats, mlds, c='k', zorder=1, ls='--')
         ax.plot(lats, zgs, c='k', zorder=1)
-        cbar_label = f'{param_text[p][0]}\n({param_text[p][1]})'
+        if param_text[p][1]:
+            units = f'\n({param_text[p][1]})'
+        else:
+            units = ''
+        cbar_label  = f'{param_text[p][0]}{units}'
         to_plot = merged[p]
         if i < len(params) - 1:
             ax.tick_params(axis='x', label1On=False)
@@ -479,23 +491,24 @@ def spaghetti_params(path, station_data, filenames):
 
     param_text = get_param_text()
     
-    with open(os.path.join(path, 'saved_param_dv.pkl'), 'rb') as f:
+    with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
         df = pickle.load(f)    
 
-    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl', 'aggratio')
     scheme = plt.cm.plasma
     # colors = scheme(np.linspace(0, 1, len(station_data)))
 
     prior_extrema = {p: [] for p in params}
     
-    for f in filenames:
-        with open(os.path.join(path, f), 'rb') as file:
-            results = pickle.load(file)
-        for p in params:
-            prior_extrema[p].append(results['params'][p]['prior'])
+    # for f in filenames:
+    #     with open(os.path.join(path, f), 'rb') as file:
+    #         results = pickle.load(file)
+    #     for p in params:
+    #         prior_extrema[p].append(results['params'][p]['prior'])
     
-    fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(7, 10))
-    axs = (ax1, ax2, ax3, ax4, ax5, ax6)
+    fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6), (ax7, ax8)) = plt.subplots(4, 2, figsize=(7, 10))
+    axs = (ax1, ax2, ax3, ax4, ax5, ax6, ax7)
+    ax8.axis('off')
     norm = Normalize(-20, 60)  # min and max latitudes
 
     for i, p in enumerate(params):
@@ -509,7 +522,11 @@ def spaghetti_params(path, station_data, filenames):
             axs[i].set_ylabel('Depth (m)', fontsize=14, labelpad=10)
         axs[i].set_ylim(0, 600)
         axs[i].invert_yaxis()
-        axs[i].set_xlabel(f'{param_text[p][0]} ({param_text[p][1]})', fontsize=14)
+        if param_text[p][1]:
+            units = f' ({param_text[p][1]})'
+        else:
+            units = ''
+        axs[i].set_xlabel(f'{param_text[p][0]}{units}', fontsize=14)
         
         for s in station_data:
             s_df = mean.loc[mean['station'] == s]
@@ -711,7 +728,7 @@ def ctd_files_by_station():
 
 
 
-def ctd_plots(path, params, station_data, axes=True):
+def ctd_plots(path, station_data, axes=True):
         
     # get mean param df across all stations
     with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
@@ -720,9 +737,10 @@ def ctd_plots(path, params, station_data, axes=True):
 
     station_fname = ctd_files_by_station()
     
+    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl', 'aggratio')
     param_text = get_param_text()
     
-    splots, axs = plt.subplots(3, 6, tight_layout=True, figsize=(14, 6))
+    splots, axs = plt.subplots(3, 7, tight_layout=True, figsize=(15, 6))
     t_axs, o_axs, n_axs = axs
     
     t_axs[0].set_ylabel('Temperature (°C)')
@@ -730,7 +748,11 @@ def ctd_plots(path, params, station_data, axes=True):
     n_axs[0].set_ylabel('N$^2$ (s$^{-2}$)')
     
     for i, p in enumerate(params):
-        n_axs[i].set_xlabel(f'{param_text[p][0]}\n({param_text[p][1]})')
+        if param_text[p][1]:
+            units = f'\n({param_text[p][1]})'
+        else:
+            units = ''
+        n_axs[i].set_xlabel(f'{param_text[p][0]}{units}')
         t_axs[i].xaxis.set_ticklabels([])
         o_axs[i].xaxis.set_ticklabels([])
         if i > 0:
@@ -1098,7 +1120,8 @@ def get_param_text():
                 'B2': ('$\\beta_2$', 'd$^{-1}$'),
                 'Po': ('$\\.P_{S,0}$', 'mmol m$^{-3}$ d$^{-1}$'),
                 'Lp': ('$L_P$', 'm'), 'B3': ('$\\beta_3$', 'd$^{-1}$'),
-                'a': ('$\\alpha$', None), 'zm': ('$z_m$', 'm')}
+                'a': ('$\\alpha$', None), 'zm': ('$z_m$', 'm'),
+                'aggratio': ('$\\beta_2$/$\\beta_{-2}$', None)}
     
     return param_text
 
@@ -1205,7 +1228,7 @@ def phyto_size_index(d):
     return pico, nano, micro
 
 
-def multipanel_context(station_data):
+def multipanel_context(path, station_data):
     
     pig_data = get_ml_pigs(station_data)
     nut_data = get_ml_nuts(station_data)
@@ -1216,38 +1239,52 @@ def multipanel_context(station_data):
                3: 'Chl. a\n(ng L$^{-1}$)',
                4: 'Frac. pico', 5: 'Frac. nano', 6: 'Frac. micro',
                7: 'EZ flux\n(mmol m$^{-2}$ d$^{-1}$)',
-               8: 'Transfer\nefficiency'}
+               8: 'Transfer\nefficiency',
+               9: 'Export\nefficiency',
+               10: '$\\beta_2$/$\\beta_{-2}$'}
+    
 
-    # get flux data
-    flux_data = {}
+    with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
+        df = pickle.load(f)    
+        df = df[['depth', 'avg_depth', 'latitude', 'aggratio']]
+
+    fig, axs = plt.subplots(11, 1, figsize=(5, 13), tight_layout=True)
+    fig.subplots_adjust(left=0.2)
     for s in station_data:
+        lat = station_data[s]['latitude']
+        
+        pico, nano, micro = phyto_size_index(pig_data[s])
+        
+        # calculate flux data
         grid = np.array(station_data[s]['grid'])
         zg = station_data[s]['zg']
         zgi = list(grid).index(zg)
         zgp100 = zg + 100
-        interp_depths = grid[grid < zgp100].max(), grid[grid > zgp100].min()
-        flux_data[s] = {}
+        interp_depths = grid[grid < zgp100].max(), grid[grid > zgp100].min()  # pump depths that surround zgp100
         zg_fluxes = []
-        zgp_fluxes = []
         xfer_effs = []
+        xport_effs = []
         pickled_files = [f for f in os.listdir(path) if f'stn{s}.pkl' in f]
         for f in pickled_files:
             with open(os.path.join(path, f), 'rb') as file:
-                fluxes = pickle.load(file)['sink_fluxes']['T']
+                results = pickle.load(file)
+                fluxes = results['sink_fluxes']['T']
                 zg_fluxes.append(fluxes[zgi][0])
                 interp_fluxes = [fluxes[list(grid).index(i)][0] for i in interp_depths]
                 interped_flux = interp1d(interp_depths, interp_fluxes)(zgp100)
-                zgp_fluxes.append(interped_flux[()])
                 xfer_effs.append(interped_flux[()] / fluxes[zgi][0])
-        flux_data[s]['zg_flux'] = np.mean(zg_fluxes), np.std(zg_fluxes, ddof=1)
-        flux_data[s]['zgp_flux'] = np.mean(zgp_fluxes), np.std(zgp_fluxes, ddof=1)
-        flux_data[s]['TE'] = np.mean(xfer_effs), np.std(xfer_effs, ddof=1)
+                Lp = results['params']['Lp']['posterior']
+                Po = results['params']['Po']['posterior']
+                npp = 0
+                for layer in range(zgi + 1):
+                    zi, zim1 = get_layer_bounds(layer, grid)
+                    npp += Lp * Po * (np.exp(-zim1 / Lp) - np.exp(-zi / Lp))
+                xport_effs.append(fluxes[zgi][0] / npp)
 
-    fig, axs = plt.subplots(9, 1, figsize=(5, 12), tight_layout=True)
-    fig.subplots_adjust(left=0.2)
-    for s in flux_data:
-        lat = station_data[s]['latitude']
-        pico, nano, micro = phyto_size_index(pig_data[s])
+        
+        # calculate aggratios in ml
+        s_df = df.loc[(df['latitude'] == station_data[s]['latitude']) & (df['depth'] < station_data[s]['mld'])]
+        
         axs[0].scatter(lat, nut_data[s]['nitrate'], c=black, s=16)
         axs[1].scatter(lat, nut_data[s]['silicate'], c=black, s=16)
         axs[2].scatter(lat, nut_data[s]['phosphate'], c=black, s=16)
@@ -1255,21 +1292,31 @@ def multipanel_context(station_data):
         axs[4].scatter(lat, pico/100, c=black, s=16)
         axs[5].scatter(lat, nano/100, c=black, s=16)
         axs[6].scatter(lat, micro/100, c=black, s=16)
-        axs[7].errorbar(lat, flux_data[s]['zg_flux'][0],
-                        yerr=flux_data[s]['zg_flux'][1], fmt='o',
-                        c=black, elinewidth=1, ecolor=black, ms=4,
+        axs[7].errorbar(lat, np.mean(zg_fluxes),
+                        yerr=np.std(zg_fluxes, ddof=1)/np.sqrt(len(zg_fluxes)),
+                        fmt='o', c=black, elinewidth=1, ecolor=black, ms=4,
                         capsize=2)
-        axs[8].errorbar(lat, flux_data[s]['TE'][0],
-                        yerr=flux_data[s]['TE'][1], fmt='o',
+
+        axs[8].errorbar(lat, np.mean(xfer_effs),
+                        yerr=np.std(xfer_effs, ddof=1)/np.sqrt(len(xfer_effs)),
+                        fmt='o', c=black, elinewidth=1, ecolor=black, ms=4,
+                        capsize=2)
+        axs[9].errorbar(lat, np.mean(xport_effs),
+                        yerr=np.std(xport_effs, ddof=1)/np.sqrt(len(xport_effs)),
+                        fmt='o', c=black, elinewidth=1, ecolor=black, ms=4,
+                        capsize=2)
+        axs[10].errorbar(lat, np.mean(s_df['aggratio']),
+                        yerr=np.std(s_df['aggratio'], ddof=1)/np.sqrt(len(s_df)), fmt='o',
                         c=black, elinewidth=1, ecolor=black, ms=4,
                         capsize=2)
         for ax in axs:  # faint gridlines
             ax.axvline(lat, c=black, alpha=0.2)
 
-    axs[8].axhline(1, c=black, ls = ':')  # TE = 1
+    for ax in (axs[8], axs[10]):
+        ax.axhline(1, c=black, ls = ':')
     
-    for s in flux_data:  # station labels
-        axs[0].text(station_data[s]['latitude'], 13, s, ha='center', size=6)
+    for s in station_data:  # station labels
+        axs[0].text(station_data[s]['latitude'], 11, s, ha='center', size=6)
         
     for i, ax in enumerate(axs):
         ax.set_ylabel(ylabels[i])
@@ -1331,7 +1378,6 @@ def poc_profiles(path, station_data):
         plt.savefig(os.path.join(path, f'figs/pocprof_stn{s}'))
         plt.close()
     
-        
 if __name__ == '__main__':
     
     start_time = time()
@@ -1348,10 +1394,13 @@ if __name__ == '__main__':
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     all_files = get_filenames(path)
     # compile_param_estimates(all_files)
-    # multipanel_context(station_data)
-    # zg_phyto_scatter(station_data)
-    # param_section_compilation_dc(path, station_data, all_files)
-    ctd_plots(path, params, station_data, axes=False)
+    multipanel_context(path, station_data)
+    zg_phyto_scatter(station_data)
+    param_section_compilation_dc(path, station_data, all_files)
+    param_section_compilation_dv(path, station_data)
+    ctd_plots(path, station_data, axes=False)
+    spaghetti_params(path, station_data, all_files)
+    poc_profiles(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
