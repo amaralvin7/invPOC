@@ -760,6 +760,13 @@ def ctd_plots(path, station_data, axes=True):
     # profiles of T, O2, N2, params
     for (s, (i, p)) in product(station_fname, enumerate(params)):
         
+        if s <= 8:
+            alpha = 0.05
+        elif s <= 33 and s >= 29:
+            alpha = 0.05
+        else:
+            alpha = 1
+        
         s_p_df = param_means.loc[param_means['station'] == s][['depth', 'avg_depth', p]]
         ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
         ctd_df.drop([0, len(ctd_df) - 1], inplace=True)  # don't want first and last rows (non-numerical)
@@ -810,16 +817,16 @@ def ctd_plots(path, station_data, axes=True):
                 par2.vlines(avg_O, ydeep, yshal, colors=blue, zorder=3)
                 par3.vlines(avg_N2, ydeep, yshal, colors=black, alpha=0.3, zorder=3)
                 
-                t_axs[i].scatter(r[p], avg_T, c=black, s=16)
-                o_axs[i].scatter(r[p], avg_O, c=black, s=16)
-                n_axs[i].scatter(r[p], avg_N2, c=black, s=16)
+                t_axs[i].scatter(r[p], avg_T, c=black, s=16, alpha=alpha)
+                o_axs[i].scatter(r[p], avg_O, c=black, s=16, alpha=alpha)
+                n_axs[i].scatter(r[p], avg_N2, c=black, s=16, alpha=alpha)
         else:
             host1.plot(s_p_df[p], s_p_df['depth'], c=green)
             closest_ctd = pd.merge_asof(s_p_df, ctd_df, on='depth', direction='nearest')
             closest_n2 = pd.merge_asof(s_p_df, n2_df, on='depth', direction='nearest')
-            t_axs[i].scatter(s_p_df[p], closest_ctd['CTDTMP'], c=black, s=16)
-            o_axs[i].scatter(s_p_df[p], closest_ctd['CTDOXY'], c=black, s=16)
-            n_axs[i].scatter(s_p_df[p], closest_n2['n2'], c=black, s=16)
+            t_axs[i].scatter(s_p_df[p], closest_ctd['CTDTMP'], c=black, s=16, alpha=alpha)
+            o_axs[i].scatter(s_p_df[p], closest_ctd['CTDOXY'], c=black, s=16, alpha=alpha)
+            n_axs[i].scatter(s_p_df[p], closest_n2['n2'], c=black, s=16, alpha=alpha)
 
         if axes:
             plt.subplots_adjust(top=0.6, bottom=0.1)
@@ -868,7 +875,7 @@ def ctd_plots(path, station_data, axes=True):
             par2.axis[:].toggle(all=False)
             par3.axis[:].toggle(all=False)
             
-        fig.savefig(os.path.join(path, f'figs/ctd_{p}_s{s}.pdf'))
+        # fig.savefig(os.path.join(path, f'figs/ctd_{p}_s{s}.pdf'))
         plt.close()
 
     splots.savefig(os.path.join(path, f'figs/scatterplots.pdf'))
@@ -1425,10 +1432,10 @@ if __name__ == '__main__':
     all_files = get_filenames(path)
     # compile_param_estimates(all_files)
     # multipanel_context(path, station_data)
-    zg_phyto_scatter(station_data)
+    # zg_phyto_scatter(station_data)
     # param_section_compilation_dc(path, station_data, all_files)
     # param_section_compilation_dv(path, station_data)
-    # ctd_plots(path, station_data, axes=False)
+    ctd_plots(path, station_data, axes=False)
     # spaghetti_params(path, station_data)
     # spaghetti_ctd(path, station_data)
     # poc_profiles(path, station_data)
