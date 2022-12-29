@@ -223,7 +223,8 @@ def compile_param_estimates(filenames):
                     avg_ps.append(ps)
                 else:
                     avg_ps.append(np.mean([ps, ps_post[i-1]]))
-            dv_dict['aggratio'] = dv_dict['B2p']*np.array(avg_ps)/dv_dict['Bm2']
+            dv_dict['B2'] = dv_dict['B2p']*np.array(avg_ps)
+            dv_dict['aggratio'] = dv_dict['B2']/dv_dict['Bm2']
             dv_rows.append(pd.DataFrame(dv_dict))
             dc_rows.append(pd.DataFrame(dc_dict))
     dv_df = pd.concat(dv_rows, ignore_index=True)
@@ -378,7 +379,7 @@ def param_section_compilation_dv(path, station_data):
     with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
         df = pickle.load(f)    
 
-    params = ('B2p', 'Bm2', 'aggratio', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    params = ('B2p', 'B2', 'Bm2', 'aggratio', 'Bm1s', 'Bm1l', 'ws', 'wl')
     scheme = plt.cm.viridis
     lats = [station_data[s]['latitude'] for s in station_data]
     mlds_unsorted = [station_data[s]['mld'] for s in station_data]
@@ -387,7 +388,7 @@ def param_section_compilation_dv(path, station_data):
     zgs = [zg for _, zg in sorted(zip(lats, zgs_unsorted))]
     lats.sort()
     
-    fig, axs = plt.subplots(len(params), 1, figsize=(6, 11), tight_layout=True)
+    fig, axs = plt.subplots(len(params), 1, figsize=(6, 12), tight_layout=True)
     fig.subplots_adjust(right=0.8)
     
     for i, p in enumerate(params):
@@ -491,7 +492,7 @@ def spaghetti_params(path, station_data):
     with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
         df = pickle.load(f)    
 
-    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl', 'aggratio')
+    params = ('B2p', 'B2', 'Bm2', 'aggratio', 'Bm1s', 'Bm1l', 'ws', 'wl')
     scheme = plt.cm.plasma
     # colors = scheme(np.linspace(0, 1, len(station_data)))
 
@@ -504,8 +505,7 @@ def spaghetti_params(path, station_data):
     #         prior_extrema[p].append(results['params'][p]['prior'])
     
     fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6), (ax7, ax8)) = plt.subplots(4, 2, figsize=(7, 10))
-    axs = (ax1, ax2, ax3, ax4, ax5, ax6, ax7)
-    ax8.axis('off')
+    axs = (ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8)
     norm = Normalize(-20, 60)  # min and max latitudes
 
     for i, p in enumerate(params):
@@ -734,10 +734,10 @@ def ctd_plots(path, station_data, axes=True):
 
     station_fname = ctd_files_by_station()
     
-    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl', 'aggratio')
+    params = ('B2p', 'B2', 'Bm2', 'aggratio', 'Bm1s', 'Bm1l', 'ws', 'wl')
     param_text = get_param_text()
     
-    splots, axs = plt.subplots(3, 7, tight_layout=True, figsize=(15, 6))
+    splots, axs = plt.subplots(3, 8, tight_layout=True, figsize=(16, 6))
     t_axs, o_axs, n_axs = axs
     
     t_axs[0].set_ylabel('Temperature (°C)')
@@ -1391,14 +1391,14 @@ if __name__ == '__main__':
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     all_files = get_filenames(path)
     compile_param_estimates(all_files)
-    multipanel_context(path, station_data)
-    zg_phyto_scatter(station_data)
-    param_section_compilation_dc(path, station_data, all_files)
+    # multipanel_context(path, station_data)
+    # zg_phyto_scatter(station_data)
+    # param_section_compilation_dc(path, station_data, all_files)
     param_section_compilation_dv(path, station_data)
     ctd_plots(path, station_data, axes=False)
-    spaghetti_params(path, station_data, all_files)
-    spaghetti_ctd(path, station_data)
-    poc_profiles(path, station_data)
+    spaghetti_params(path, station_data)
+    # spaghetti_ctd(path, station_data)
+    # poc_profiles(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
