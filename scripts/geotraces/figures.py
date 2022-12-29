@@ -737,7 +737,7 @@ def ctd_plots(path, station_data, axes=True):
     params = ('B2p', 'B2', 'Bm2', 'aggratio', 'Bm1s', 'Bm1l', 'ws', 'wl')
     param_text = get_param_text()
     
-    splots, axs = plt.subplots(3, 8, tight_layout=True, figsize=(16, 6))
+    splots, axs = plt.subplots(3, 8, figsize=(16, 6))
     t_axs, o_axs, n_axs = axs
     
     t_axs[0].set_ylabel('Temperature (°C)')
@@ -760,12 +760,9 @@ def ctd_plots(path, station_data, axes=True):
     # profiles of T, O2, N2, params
     for (s, (i, p)) in product(station_fname, enumerate(params)):
         
-        if s <= 8:
-            alpha = 0.05
-        elif s <= 33 and s >= 29:
-            alpha = 0.05
-        else:
-            alpha = 1
+        alpha = 1
+        scheme = plt.cm.plasma_r
+        norm=Normalize(0, 600)
         
         s_p_df = param_means.loc[param_means['station'] == s][['depth', 'avg_depth', p]]
         ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
@@ -817,16 +814,16 @@ def ctd_plots(path, station_data, axes=True):
                 par2.vlines(avg_O, ydeep, yshal, colors=blue, zorder=3)
                 par3.vlines(avg_N2, ydeep, yshal, colors=black, alpha=0.3, zorder=3)
                 
-                t_axs[i].scatter(r[p], avg_T, c=black, s=16, alpha=alpha)
-                o_axs[i].scatter(r[p], avg_O, c=black, s=16, alpha=alpha)
-                n_axs[i].scatter(r[p], avg_N2, c=black, s=16, alpha=alpha)
+                t_axs[i].scatter(r[p], avg_T, s=16, alpha=alpha, color=scheme(norm(r['avg_depth'])))
+                o_axs[i].scatter(r[p], avg_O, s=16, alpha=alpha, color=scheme(norm(r['avg_depth'])))
+                n_axs[i].scatter(r[p], avg_N2, s=16, alpha=alpha, color=scheme(norm(r['avg_depth'])))
         else:
             host1.plot(s_p_df[p], s_p_df['depth'], c=green)
             closest_ctd = pd.merge_asof(s_p_df, ctd_df, on='depth', direction='nearest')
             closest_n2 = pd.merge_asof(s_p_df, n2_df, on='depth', direction='nearest')
-            t_axs[i].scatter(s_p_df[p], closest_ctd['CTDTMP'], c=black, s=16, alpha=alpha)
-            o_axs[i].scatter(s_p_df[p], closest_ctd['CTDOXY'], c=black, s=16, alpha=alpha)
-            n_axs[i].scatter(s_p_df[p], closest_n2['n2'], c=black, s=16, alpha=alpha)
+            t_axs[i].scatter(s_p_df[p], closest_ctd['CTDTMP'], s=16, alpha=alpha, color=scheme(norm(s_p_df['depth'])))
+            o_axs[i].scatter(s_p_df[p], closest_ctd['CTDOXY'], s=16, alpha=alpha, color=scheme(norm(s_p_df['depth'])))
+            n_axs[i].scatter(s_p_df[p], closest_n2['n2'], s=16, alpha=alpha, color=scheme(norm(s_p_df['depth'])))
 
         if axes:
             plt.subplots_adjust(top=0.6, bottom=0.1)
@@ -878,6 +875,11 @@ def ctd_plots(path, station_data, axes=True):
         # fig.savefig(os.path.join(path, f'figs/ctd_{p}_s{s}.pdf'))
         plt.close()
 
+    splots.subplots_adjust(wspace=0.1, hspace=0.1, top=0.98, bottom=0.2)
+    cbar_ax = splots.add_axes([0.92, 0.2, 0.01, 0.78])
+    cbar = splots.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), cax=cbar_ax)
+    cbar.set_label('Depth(m)', rotation=270, labelpad=20)
+    
     splots.savefig(os.path.join(path, f'figs/scatterplots.pdf'))
     plt.close() 
 
