@@ -1175,39 +1175,73 @@ def get_ml_nuts(station_data):
     
     return ml_nuts
 
+
+def get_station_color(station):
+    
+    if station <= 8:
+        c = orange
+    elif station >= 29 and station <= 33:
+        c = vermillion
+    else:
+        c = blue
+    
+    return c
+
 def zg_phyto_scatter(station_data):
 
     pig_data = get_ml_pigs(station_data)
-    fig, axs = plt.subplots(1, 4, tight_layout=True, figsize=(12, 4))
+    # norm = Normalize(-20, 60)
+    # scheme = plt.cm.plasma
+    fig, axs = plt.subplots(3, 4, figsize=(8, 6), tight_layout=True)
     
-    axs[0].set_ylabel('EZ flux (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
-    for ax in axs[1:]:
-        ax.yaxis.set_ticklabels([])
+    axs[0][0].set_ylabel('EZ flux, S\n(mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+    axs[1][0].set_ylabel('EZ flux, L\n(mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+    axs[2][0].set_ylabel('EZ flux, T\n(mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
     
-    axs[0].set_xlabel('Chl. a (ng L$^{-1}$)', fontsize=14)
-    axs[1].set_xlabel('Frac. pico', fontsize=14)
-    axs[2].set_xlabel('Frac. nano', fontsize=14)
-    axs[3].set_xlabel('Frac. micro', fontsize=14)
+    for i, ax in enumerate(axs.flatten()):
+        if i not in (0, 4, 8):
+            ax.yaxis.set_ticklabels([])
+        if i < 8:
+            ax.xaxis.set_ticklabels([])
+    
+    axs[2][0].set_xlabel('Chl. a (ng L$^{-1}$)', fontsize=14)
+    axs[2][1].set_xlabel('Frac. pico', fontsize=14)
+    axs[2][2].set_xlabel('Frac. nano', fontsize=14)
+    axs[2][3].set_xlabel('Frac. micro', fontsize=14)
     
     for s in station_data:
+        
+        c = get_station_color(s)
         
         grid = np.array(station_data[s]['grid'])
         zg = station_data[s]['zg']
         zgi = list(grid).index(zg)
-        zg_fluxes = []
+        s_fluxes = []
+        l_fluxes = []
+        t_fluxes = []
         pickled_files = [f for f in os.listdir(path) if f'stn{s}.pkl' in f]
         for f in pickled_files:
             with open(os.path.join(path, f), 'rb') as file:
-                fluxes = pickle.load(file)['sink_fluxes']['T']
-                zg_fluxes.append(fluxes[zgi][0])
-        zg_flux = np.mean(zg_fluxes)
+                fluxes = pickle.load(file)['sink_fluxes']
+                s_fluxes.append(fluxes['S'][zgi][0])
+                l_fluxes.append(fluxes['L'][zgi][0])
+                t_fluxes.append(fluxes['T'][zgi][0])
+        s_flux = np.mean(s_fluxes)
+        l_flux = np.mean(l_fluxes)
+        t_flux = np.mean(t_fluxes)
         
         pico, nano, micro = phyto_size_index(pig_data[s])
-        
-        axs[0].scatter(pig_data[s]['chla'], zg_flux, c=black, s=16)
-        axs[1].scatter(pico/100, zg_flux, c=black, s=16)  
-        axs[2].scatter(nano/100, zg_flux, c=black, s=16)  
-        axs[3].scatter(micro/100, zg_flux, c=black, s=16)  
+
+        for i, f in zip((0, 1, 2), (s_flux, l_flux, t_flux)):
+            axs[i][0].scatter(pig_data[s]['chla'], f, s=16, color=c)
+            axs[i][1].scatter(pico/100, f, s=16, color=c)  
+            axs[i][2].scatter(nano/100, f, s=16, color=c)  
+            axs[i][3].scatter(micro/100, f, s=16, color=c)
+
+    # fig.subplots_adjust(right=0.8, wspace=0.1, hspace=0.2, top=0.98, bottom=0.2)
+    # cbar_ax = fig.add_axes([0.85, 0.06, 0.03, 0.92])
+    # cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), cax=cbar_ax)
+    # cbar.set_label('Latitude (°N)', rotation=270, labelpad=10, fontsize=14)
 
     fig.savefig(os.path.join(path, f'figs/zg_phyto_scatter.pdf'))
     plt.close()
@@ -1388,15 +1422,14 @@ if __name__ == '__main__':
     
     n_sets = 100000
     path = f'../../results/geotraces/mc_{n_sets}'
-    params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
     all_files = get_filenames(path)
-    compile_param_estimates(all_files)
+    # compile_param_estimates(all_files)
     # multipanel_context(path, station_data)
-    # zg_phyto_scatter(station_data)
+    zg_phyto_scatter(station_data)
     # param_section_compilation_dc(path, station_data, all_files)
-    param_section_compilation_dv(path, station_data)
-    ctd_plots(path, station_data, axes=False)
-    spaghetti_params(path, station_data)
+    # param_section_compilation_dv(path, station_data)
+    # ctd_plots(path, station_data, axes=False)
+    # spaghetti_params(path, station_data)
     # spaghetti_ctd(path, station_data)
     # poc_profiles(path, station_data)
 
