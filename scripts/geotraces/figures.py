@@ -1417,6 +1417,59 @@ def poc_profiles(path, station_data):
                     loc='lower right')
         plt.savefig(os.path.join(path, f'figs/pocprof_stn{s}'))
         plt.close()
+        
+
+def ballast_scatterplots(path, station_data):
+    
+    scheme = plt.cm.plasma
+    param_text = get_param_text()
+    
+    pump_data = pd.read_csv('../../../geotraces/GP15merge.csv',
+                            usecols=['GTStn',
+                                    'CorrectedMeanDepthm',
+                                    'Latitudedegrees_north',
+                                    'PIC_SPT_nM', 'fCaCO3_SPT', 'PIC_LPT_nM', 'fCaCO3_LPT',
+                                    'bSi_SPT_nM', 'fopal_SPT', 'bSi_LPT_nM', 'fopal_LPT'])
+    pump_data = pump_data.rename({'GTStn': 'station',
+                                  'CorrectedMeanDepthm': 'depth',
+                                  'Latitudedegrees_north': 'latitude'}, axis='columns')
+
+    # get mean param df across all stations
+    with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
+        df = pickle.load(f)
+    df = df[['depth', 'station', 'ws', 'wl']]
+    param_means = df.groupby(['depth', 'station']).mean().reset_index()
+
+    fig, axs = plt.subplots(2, 4, figsize=(10, 5))
+    norm = Normalize(-20, 60)  # min and max latitudes
+    
+    for s in station_data:
+        s_params = param_means.loc[(param_means['station'] == s) & (param_means['depth'] >= station_data[s]['zg'])]
+        merged = s_params.merge(pump_data, on=['depth', 'station'])
+        param_strings = (('ws', 'SPT'), ('wl', 'LPT'))
+        for i, (p, sf) in enumerate(param_strings):
+            axs[i][0].set_ylabel(f'{param_text[p][0]} ({param_text[p][1]})', fontsize=14, labelpad=10)
+            axs[i][0].scatter(merged[f'PIC_{sf}_nM'], merged[p], c=scheme(norm(merged['latitude'])), s=3)
+            axs[i][1].scatter(merged[f'fCaCO3_{sf}'], merged[p], c=scheme(norm(merged['latitude'])), s=3)
+            axs[i][2].scatter(merged[f'bSi_{sf}_nM'], merged[p], c=scheme(norm(merged['latitude'])), s=3)
+            axs[i][3].scatter(merged[f'fopal_{sf}'], merged[p], c=scheme(norm(merged['latitude'])), s=3)
+            # axs[i][0].set_xscale('log')
+            # axs[i][2].set_xscale('log')
+            for a in axs[i][1:]:
+                a.yaxis.set_ticklabels([])
+            axs[1][0].set_xlabel('PIC (nM)', fontsize=14)
+            axs[1][1].set_xlabel('f_CaCO3', fontsize=14)
+            axs[1][2].set_xlabel('bSi (nM)', fontsize=14)
+            axs[1][3].set_xlabel('f_opal', fontsize=14)
+
+    fig.subplots_adjust(right=0.8, wspace=0.05, hspace=0.3, top=0.98, bottom=0.2)
+    cbar_ax = fig.add_axes([0.85, 0.2, 0.02, 0.78])
+    cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), cax=cbar_ax)
+    cbar.set_label('Latitude (°N)', rotation=270, labelpad=10, fontsize=14)
+
+    fig.savefig(os.path.join(path, f'figs/ballast_scatterplots.pdf'))
+    plt.close()
+
     
 if __name__ == '__main__':
     
@@ -1437,10 +1490,11 @@ if __name__ == '__main__':
     # zg_phyto_scatter(station_data)
     # param_section_compilation_dc(path, station_data, all_files)
     # param_section_compilation_dv(path, station_data)
-    ctd_plots(path, station_data, axes=False)
+    # ctd_plots(path, station_data, axes=False)
     # spaghetti_params(path, station_data)
     # spaghetti_ctd(path, station_data)
     # poc_profiles(path, station_data)
+    ballast_scatterplots(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
