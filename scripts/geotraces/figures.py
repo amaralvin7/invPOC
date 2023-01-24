@@ -526,16 +526,14 @@ def spaghetti_params(path, station_data):
         axs[i].set_xlabel(f'{param_text[p][0]}{units}', fontsize=14)
         
         for s in station_data:
+            c = get_station_color(s)
             s_df = mean.loc[mean['station'] == s]
-            axs[i].plot(s_df[p], s_df[depth_str], c=scheme(norm(s_df.iloc[0]['latitude'])))
+            axs[i].plot(s_df[p], s_df[depth_str], c=c)
         
         # ax.axvline(min(prior_extrema[p]), color=black, ls=':')
         # ax.axvline(max(prior_extrema[p]), color=black, ls=':')
 
-    fig.subplots_adjust(right=0.8, wspace=0.05, hspace=0.4, top=0.98, bottom=0.06)
-    cbar_ax = fig.add_axes([0.85, 0.06, 0.03, 0.92])
-    cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), cax=cbar_ax)
-    cbar.set_label('Latitude (°N)', rotation=270, labelpad=10, fontsize=14)
+    fig.subplots_adjust(wspace=0.05, hspace=0.4, top=0.98, bottom=0.06)
 
     fig.savefig(os.path.join(path, f'figs/spaghetti_params.pdf'))
     plt.close()
@@ -550,7 +548,7 @@ def spaghetti_ctd(path, station_data):
 
     # profiles of T, O2, N2, params
     for s in station_fname:
-        
+        color = get_station_color(s)
         ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
         ctd_df.drop([0, len(ctd_df) - 1], inplace=True)  # don't want first and last rows (non-numerical)
         for c in ['CTDPRS', 'CTDOXY', 'CTDTMP']:
@@ -563,20 +561,17 @@ def spaghetti_ctd(path, station_data):
 
         axs[0].set_ylabel('Depth (m)', fontsize=14, labelpad=10)
         axs[0].set_xlabel('Temperature\n(°C)', fontsize=14)
-        axs[0].plot(ctd_df['CTDTMP'], depth, c=scheme(norm(station_data[s]['latitude'])))
+        axs[0].plot(ctd_df['CTDTMP'], depth, c=color)
         
         axs[1].yaxis.set_ticklabels([])
         axs[1].set_xlabel('Dissolved O$_2$\n(µmol kg$^{-1}$)', fontsize=14)
-        axs[1].plot(ctd_df['CTDOXY'], depth, c=scheme(norm(station_data[s]['latitude'])))
+        axs[1].plot(ctd_df['CTDOXY'], depth, c=color)
             
         for ax in axs:
             ax.set_ylim(0, 600)
             ax.invert_yaxis()
 
-    fig.subplots_adjust(right=0.8, wspace=0.05, top=0.98, bottom=0.15)
-    cbar_ax = fig.add_axes([0.85, 0.15, 0.03, 0.83])
-    cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), cax=cbar_ax)
-    cbar.set_label('Latitude (°N)', rotation=270, labelpad=10, fontsize=14)
+    fig.subplots_adjust(wspace=0.05, top=0.98, bottom=0.15)
 
     fig.savefig(os.path.join(path, f'figs/spaghetti_ctd.pdf'))
     plt.close()
@@ -744,25 +739,28 @@ def ctd_plots(path, station_data, axes=True):
     o_axs[0].set_ylabel('Dissolved O$_2$ (µmol kg$^{-1}$)')
     n_axs[0].set_ylabel('N$^2$ (s$^{-2}$)')
     
-    for i, p in enumerate(params):
-        if param_text[p][1]:
-            units = f'\n({param_text[p][1]})'
-        else:
-            units = ''
-        n_axs[i].set_xlabel(f'{param_text[p][0]}{units}')
-        t_axs[i].xaxis.set_ticklabels([])
-        o_axs[i].xaxis.set_ticklabels([])
-        if i > 0:
-            t_axs[i].yaxis.set_ticklabels([])
-            o_axs[i].yaxis.set_ticklabels([])
-            n_axs[i].yaxis.set_ticklabels([])
+    # for ax in t_axs:
+    #     ax.set_ylim(0, 32)
+    # for ax in o_axs:
+    #     ax.set_ylim(0, 330)
+    # for ax in n_axs:
+    #     ax.set_ylim(-0.0002, 0.002)
 
     # profiles of T, O2, N2, params
     for (s, (i, p)) in product(station_fname, enumerate(params)):
-        
+        color = get_station_color(s)
         alpha = 1
-        scheme = plt.cm.plasma_r
-        norm=Normalize(0, 600)
+
+        if s < 9:
+            alpha = 0.1
+        elif s < 28:
+            alpha = 0.1
+        elif s < 34:
+            alpha = 0.1
+        else:
+            alpha = 1
+        # scheme = plt.cm.plasma_r
+        # norm=Normalize(0, 600)
         
         s_p_df = param_means.loc[param_means['station'] == s][['depth', 'avg_depth', p]]
         ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
@@ -814,16 +812,16 @@ def ctd_plots(path, station_data, axes=True):
                 par2.vlines(avg_O, ydeep, yshal, colors=blue, zorder=3)
                 par3.vlines(avg_N2, ydeep, yshal, colors=black, alpha=0.3, zorder=3)
                 
-                t_axs[i].scatter(r[p], avg_T, s=16, alpha=alpha, color=scheme(norm(r['avg_depth'])))
-                o_axs[i].scatter(r[p], avg_O, s=16, alpha=alpha, color=scheme(norm(r['avg_depth'])))
-                n_axs[i].scatter(r[p], avg_N2, s=16, alpha=alpha, color=scheme(norm(r['avg_depth'])))
+                t_axs[i].scatter(r[p], avg_T, s=16, alpha=alpha, color=color)
+                o_axs[i].scatter(r[p], avg_O, s=16, alpha=alpha, color=color)
+                n_axs[i].scatter(r[p], avg_N2, s=16, alpha=alpha, color=color)
         else:
             host1.plot(s_p_df[p], s_p_df['depth'], c=green)
             closest_ctd = pd.merge_asof(s_p_df, ctd_df, on='depth', direction='nearest')
             closest_n2 = pd.merge_asof(s_p_df, n2_df, on='depth', direction='nearest')
-            t_axs[i].scatter(s_p_df[p], closest_ctd['CTDTMP'], s=16, alpha=alpha, color=scheme(norm(s_p_df['depth'])))
-            o_axs[i].scatter(s_p_df[p], closest_ctd['CTDOXY'], s=16, alpha=alpha, color=scheme(norm(s_p_df['depth'])))
-            n_axs[i].scatter(s_p_df[p], closest_n2['n2'], s=16, alpha=alpha, color=scheme(norm(s_p_df['depth'])))
+            t_axs[i].scatter(s_p_df[p], closest_ctd['CTDTMP'], s=16, alpha=alpha, color=color)
+            o_axs[i].scatter(s_p_df[p], closest_ctd['CTDOXY'], s=16, alpha=alpha, color=color)
+            n_axs[i].scatter(s_p_df[p], closest_n2['n2'], s=16, alpha=alpha, color=color)
 
         if axes:
             plt.subplots_adjust(top=0.6, bottom=0.1)
@@ -875,12 +873,38 @@ def ctd_plots(path, station_data, axes=True):
         # fig.savefig(os.path.join(path, f'figs/ctd_{p}_s{s}.pdf'))
         plt.close()
 
-    splots.subplots_adjust(wspace=0.1, hspace=0.1, top=0.98, bottom=0.2)
-    cbar_ax = splots.add_axes([0.92, 0.2, 0.01, 0.78])
-    cbar = splots.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), cax=cbar_ax)
-    cbar.set_label('Depth(m)', rotation=270, labelpad=20)
+    for ax in t_axs:
+        ax.set_ylim(1, 32)
+        ax.set_yscale('log')
+        ax.set_xscale('log')
+    for ax in o_axs:
+        ax.set_ylim(1, 330)
+        ax.set_yscale('log')
+        ax.set_xscale('log')
+    for ax in n_axs:
+        ax.set_ylim(0.000001, 0.002)
+        ax.set_yscale('log')
+        ax.set_xscale('log')
+
+    for i, p in enumerate(params):
+        if param_text[p][1]:
+            units = f'\n({param_text[p][1]})'
+        else:
+            units = ''
+        n_axs[i].set_xlabel(f'{param_text[p][0]}{units}')
+        t_axs[i].xaxis.set_ticklabels([])
+        o_axs[i].xaxis.set_ticklabels([])
+        if i > 0:
+            t_axs[i].yaxis.set_ticklabels([])
+            o_axs[i].yaxis.set_ticklabels([])
+            n_axs[i].yaxis.set_ticklabels([])
+
+    splots.subplots_adjust(wspace=0.2, hspace=0.2, top=0.98, bottom=0.2)
+    # cbar_ax = splots.add_axes([0.92, 0.2, 0.01, 0.78])
+    # cbar = splots.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), cax=cbar_ax)
+    # cbar.set_label('Depth(m)', rotation=270, labelpad=20)
     
-    splots.savefig(os.path.join(path, f'figs/scatterplots.pdf'))
+    splots.savefig(os.path.join(path, f'figs/ctd_scatterplots.pdf'))
     plt.close() 
 
     # # plot the scatterplots
@@ -1187,9 +1211,11 @@ def get_ml_nuts(station_data):
 
 def get_station_color(station):
     
-    if station <= 8:
+    if station < 9:
+        c = green
+    elif station < 28:
         c = orange
-    elif station >= 29 and station <= 33:
+    elif station < 34:
         c = vermillion
     else:
         c = blue
@@ -1238,7 +1264,7 @@ def zg_phyto_scatter(station_data):
         s_flux = np.mean(s_fluxes)
         l_flux = np.mean(l_fluxes)
         t_flux = np.mean(t_fluxes)
-        
+
         pico, nano, micro = phyto_size_index(pig_data[s])
 
         for i, f in zip((0, 1, 2), (s_flux, l_flux, t_flux)):
@@ -1490,11 +1516,11 @@ if __name__ == '__main__':
     # zg_phyto_scatter(station_data)
     # param_section_compilation_dc(path, station_data, all_files)
     # param_section_compilation_dv(path, station_data)
-    # ctd_plots(path, station_data, axes=False)
+    ctd_plots(path, station_data, axes=False)
     # spaghetti_params(path, station_data)
     # spaghetti_ctd(path, station_data)
     # poc_profiles(path, station_data)
-    ballast_scatterplots(path, station_data)
+    # ballast_scatterplots(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
