@@ -6,13 +6,14 @@ import sys
 
 import gsw
 import matplotlib.pyplot as plt
+import matplotlib.transforms as transforms
 import numpy as np
 import pandas as pd
-import scipy
 import seaborn as sns
 import statsmodels.api as sm
-from matplotlib.colors import Normalize, BoundaryNorm
 from matplotlib import cm
+from matplotlib.colors import Normalize, LogNorm, BoundaryNorm
+from matplotlib.lines import Line2D
 from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits.axisartist import Axes
 from scipy.interpolate import interp1d
@@ -380,6 +381,9 @@ def param_section_compilation_dv(path, station_data):
         df = pickle.load(f)    
 
     params = ('B2p', 'B2', 'Bm2', 'aggratio', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    lims = {'B2p': (0, 0.2), 'B2': (0, 0.2), 'Bm2': (0, 1),
+            'aggratio': (0, 0.5), 'Bm1s': (0, 0.1), 'Bm1l': (0, 0.25),
+            'ws': (0, 1), 'wl': (0, 40)}
     scheme = plt.cm.viridis
     lats = [station_data[s]['latitude'] for s in station_data]
     mlds_unsorted = [station_data[s]['mld'] for s in station_data]
@@ -399,7 +403,7 @@ def param_section_compilation_dv(path, station_data):
         ax.invert_xaxis()
         ax.invert_yaxis()
         ax.set_ylim(top=0, bottom=630)
-        ax.set_ylabel('Depth (m)', fontsize=14)
+        ax.set_ylabel('Depth (m)', fontsize=12)
         ax.plot(lats, mlds, c='k', zorder=1, ls='--')
         ax.plot(lats, zgs, c='k', zorder=1)
         if param_text[p][1]:
@@ -408,16 +412,15 @@ def param_section_compilation_dv(path, station_data):
             units = ''
         cbar_label  = f'{param_text[p][0]}{units}'
         to_plot = mean[p]
+        for s, d in station_data.items():
+            ax.text(d['latitude'], -30, s, ha='center', size=6)
         if i < len(params) - 1:
             ax.tick_params(axis='x', label1On=False)
-            if i == 0:
-                for s, d in station_data.items():
-                    ax.text(d['latitude'], -30, s, ha='center', size=6)
         else:
-            ax.set_xlabel('Latitude (°N)', fontsize=14)
-        norm = Normalize(to_plot.min(), to_plot.max())
+            ax.set_xlabel('Latitude (°N)', fontsize=12)
+        norm = Normalize(*lims[p])
         cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), ax=ax, pad=0.01)
-        cbar.set_label(cbar_label, rotation=270, labelpad=40, fontsize=14)
+        cbar.set_label(cbar_label, rotation=270, labelpad=40, fontsize=12)
         if 'w' not in p:
             depth_str = 'avg_depth'
             for s in station_data: # plot sampling depths
@@ -426,7 +429,7 @@ def param_section_compilation_dv(path, station_data):
         else:
             depth_str = 'depth'
         ax.scatter(mean['latitude'], mean[depth_str], c=to_plot, norm=norm, cmap=scheme, zorder=10)
-    fig.savefig(os.path.join(path, f'figs/param_section_compilation_dv.pdf'))
+    fig.savefig(os.path.join(path, f'figs/param_section_compilation_dv.pdf'), bbox_inches='tight')
     plt.close()
 
 
@@ -452,7 +455,7 @@ def param_section_compilation_dc(path, station_data, filenames):
                     priors[p][s] = results['params'][p]['prior']
             
     fig, axs = plt.subplots(len(params), 1, figsize=(6, 10), tight_layout=True)
-    fig.subplots_adjust(right=0.8)
+    fig.subplots_adjust(right=0.8, hspace=0.2)
     
     for i, p in enumerate(params):
         p_df = df[['latitude', p]]
@@ -465,24 +468,80 @@ def param_section_compilation_dc(path, station_data, filenames):
         else:
             units = ''
         ax.set_ylabel(f'{param_text[p][0]}{units}', fontsize=14)
-        ax.errorbar(merged['latitude'], merged[p],
-                        yerr=merged[f'{p}_se'], fmt='o',
-                        c=black, elinewidth=1, ecolor=black, ms=4,
-                        capsize=2)
+
         ax.invert_xaxis()
-        ax.scatter(lats, [priors[p][s] for s in station_data], c=orange, s=16, marker='d', zorder=10)
+        ax.scatter(lats, [priors[p][s] for s in station_data], c=black, s=16, marker='d', zorder=2)
         if i < len(axs) - 1:
             ax.tick_params(axis='x',label1On=False)
         else:
             ax.set_xlabel('Latitude (°N)')
+        for s in station_data:  # station labels and faint gridlines
+            s_df = merged.loc[merged['latitude'] == station_data[s]['latitude']]
+            station_color = get_station_color(s)
+            ax.errorbar(s_df['latitude'], s_df[p],
+                            yerr=s_df[f'{p}_se'], fmt='o',
+                            c=station_color, elinewidth=1, ecolor=station_color, ms=4,
+                            capsize=2, zorder=10)
         
-    for s in station_data:  # station labels and faint gridlines
-        axs[0].text(station_data[s]['latitude'], 6, s, ha='center', size=6)
-        for ax in axs:
-            ax.axvline(station_data[s]['latitude'], c=black, alpha=0.2, zorder=1)
+    for s, ax in product(station_data, axs):  # station labels and faint gridlines
+        ax.text(station_data[s]['latitude'], 1.02, s, ha='center', size=6, transform=transforms.blended_transform_factory(ax.transData, ax.transAxes))
+        ax.axvline(station_data[s]['latitude'], c=black, alpha=0.2, zorder=1)
 
-    fig.savefig(os.path.join(path, f'figs/param_section_compilation_dc.pdf'))
+    fig.savefig(os.path.join(path, f'figs/param_section_compilation_dc.pdf'), bbox_inches='tight')
     plt.close()
+
+
+def poc_section(path, poc_data, station_data):
+    
+    lims = {'POCS': (0.06, 6), 'POCL': (0.004, 2)}
+    cbar_labels = {'POCS': '$P_{S}$\n(mmol m$^{-3}$)',
+                   'POCL': '$P_{L}$\n(mmol m$^{-3}$)'}
+    scheme = plt.cm.viridis
+    lats = [station_data[s]['latitude'] for s in station_data]
+    mlds_unsorted = [station_data[s]['mld'] for s in station_data]
+    zgs_unsorted = [station_data[s]['zg'] for s in station_data]
+    mlds = [mld for _, mld in sorted(zip(lats, mlds_unsorted))]
+    zgs = [zg for _, zg in sorted(zip(lats, zgs_unsorted))]
+    lats.sort()
+    
+    fig, axs = plt.subplots(2, 1, figsize=(10, 6), tight_layout=True)
+    fig.subplots_adjust(right=0.8)
+    
+    for ax in axs:
+        ax.invert_xaxis()
+        ax.invert_yaxis()
+        ax.set_ylim(top=0, bottom=630)
+        ax.set_ylabel('Depth (m)', fontsize=12)
+        ax.plot(lats, mlds, c='k', zorder=1, ls='--')
+        ax.plot(lats, zgs, c='k', zorder=1)
+    
+    axs[0].tick_params(axis='x', label1On=False)
+    axs[1].set_xlabel('Latitude (°N)', fontsize=12)
+    
+    for (ax, tracer) in ((axs[0], 'POCS'), (axs[1], 'POCL')):
+        norm = LogNorm(*lims[tracer])
+        cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), ax=ax, pad=0.01)
+        cbar.set_label(cbar_labels[tracer], rotation=270, labelpad=40, fontsize=12)
+        for s in station_data:
+            ax.text(station_data[s]['latitude'], 1.02, s, ha='center', size=6, transform=transforms.blended_transform_factory(ax.transData, ax.transAxes))
+            ax.scatter(poc_data[s]['latitude'], poc_data[s]['depth'], c=poc_data[s][tracer], norm=norm, cmap=scheme, zorder=10)
+
+    fig.savefig(os.path.join(path, f'figs/section_poc.pdf'), bbox_inches='tight')
+    plt.close()
+    
+
+def get_station_color_legend():
+
+    lines = [Line2D([0], [0], color=green, lw=4),
+             Line2D([0], [0], color=orange, lw=4),
+             Line2D([0], [0], color=vermillion, lw=4),
+             Line2D([0], [0], color=blue, lw=4)]
+    
+    labels = ['Shelf', 'N. Pac', 'Eq.', 'S. Pac']
+    
+    line_length = 1
+    
+    return lines, labels, line_length
 
         
 def spaghetti_params(path, station_data):
@@ -493,20 +552,12 @@ def spaghetti_params(path, station_data):
         df = pickle.load(f)    
 
     params = ('B2p', 'B2', 'Bm2', 'aggratio', 'Bm1s', 'Bm1l', 'ws', 'wl')
-    scheme = plt.cm.plasma
-    # colors = scheme(np.linspace(0, 1, len(station_data)))
-
-    prior_extrema = {p: [] for p in params}
     
-    # for f in filenames:
-    #     with open(os.path.join(path, f), 'rb') as file:
-    #         results = pickle.load(file)
-    #     for p in params:
-    #         prior_extrema[p].append(results['params'][p]['prior'])
-    
-    fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6), (ax7, ax8)) = plt.subplots(4, 2, figsize=(7, 10))
+    fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6), (ax7, ax8)) = plt.subplots(4, 2, figsize=(7, 12))
     axs = (ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8)
-    norm = Normalize(-20, 60)  # min and max latitudes
+    fig.subplots_adjust(wspace=0.1, hspace=0.5, left=0.15)
+    
+    fig.text(0.04, 0.5, 'Depth (m)', fontsize=14, va='center', rotation='vertical')
 
     for i, p in enumerate(params):
         depth_str = 'depth' if 'w' in p else 'avg_depth'
@@ -515,8 +566,6 @@ def spaghetti_params(path, station_data):
         
         if i % 2:
             axs[i].yaxis.set_ticklabels([])
-        elif i == 2:
-            axs[i].set_ylabel('Depth (m)', fontsize=14, labelpad=10)
         axs[i].set_ylim(0, 600)
         axs[i].invert_yaxis()
         if param_text[p][1]:
@@ -529,22 +578,18 @@ def spaghetti_params(path, station_data):
             c = get_station_color(s)
             s_df = mean.loc[mean['station'] == s]
             axs[i].plot(s_df[p], s_df[depth_str], c=c)
-        
-        # ax.axvline(min(prior_extrema[p]), color=black, ls=':')
-        # ax.axvline(max(prior_extrema[p]), color=black, ls=':')
 
-    fig.subplots_adjust(wspace=0.05, hspace=0.4, top=0.98, bottom=0.06)
+    lines, labels, line_length = get_station_color_legend()
+    axs[0].legend(lines, labels, frameon=False, handlelength=line_length)
 
-    fig.savefig(os.path.join(path, f'figs/spaghetti_params.pdf'))
+    fig.savefig(os.path.join(path, f'figs/spaghetti_params.pdf'), bbox_inches='tight')
     plt.close()
 
 
 def spaghetti_ctd(path, station_data):
 
     station_fname = ctd_files_by_station()
-    fig, axs = plt.subplots(1, 2, figsize=(6, 5))
-    norm = Normalize(-20, 60)  # min and max latitudes
-    scheme = plt.cm.plasma
+    fig, axs = plt.subplots(1, 2, figsize=(6, 5), tight_layout=True)
 
     # profiles of T, O2, N2, params
     for s in station_fname:
@@ -571,9 +616,36 @@ def spaghetti_ctd(path, station_data):
             ax.set_ylim(0, 600)
             ax.invert_yaxis()
 
-    fig.subplots_adjust(wspace=0.05, top=0.98, bottom=0.15)
+    lines, labels, line_length = get_station_color_legend()
+    axs[0].legend(lines, labels, frameon=False, handlelength=line_length)
 
-    fig.savefig(os.path.join(path, f'figs/spaghetti_ctd.pdf'))
+    fig.savefig(os.path.join(path, f'figs/spaghetti_ctd.pdf'), bbox_inches='tight')
+    plt.close()
+
+
+def spaghetti_poc(path, poc_data):
+    
+    fig, (ax1, ax2) = plt.subplots(1, 2, tight_layout=True)
+    
+    for ax in (ax1, ax2):
+        ax.set_ylim(0, 610)
+        ax.invert_yaxis()
+        ax.set_xscale('log')
+    
+    ax1.set_ylabel('Depth (m)', fontsize=14)
+    ax2.yaxis.set_ticklabels([])
+    ax1.set_xlabel('$P_{S}$ (mmol m$^{-3}$)', fontsize=14)
+    ax2.set_xlabel('$P_{L}$ (mmol m$^{-3}$)', fontsize=14)
+    
+    for s in poc_data:
+        station_color = get_station_color(s)
+        ax1.plot(poc_data[s]['POCS'], poc_data[s]['depth'], c=station_color)
+        ax2.plot(poc_data[s]['POCL'], poc_data[s]['depth'], c=station_color)
+
+    lines, labels, line_length = get_station_color_legend()
+    ax1.legend(lines, labels, frameon=False, handlelength=line_length)
+
+    fig.savefig(os.path.join(path, f'figs/spaghetti_poc.pdf'), bbox_inches='tight')
     plt.close()
 
 
@@ -720,7 +792,7 @@ def ctd_files_by_station():
 
 
 
-def ctd_plots(path, station_data, axes=True):
+def ctd_plots(path, station_data):
         
     # get mean param df across all stations
     with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
@@ -729,38 +801,19 @@ def ctd_plots(path, station_data, axes=True):
 
     station_fname = ctd_files_by_station()
     
-    params = ('B2p', 'B2', 'Bm2', 'aggratio', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    params = ('B2p', 'B2', 'Bm2', 'aggratio')
     param_text = get_param_text()
     
-    splots, axs = plt.subplots(3, 8, figsize=(16, 6))
-    t_axs, o_axs, n_axs = axs
+    fig, axs = plt.subplots(4, 2, figsize=(6, 10), tight_layout=True)
+    t_axs = [axs.flatten()[i] for i in [0, 2, 4, 6]]
+    o_axs = [axs.flatten()[i] for i in [1, 3, 5, 7]]
     
-    t_axs[0].set_ylabel('Temperature (°C)')
-    o_axs[0].set_ylabel('Dissolved O$_2$ (µmol kg$^{-1}$)')
-    n_axs[0].set_ylabel('N$^2$ (s$^{-2}$)')
-    
-    # for ax in t_axs:
-    #     ax.set_ylim(0, 32)
-    # for ax in o_axs:
-    #     ax.set_ylim(0, 330)
-    # for ax in n_axs:
-    #     ax.set_ylim(-0.0002, 0.002)
+    t_axs[3].set_xlabel('Temperature (°C)')
+    o_axs[3].set_xlabel('Dissolved O$_2$ (µmol kg$^{-1}$)')
 
-    # profiles of T, O2, N2, params
     for (s, (i, p)) in product(station_fname, enumerate(params)):
+        
         color = get_station_color(s)
-        alpha = 1
-
-        if s < 9:
-            alpha = 0.1
-        elif s < 28:
-            alpha = 0.1
-        elif s < 34:
-            alpha = 0.1
-        else:
-            alpha = 1
-        # scheme = plt.cm.plasma_r
-        # norm=Normalize(0, 600)
         
         s_p_df = param_means.loc[param_means['station'] == s][['depth', 'avg_depth', p]]
         ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
@@ -771,177 +824,44 @@ def ctd_plots(path, station_data, axes=True):
         ctd_df = ctd_df[['CTDPRS', 'CTDTMP', 'CTDOXY', 'CTDSAL']]
 
         lat = station_data[s]['latitude']
-        lon = station_data[s]['longitude']
         ctd_df['depth'] = -gsw.z_from_p(ctd_df['CTDPRS'].values, lat)
-        S_abs = gsw.conversions.SA_from_SP(ctd_df['CTDSAL'].values, ctd_df['CTDPRS'].values, lon, lat)  # absolute salinity
-        T_cons = gsw.conversions.CT_from_t(S_abs, ctd_df['CTDTMP'].values, ctd_df['CTDPRS'].values)  # conservative temperature
-        n2, n2_press = gsw.Nsquared(S_abs, T_cons, ctd_df['CTDPRS'].values, lat)
-        n2_depth = -gsw.z_from_p(n2_press, lat)
-        n2_df = pd.DataFrame(list(zip(n2, n2_depth)), columns = ['n2', 'depth'])
-
-        fig = plt.figure(figsize=(4, 5))
-        fig.suptitle(f'Stn. {s}, {p}', fontsize=14)
-        host1 = host_subplot(111, axes_class=Axes, figure=fig)
-        host1.axis['right'].toggle(all=False)
-        
-        par1 = host1.twiny()
-        par2 = host1.twiny()
-        par3 = host1.twiny()
-
-        host1.set_ylim(0, 600)
-        host1.invert_yaxis()
-
-        par3.plot(n2, n2_depth, c=black, ms=2, alpha=0.3)
-        par1.plot(ctd_df['CTDTMP'], ctd_df['depth'], c=vermillion, ms=2)
-        par2.plot(ctd_df['CTDOXY'], ctd_df['depth'], c=blue, ms=2)
-        
-        host1.axhline(station_data[s]['zg'], c=black, ls=':')
         
         if 'w' not in p:
-            host1.plot(s_p_df[p], s_p_df['avg_depth'], c=green)
             for j, (_, r) in enumerate(s_p_df.iterrows()):
                 
                 ydeep, yshal = get_layer_bounds(j, s_p_df['depth'].values)
                 ctd_in_layer = ctd_df.loc[(ctd_df['depth'] < ydeep) & (ctd_df['depth'] > yshal)]
-                n2_in_layer = n2_df.loc[(n2_df['depth'] < ydeep) & (n2_df['depth'] > yshal)]
                 avg_T = ctd_in_layer['CTDTMP'].mean()
                 avg_O = ctd_in_layer['CTDOXY'].mean()
-                avg_N2 = n2_in_layer['n2'].mean()
-                host1.vlines(r[p], ydeep, yshal, colors=green, zorder=3)
-                par1.vlines(avg_T, ydeep, yshal, colors=vermillion, zorder=3)
-                par2.vlines(avg_O, ydeep, yshal, colors=blue, zorder=3)
-                par3.vlines(avg_N2, ydeep, yshal, colors=black, alpha=0.3, zorder=3)
-                
-                t_axs[i].scatter(r[p], avg_T, s=16, alpha=alpha, color=color)
-                o_axs[i].scatter(r[p], avg_O, s=16, alpha=alpha, color=color)
-                n_axs[i].scatter(r[p], avg_N2, s=16, alpha=alpha, color=color)
+
+                t_axs[i].scatter(avg_T, r[p], s=7, color=color)
+                o_axs[i].scatter(avg_O, r[p], s=7, color=color)
         else:
-            host1.plot(s_p_df[p], s_p_df['depth'], c=green)
             closest_ctd = pd.merge_asof(s_p_df, ctd_df, on='depth', direction='nearest')
-            closest_n2 = pd.merge_asof(s_p_df, n2_df, on='depth', direction='nearest')
-            t_axs[i].scatter(s_p_df[p], closest_ctd['CTDTMP'], s=16, alpha=alpha, color=color)
-            o_axs[i].scatter(s_p_df[p], closest_ctd['CTDOXY'], s=16, alpha=alpha, color=color)
-            n_axs[i].scatter(s_p_df[p], closest_n2['n2'], s=16, alpha=alpha, color=color)
-
-        if axes:
-            plt.subplots_adjust(top=0.6, bottom=0.1)
-            par1.axis['top'].toggle(all=True)
-            offset = 40
-            new_fixed_axis = par2.get_grid_helper().new_fixed_axis
-            par2.axis['top'] = new_fixed_axis(loc='top', axes=par2, offset=(0, offset))
-            par2.axis['top'].toggle(all=True)
-            new_fixed_axis = par3.get_grid_helper().new_fixed_axis
-            par3.axis['top'] = new_fixed_axis(loc='top', axes=par3, offset=(0, offset*2))
-            par3.axis['top'].toggle(all=True)
-
-            host1.set_ylabel('Depth (m)')
-            host1.axis['left'].major_ticklabels.set_fontsize(11)
-            host1.axis['left'].label.set_fontsize(14)
-            host1.axis['left'].major_ticks.set_ticksize(6)
-
-            host1.axis['bottom'].label.set_color(green)
-            par1.axis['top'].label.set_color(vermillion)
-            par2.axis['top'].label.set_color(blue)
-            par3.axis['top'].label.set_color('grey')
-
-            host1.axis['bottom'].major_ticklabels.set_fontsize(11)
-            par1.axis['top'].major_ticklabels.set_fontsize(11)
-            par2.axis['top'].major_ticklabels.set_fontsize(11)
-            par3.axis['top'].major_ticklabels.set_fontsize(11)
-
-            host1.set_xlabel(p)
-            par1.set_xlabel('Temperature (°C)')
-            par2.set_xlabel('Dissolved O$_2$ (µmol kg$^{-1}$)')
-            par3.set_xlabel('N$^2$ (s$^{-2}$)')
-
-            host1.axis['bottom'].label.set_fontsize(14)
-            par1.axis['top'].label.set_fontsize(14)
-            par2.axis['top'].label.set_fontsize(14)
-            par3.axis['top'].label.set_fontsize(14)
-
-            host1.axis['bottom'].major_ticklabels.set_fontsize(11)
-            par1.axis['top'].major_ticklabels.set_fontsize(11)
-            par2.axis['top'].major_ticklabels.set_fontsize(11)
-            par3.axis['top'].major_ticklabels.set_fontsize(11)
-        else:
-            plt.tight_layout()
-            host1.axis[:].toggle(all=False)
-            par1.axis[:].toggle(all=False)
-            par2.axis[:].toggle(all=False)
-            par3.axis[:].toggle(all=False)
-            
-        # fig.savefig(os.path.join(path, f'figs/ctd_{p}_s{s}.pdf'))
-        plt.close()
+            t_axs[i].scatter(closest_ctd['CTDTMP'], s_p_df[p], s=7, color=color)
+            o_axs[i].scatter(closest_ctd['CTDOXY'], s_p_df[p], s=7, color=color)
 
     for ax in t_axs:
-        ax.set_ylim(1, 32)
-        ax.set_yscale('log')
-        ax.set_xscale('log')
+        ax.set_xlim(0, 32)
     for ax in o_axs:
-        ax.set_ylim(1, 330)
-        ax.set_yscale('log')
-        ax.set_xscale('log')
-    for ax in n_axs:
-        ax.set_ylim(0.000001, 0.002)
-        ax.set_yscale('log')
-        ax.set_xscale('log')
+        ax.set_xlim(0, 330)
 
     for i, p in enumerate(params):
         if param_text[p][1]:
             units = f'\n({param_text[p][1]})'
         else:
             units = ''
-        n_axs[i].set_xlabel(f'{param_text[p][0]}{units}')
-        t_axs[i].xaxis.set_ticklabels([])
-        o_axs[i].xaxis.set_ticklabels([])
-        if i > 0:
-            t_axs[i].yaxis.set_ticklabels([])
-            o_axs[i].yaxis.set_ticklabels([])
-            n_axs[i].yaxis.set_ticklabels([])
-
-    splots.subplots_adjust(wspace=0.2, hspace=0.2, top=0.98, bottom=0.2)
-    # cbar_ax = splots.add_axes([0.92, 0.2, 0.01, 0.78])
-    # cbar = splots.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), cax=cbar_ax)
-    # cbar.set_label('Depth(m)', rotation=270, labelpad=20)
+        t_axs[i].set_ylabel(f'{param_text[p][0]}{units}', fontsize=14)
+        o_axs[i].yaxis.set_ticklabels([])
+        if i < 3:
+            o_axs[i].xaxis.set_ticklabels([])
+            t_axs[i].xaxis.set_ticklabels([])
+            
+    lines, labels, line_length = get_station_color_legend()
+    o_axs[0].legend(lines, labels, frameon=False, handlelength=line_length)
     
-    splots.savefig(os.path.join(path, f'figs/ctd_scatterplots.pdf'))
+    fig.savefig(os.path.join(path, f'figs/ctd_scatterplots.pdf'), bbox_inches='tight')
     plt.close() 
-
-    # # plot the scatterplots
-    # for (p, t) in product(params, ('CTDTMP', 'CTDOXY')):
-    #     f, ax = plt.subplots(figsize=(7, 7))
-    #     # ax.set(xscale='log', yscale='log')
-    #     sns.scatterplot(x=p, y=t, data=merged, hue='depth', ax=ax)
-    #     plt.savefig(os.path.join(path, f'figs/ctdscatter_{p}_{t}'))
-    #     plt.close()
-    
-    # for p in params:
-        
-    #     p_df = merged[['CTDTMP', 'CTDOXY', p]]
-        
-    #     # multiple linear regression
-    #     X = p_df[['CTDTMP', 'CTDOXY']]
-    #     y = p_df[p] 
-    #     X = sm.add_constant(X) 
-    #     est = sm.OLS(y, X).fit()  
-    #     print(f'{p}: {est.rsquared_adj:.3f}')
-    #     print(est.summary())
-        
-    #     # linear combo plots
-    #     c0, cT, cO2 = est.params  
-    #     yp = c0 + p_df['CTDTMP']*cT + p_df['CTDOXY']*cO2
-    #     _, ax = plt.subplots(tight_layout=True)
-    #     sns.scatterplot(x=yp, y=p_df[p], hue=merged['depth'], ax=ax)
-    #     ax.set_xlabel('predicted')
-    #     ax.set_ylabel('actual')
-    #     plt.savefig(os.path.join(path, f'figs/lincombo_{p}'))
-    #     plt.close()
-        
-    #     # kendal tau
-    #     p_df = p_df.sort_values(p)
-    #     for t in ['CTDTMP', 'CTDOXY']:
-    #         tau, pval = scipy.stats.kendalltau(p_df[p], p_df[t])
-    #         print(f'Tau stats for {p}, {t} (tau, pval) = {tau:0.3f}, {pval:0.3f}')
 
             
 
@@ -1380,9 +1300,6 @@ def multipanel_context(path, station_data):
 
     for ax in (axs[8], axs[10]):
         ax.axhline(1, c=black, ls = ':')
-    
-    for s in station_data:  # station labels
-        axs[0].text(station_data[s]['latitude'], 11, s, ha='center', size=6)
         
     for i, ax in enumerate(axs):
         ax.set_ylabel(ylabels[i])
@@ -1391,8 +1308,10 @@ def multipanel_context(path, station_data):
             ax.tick_params(axis='x',label1On=False)
         else:
             ax.set_xlabel('Latitude (°N)')
+        for s in station_data:
+            ax.text(station_data[s]['latitude'], 1.02, s, ha='center', size=6, transform=transforms.blended_transform_factory(ax.transData, ax.transAxes))
 
-    fig.savefig(os.path.join(path, f'figs/multipanel_context.pdf'))
+    fig.savefig(os.path.join(path, f'figs/multipanel_context.pdf'), bbox_inches='tight')
     plt.close()
     
 
@@ -1507,20 +1426,20 @@ if __name__ == '__main__':
     ez_depths = data.get_ez_depths(Lp_priors)
     station_data = data.get_station_data(poc_data, param_uniformity, ez_depths,
                                          flux_constraint=True)
-    
+
     n_sets = 100000
     path = f'../../results/geotraces/mc_{n_sets}'
     all_files = get_filenames(path)
     # compile_param_estimates(all_files)
-    # multipanel_context(path, station_data)
+    multipanel_context(path, station_data)
     # zg_phyto_scatter(station_data)
-    # param_section_compilation_dc(path, station_data, all_files)
-    # param_section_compilation_dv(path, station_data)
-    ctd_plots(path, station_data, axes=False)
-    # spaghetti_params(path, station_data)
-    # spaghetti_ctd(path, station_data)
-    # poc_profiles(path, station_data)
-    # ballast_scatterplots(path, station_data)
+    param_section_compilation_dc(path, station_data, all_files)
+    param_section_compilation_dv(path, station_data)
+    ctd_plots(path, station_data)
+    spaghetti_params(path, station_data)
+    spaghetti_ctd(path, station_data)
+    spaghetti_poc(path, poc_data)
+    poc_section(path, poc_data, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
