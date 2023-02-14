@@ -4,6 +4,7 @@ from itertools import product
 from time import time
 import sys
 
+import cartopy.crs
 import gsw
 import matplotlib.pyplot as plt
 import matplotlib.transforms as transforms
@@ -1373,6 +1374,23 @@ def ballast_scatterplots(path, station_data):
 
     fig.savefig(os.path.join(path, f'figs/ballast_scatterplots.pdf'))
     plt.close()
+    
+
+def section_map(path, station_data):
+
+    fig = plt.figure(figsize=(5, 7))
+    ax = fig.add_subplot(1, 1, 1, projection=cartopy.crs.PlateCarree())
+    ax.add_feature(cartopy.feature.LAND.with_scale('50m'), color=black, zorder=2)
+    ax.set_extent([-162, -142, -25, 62], crs=cartopy.crs.PlateCarree())
+    gl = ax.gridlines(draw_labels=['left'], zorder=1)
+    gl.xlines = False
+    import math
+    for s in station_data:
+        c = get_station_color(s)
+        ax.scatter(station_data[s]['longitude'], station_data[s]['latitude'], color=c, s=20, zorder=3)
+        
+    plt.savefig(os.path.join(path, f'figs/section_map.pdf'), bbox_inches='tight')
+    plt.close()
 
     
 if __name__ == '__main__':
@@ -1392,13 +1410,14 @@ if __name__ == '__main__':
     # compile_param_estimates(all_files)
     # multipanel_context(path, station_data)
     # zg_phyto_scatter(station_data)
-    param_section_compilation_dc(path, station_data, all_files)
+    # param_section_compilation_dc(path, station_data, all_files)
     # param_section_compilation_dv(path, station_data)
     # ctd_plots(path, station_data)
     # spaghetti_params(path, station_data)
     # spaghetti_ctd(path, station_data)
     # spaghetti_poc(path, poc_data)
     # poc_section(path, poc_data, station_data)
+    section_map(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
