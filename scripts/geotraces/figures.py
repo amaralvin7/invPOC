@@ -452,7 +452,7 @@ def param_section_compilation_dc(path, station_data, filenames):
             with open(os.path.join(path, f), 'rb') as file:
                 results = pickle.load(file)
                 for p in params:
-                    priors[p][s] = results['params'][p]['prior']
+                    priors[p][s] = (results['params'][p]['prior'], results['params'][p]['prior_e'])
             
     fig, axs = plt.subplots(len(params), 1, figsize=(6, 10), tight_layout=True)
     fig.subplots_adjust(right=0.8, hspace=0.2)
@@ -470,7 +470,9 @@ def param_section_compilation_dc(path, station_data, filenames):
         ax.set_ylabel(f'{param_text[p][0]}{units}', fontsize=14)
 
         ax.invert_xaxis()
-        ax.scatter(lats, [priors[p][s] for s in station_data], c=black, s=16, marker='d', zorder=2)
+        ax.errorbar(lats, [priors[p][s][0] for s in station_data], yerr=[priors[p][s][1] for s in station_data],
+                    c='silver', fmt='d', zorder=2, elinewidth=1, ecolor='silver', ms=4,
+                    capsize=2)
         if i < len(axs) - 1:
             ax.tick_params(axis='x',label1On=False)
         else:
@@ -485,7 +487,6 @@ def param_section_compilation_dc(path, station_data, filenames):
         
     for s, ax in product(station_data, axs):  # station labels and faint gridlines
         ax.text(station_data[s]['latitude'], 1.02, s, ha='center', size=6, transform=transforms.blended_transform_factory(ax.transData, ax.transAxes))
-        ax.axvline(station_data[s]['latitude'], c=black, alpha=0.2, zorder=1)
 
     fig.savefig(os.path.join(path, f'figs/param_section_compilation_dc.pdf'), bbox_inches='tight')
     plt.close()
@@ -1389,15 +1390,15 @@ if __name__ == '__main__':
     path = f'../../results/geotraces/mc_{n_sets}'
     all_files = get_filenames(path)
     # compile_param_estimates(all_files)
-    multipanel_context(path, station_data)
-    zg_phyto_scatter(station_data)
-    # param_section_compilation_dc(path, station_data, all_files)
+    # multipanel_context(path, station_data)
+    # zg_phyto_scatter(station_data)
+    param_section_compilation_dc(path, station_data, all_files)
     # param_section_compilation_dv(path, station_data)
     # ctd_plots(path, station_data)
     # spaghetti_params(path, station_data)
     # spaghetti_ctd(path, station_data)
     # spaghetti_poc(path, poc_data)
-    poc_section(path, poc_data, station_data)
+    # poc_section(path, poc_data, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
