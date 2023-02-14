@@ -494,8 +494,8 @@ def param_section_compilation_dc(path, station_data, filenames):
 def poc_section(path, poc_data, station_data):
     
     lims = {'POCS': (0.06, 6), 'POCL': (0.004, 2)}
-    cbar_labels = {'POCS': '$P_{S}$\n(mmol m$^{-3}$)',
-                   'POCL': '$P_{L}$\n(mmol m$^{-3}$)'}
+    cbar_labels = {'POCS': '$P_{S}$ (mmol m$^{-3}$)',
+                   'POCL': '$P_{L}$ (mmol m$^{-3}$)'}
     scheme = plt.cm.viridis
     lats = [station_data[s]['latitude'] for s in station_data]
     mlds_unsorted = [station_data[s]['mld'] for s in station_data]
@@ -521,7 +521,7 @@ def poc_section(path, poc_data, station_data):
     for (ax, tracer) in ((axs[0], 'POCS'), (axs[1], 'POCL')):
         norm = LogNorm(*lims[tracer])
         cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), ax=ax, pad=0.01)
-        cbar.set_label(cbar_labels[tracer], rotation=270, labelpad=40, fontsize=12)
+        cbar.set_label(cbar_labels[tracer], rotation=270, labelpad=20, fontsize=12)
         for s in station_data:
             ax.text(station_data[s]['latitude'], 1.02, s, ha='center', size=6, transform=transforms.blended_transform_factory(ax.transData, ax.transAxes))
             ax.scatter(poc_data[s]['latitude'], poc_data[s]['depth'], c=poc_data[s][tracer], norm=norm, cmap=scheme, zorder=10)
@@ -1145,24 +1145,17 @@ def get_station_color(station):
 def zg_phyto_scatter(station_data):
 
     pig_data = get_ml_pigs(station_data)
-    # norm = Normalize(-20, 60)
-    # scheme = plt.cm.plasma
-    fig, axs = plt.subplots(3, 4, figsize=(8, 6), tight_layout=True)
+    fig, axs = plt.subplots(1, 4, figsize=(12, 4), tight_layout=True)
     
-    axs[0][0].set_ylabel('EZ flux, S\n(mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
-    axs[1][0].set_ylabel('EZ flux, L\n(mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
-    axs[2][0].set_ylabel('EZ flux, T\n(mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+    axs[0].set_ylabel('EZ flux (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
     
-    for i, ax in enumerate(axs.flatten()):
-        if i not in (0, 4, 8):
-            ax.yaxis.set_ticklabels([])
-        if i < 8:
-            ax.xaxis.set_ticklabels([])
+    for ax in axs.flatten()[1:]:
+        ax.yaxis.set_ticklabels([])
     
-    axs[2][0].set_xlabel('Chl. a (ng L$^{-1}$)', fontsize=14)
-    axs[2][1].set_xlabel('Frac. pico', fontsize=14)
-    axs[2][2].set_xlabel('Frac. nano', fontsize=14)
-    axs[2][3].set_xlabel('Frac. micro', fontsize=14)
+    axs[0].set_xlabel('Chl. a (ng L$^{-1}$)', fontsize=14)
+    axs[1].set_xlabel('Frac. pico', fontsize=14)
+    axs[2].set_xlabel('Frac. nano', fontsize=14)
+    axs[3].set_xlabel('Frac. micro', fontsize=14)
     
     for s in station_data:
         
@@ -1171,34 +1164,25 @@ def zg_phyto_scatter(station_data):
         grid = np.array(station_data[s]['grid'])
         zg = station_data[s]['zg']
         zgi = list(grid).index(zg)
-        s_fluxes = []
-        l_fluxes = []
         t_fluxes = []
         pickled_files = [f for f in os.listdir(path) if f'stn{s}.pkl' in f]
         for f in pickled_files:
             with open(os.path.join(path, f), 'rb') as file:
                 fluxes = pickle.load(file)['sink_fluxes']
-                s_fluxes.append(fluxes['S'][zgi][0])
-                l_fluxes.append(fluxes['L'][zgi][0])
                 t_fluxes.append(fluxes['T'][zgi][0])
-        s_flux = np.mean(s_fluxes)
-        l_flux = np.mean(l_fluxes)
         t_flux = np.mean(t_fluxes)
 
         pico, nano, micro = phyto_size_index(pig_data[s])
 
-        for i, f in zip((0, 1, 2), (s_flux, l_flux, t_flux)):
-            axs[i][0].scatter(pig_data[s]['chla'], f, s=16, color=c)
-            axs[i][1].scatter(pico/100, f, s=16, color=c)  
-            axs[i][2].scatter(nano/100, f, s=16, color=c)  
-            axs[i][3].scatter(micro/100, f, s=16, color=c)
+        axs[0].scatter(pig_data[s]['chla'], t_flux, s=16, color=c)
+        axs[1].scatter(pico/100, t_flux, s=16, color=c)  
+        axs[2].scatter(nano/100, t_flux, s=16, color=c)  
+        axs[3].scatter(micro/100, t_flux, s=16, color=c)
 
-    # fig.subplots_adjust(right=0.8, wspace=0.1, hspace=0.2, top=0.98, bottom=0.2)
-    # cbar_ax = fig.add_axes([0.85, 0.06, 0.03, 0.92])
-    # cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=scheme), cax=cbar_ax)
-    # cbar.set_label('Latitude (°N)', rotation=270, labelpad=10, fontsize=14)
+    lines, labels, line_length = get_station_color_legend()
+    axs[0].legend(lines, labels, frameon=False, handlelength=line_length)
 
-    fig.savefig(os.path.join(path, f'figs/zg_phyto_scatter.pdf'))
+    fig.savefig(os.path.join(path, f'figs/zg_phyto_scatter.pdf'), bbox_inches='tight')
     plt.close()
 
 
@@ -1223,21 +1207,18 @@ def multipanel_context(path, station_data):
                1: 'Silicate\n(µmol kg$^{-1}$)',
                2: 'Phosphate\n(µmol kg$^{-1}$)',
                3: 'Chl. a\n(ng L$^{-1}$)',
-               4: 'Frac. pico', 5: 'Frac. nano', 6: 'Frac. micro',
-               7: 'EZ flux\n(mmol m$^{-2}$ d$^{-1}$)',
-               8: 'Transfer\nefficiency',
-               9: 'Export\nefficiency',
-               10: '$\\beta_2$/$\\beta_{-2}$'}
+               4: 'Frac. pico', 5: 'Frac. nano', 6: 'Frac. micro'}
     
 
     with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
         df = pickle.load(f)    
         df = df[['depth', 'avg_depth', 'latitude', 'aggratio']]
 
-    fig, axs = plt.subplots(11, 1, figsize=(5, 13), tight_layout=True)
+    fig, axs = plt.subplots(7, 1, figsize=(5, 10), tight_layout=True)
     fig.subplots_adjust(left=0.2)
     for s in station_data:
         lat = station_data[s]['latitude']
+        station_color = get_station_color(s)
         
         pico, nano, micro = phyto_size_index(pig_data[s])
         
@@ -1266,40 +1247,17 @@ def multipanel_context(path, station_data):
                     zi, zim1 = get_layer_bounds(layer, grid)
                     npp += Lp * Po * (np.exp(-zim1 / Lp) - np.exp(-zi / Lp))
                 xport_effs.append(fluxes[zgi][0] / npp)
-
         
-        # calculate aggratios in ml
-        s_df = df.loc[(df['latitude'] == station_data[s]['latitude']) & (df['depth'] < station_data[s]['mld'])]
-        
-        axs[0].scatter(lat, nut_data[s]['nitrate'], c=black, s=16)
-        axs[1].scatter(lat, nut_data[s]['silicate'], c=black, s=16)
-        axs[2].scatter(lat, nut_data[s]['phosphate'], c=black, s=16)
-        axs[3].scatter(lat, pig_data[s]['chla'], c=black, s=16)
-        axs[4].scatter(lat, pico/100, c=black, s=16)
-        axs[5].scatter(lat, nano/100, c=black, s=16)
-        axs[6].scatter(lat, micro/100, c=black, s=16)
-        axs[7].errorbar(lat, np.mean(zg_fluxes),
-                        yerr=np.std(zg_fluxes, ddof=1)/np.sqrt(len(zg_fluxes)),
-                        fmt='o', c=black, elinewidth=1, ecolor=black, ms=4,
-                        capsize=2)
+        axs[0].scatter(lat, nut_data[s]['nitrate'], c=station_color, s=16, zorder=2)
+        axs[1].scatter(lat, nut_data[s]['silicate'], c=station_color, s=16, zorder=2)
+        axs[2].scatter(lat, nut_data[s]['phosphate'], c=station_color, s=16, zorder=2)
+        axs[3].scatter(lat, pig_data[s]['chla'], c=station_color, s=16, zorder=2)
+        axs[4].scatter(lat, pico/100, c=station_color, s=16, zorder=2)
+        axs[5].scatter(lat, nano/100, c=station_color, s=16, zorder=2)
+        axs[6].scatter(lat, micro/100, c=station_color, s=16, zorder=2)
 
-        axs[8].errorbar(lat, np.mean(xfer_effs),
-                        yerr=np.std(xfer_effs, ddof=1)/np.sqrt(len(xfer_effs)),
-                        fmt='o', c=black, elinewidth=1, ecolor=black, ms=4,
-                        capsize=2)
-        axs[9].errorbar(lat, np.mean(xport_effs),
-                        yerr=np.std(xport_effs, ddof=1)/np.sqrt(len(xport_effs)),
-                        fmt='o', c=black, elinewidth=1, ecolor=black, ms=4,
-                        capsize=2)
-        axs[10].errorbar(lat, np.mean(s_df['aggratio']),
-                        yerr=np.std(s_df['aggratio'], ddof=1)/np.sqrt(len(s_df)), fmt='o',
-                        c=black, elinewidth=1, ecolor=black, ms=4,
-                        capsize=2)
         for ax in axs:  # faint gridlines
-            ax.axvline(lat, c=black, alpha=0.2)
-
-    for ax in (axs[8], axs[10]):
-        ax.axhline(1, c=black, ls = ':')
+            ax.axvline(lat, c=black, alpha=0.2, zorder=1)
         
     for i, ax in enumerate(axs):
         ax.set_ylabel(ylabels[i])
@@ -1432,13 +1390,13 @@ if __name__ == '__main__':
     all_files = get_filenames(path)
     # compile_param_estimates(all_files)
     multipanel_context(path, station_data)
-    # zg_phyto_scatter(station_data)
-    param_section_compilation_dc(path, station_data, all_files)
-    param_section_compilation_dv(path, station_data)
-    ctd_plots(path, station_data)
-    spaghetti_params(path, station_data)
-    spaghetti_ctd(path, station_data)
-    spaghetti_poc(path, poc_data)
+    zg_phyto_scatter(station_data)
+    # param_section_compilation_dc(path, station_data, all_files)
+    # param_section_compilation_dv(path, station_data)
+    # ctd_plots(path, station_data)
+    # spaghetti_params(path, station_data)
+    # spaghetti_ctd(path, station_data)
+    # spaghetti_poc(path, poc_data)
     poc_section(path, poc_data, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
