@@ -19,6 +19,7 @@ from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits.axisartist import Axes
 from scipy.interpolate import interp1d
 from sklearn.cluster import KMeans
+from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
@@ -1159,6 +1160,16 @@ def zg_phyto_scatter(station_data):
     axs[2].set_xlabel('Frac. nano', fontsize=14)
     axs[3].set_xlabel('Frac. micro', fontsize=14)
     
+    a0_data0 = {'x': [], 'y': []}
+    a1_data0 = {'x': [], 'y': []}
+    a2_data0 = {'x': [], 'y': []}
+    a3_data0 = {'x': [], 'y': []}
+
+    a0_data1 = {'x': [], 'y': []}
+    a1_data1 = {'x': [], 'y': []}
+    a2_data1 = {'x': [], 'y': []}
+    a3_data1 = {'x': [], 'y': []}
+    
     for s in station_data:
         
         c = get_station_color(s)
@@ -1177,12 +1188,47 @@ def zg_phyto_scatter(station_data):
         pico, nano, micro = phyto_size_index(pig_data[s])
 
         axs[0].scatter(pig_data[s]['chla'], t_flux, s=16, color=c)
-        axs[1].scatter(pico/100, t_flux, s=16, color=c)  
-        axs[2].scatter(nano/100, t_flux, s=16, color=c)  
-        axs[3].scatter(micro/100, t_flux, s=16, color=c)
+        axs[1].scatter(pico, t_flux, s=16, color=c)  
+        axs[2].scatter(nano, t_flux, s=16, color=c)  
+        axs[3].scatter(micro, t_flux, s=16, color=c)
+        
+        a0_data0['x'].append(pig_data[s]['chla'])
+        a1_data0['x'].append(pico)
+        a2_data0['x'].append(nano)
+        a3_data0['x'].append(micro)
+        
+        for a in (a0_data0, a1_data0, a2_data0, a3_data0):
+            a['y'].append(t_flux)
+        
+        if s > 9:
+    
+            a0_data1['x'].append(pig_data[s]['chla'])
+            a1_data1['x'].append(pico)
+            a2_data1['x'].append(nano)
+            a3_data1['x'].append(micro)
+            
+            for a in (a0_data1, a1_data1, a2_data1, a3_data1):
+                a['y'].append(t_flux)       
+        
 
     lines, labels, line_length = get_station_color_legend()
     axs[0].legend(lines, labels, frameon=False, handlelength=line_length)
+
+    for i, a in enumerate(((a0_data0, a0_data1), (a1_data0, a1_data1), (a2_data0, a2_data1), (a3_data0, a3_data1))):
+        
+        x0 = np.array(a[0]['x']).reshape(-1, 1)
+        y0 = np.array(a[0]['y']).reshape(-1, 1)
+        reg0 = LinearRegression().fit(x0, y0)
+        y_fit0 = reg0.predict(x0)
+        axs[i].plot(x0, y_fit0, c=black)
+
+        x1 = np.array(a[1]['x']).reshape(-1, 1)
+        y1 = np.array(a[1]['y']).reshape(-1, 1)
+        reg1 = LinearRegression().fit(x1, y1)
+        y_fit1 = reg1.predict(x1)
+        axs[i].plot(x1, y_fit1, c=black, ls=':')
+        
+        axs[i].set_title(f'$R^2$ = {reg0.score(x0, y0):.2f}, {reg1.score(x1, y1):.2f}')
 
     fig.savefig(os.path.join(path, f'figs/zg_phyto_scatter.pdf'), bbox_inches='tight')
     plt.close()
@@ -1193,9 +1239,9 @@ def phyto_size_index(d):
     dp = (0.86 * d['zea'] + 1.01 * d['chlb'] + 0.6 * d['allo']
             + 0.35 * d['but'] + 1.27 * d['hex'] + 1.41 * d['fuco']
             + 1.41 * d['peri'])
-    pico = 100 * (0.86 * d['zea'] + 1.01 * d['chlb']) / dp
-    nano = 100 * (0.6 * d['allo'] + 0.35 * d['but'] + 1.27 * d['hex']) / dp
-    micro = 100 * (1.41 * d['fuco'] + 1.41 * d['peri']) / dp
+    pico = (0.86 * d['zea'] + 1.01 * d['chlb']) / dp
+    nano = (0.6 * d['allo'] + 0.35 * d['but'] + 1.27 * d['hex']) / dp
+    micro = (1.41 * d['fuco'] + 1.41 * d['peri']) / dp
 
     return pico, nano, micro
 
@@ -1254,9 +1300,9 @@ def multipanel_context(path, station_data):
         axs[1].scatter(lat, nut_data[s]['silicate'], c=station_color, s=16, zorder=2)
         axs[2].scatter(lat, nut_data[s]['phosphate'], c=station_color, s=16, zorder=2)
         axs[3].scatter(lat, pig_data[s]['chla'], c=station_color, s=16, zorder=2)
-        axs[4].scatter(lat, pico/100, c=station_color, s=16, zorder=2)
-        axs[5].scatter(lat, nano/100, c=station_color, s=16, zorder=2)
-        axs[6].scatter(lat, micro/100, c=station_color, s=16, zorder=2)
+        axs[4].scatter(lat, pico, c=station_color, s=16, zorder=2)
+        axs[5].scatter(lat, nano, c=station_color, s=16, zorder=2)
+        axs[6].scatter(lat, micro, c=station_color, s=16, zorder=2)
 
         for ax in axs:  # faint gridlines
             ax.axvline(lat, c=black, alpha=0.2, zorder=1)
@@ -1409,7 +1455,7 @@ if __name__ == '__main__':
     all_files = get_filenames(path)
     # compile_param_estimates(all_files)
     # multipanel_context(path, station_data)
-    # zg_phyto_scatter(station_data)
+    zg_phyto_scatter(station_data)
     # param_section_compilation_dc(path, station_data, all_files)
     # param_section_compilation_dv(path, station_data)
     # ctd_plots(path, station_data)
@@ -1417,7 +1463,7 @@ if __name__ == '__main__':
     # spaghetti_ctd(path, station_data)
     # spaghetti_poc(path, poc_data)
     # poc_section(path, poc_data, station_data)
-    section_map(path, station_data)
+    # section_map(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
