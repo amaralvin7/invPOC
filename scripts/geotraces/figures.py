@@ -227,7 +227,7 @@ def compile_param_estimates(filenames):
                 else:
                     avg_ps.append(np.mean([ps, ps_post[i-1]]))
             dv_dict['B2'] = dv_dict['B2p']*np.array(avg_ps)
-            dv_dict['aggratio'] = dv_dict['B2']/dv_dict['Bm2']
+            dv_dict['aggratio'] = dv_dict['Bm2']/dv_dict['B2']
             dv_rows.append(pd.DataFrame(dv_dict))
             dc_rows.append(pd.DataFrame(dc_dict))
     dv_df = pd.concat(dv_rows, ignore_index=True)
@@ -384,7 +384,7 @@ def param_section_compilation_dv(path, station_data):
 
     params = ('B2p', 'B2', 'Bm2', 'aggratio', 'Bm1s', 'Bm1l', 'ws', 'wl')
     lims = {'B2p': (0, 0.2), 'B2': (0, 0.2), 'Bm2': (0, 1),
-            'aggratio': (0, 0.5), 'Bm1s': (0, 0.1), 'Bm1l': (0, 0.25),
+            'aggratio': (0, 20), 'Bm1s': (0, 0.1), 'Bm1l': (0, 0.25),
             'ws': (0, 1), 'wl': (0, 40)}
     scheme = plt.cm.viridis
     lats = [station_data[s]['latitude'] for s in station_data]
@@ -1074,7 +1074,7 @@ def get_param_text():
                 'Po': ('$\\.P_{S,0}$', 'mmol m$^{-3}$ d$^{-1}$'),
                 'Lp': ('$L_P$', 'm'), 'B3': ('$\\beta_3$', 'd$^{-1}$'),
                 'a': ('$\\alpha$', None), 'zm': ('$z_m$', 'm'),
-                'aggratio': ('$\\beta_2$/$\\beta_{-2}$', None)}
+                'aggratio': ('$\\beta_{-2}$/$\\beta_2$', None)}
     
     return param_text
 
@@ -1256,11 +1256,6 @@ def multipanel_context(path, station_data):
                2: 'Phosphate\n(µmol kg$^{-1}$)',
                3: 'Chl. a\n(ng L$^{-1}$)',
                4: 'Frac. pico', 5: 'Frac. nano', 6: 'Frac. micro'}
-    
-
-    with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
-        df = pickle.load(f)    
-        df = df[['depth', 'avg_depth', 'latitude', 'aggratio']]
 
     fig, axs = plt.subplots(7, 1, figsize=(5, 10), tight_layout=True)
     fig.subplots_adjust(left=0.2)
@@ -1438,6 +1433,69 @@ def section_map(path, station_data):
     plt.savefig(os.path.join(path, f'figs/section_map.pdf'), bbox_inches='tight')
     plt.close()
 
+
+def aggratio_scatter(path, station_data):
+    
+    nuts = get_ml_nuts(station_data)
+
+    with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
+        dv_df = pickle.load(f)    
+
+    params_df = dv_df[['depth', 'station', 'aggratio', 'Bm2', 'B2']].copy()
+    mean_params = params_df.groupby(['depth', 'station']).mean().reset_index()
+
+    with open(os.path.join(path, 'saved_params_dc.pkl'), 'rb') as f:
+        dc_df = pickle.load(f)    
+    
+    npp_df = dc_df[['station', 'Po', 'Lp']]
+    mean_npp = npp_df.groupby(['station']).mean().reset_index()
+    
+    fig1, axs = plt.subplots(3, 2, tight_layout=True, figsize=(7,10))
+    fig2, ax = plt.subplots(1, 1, tight_layout=True)
+    param_text = get_param_text()
+    
+    axs[0][0].set_ylabel(f"{param_text['Bm2'][0]} ({param_text['Bm2'][1]})")
+    axs[1][0].set_ylabel(f"{param_text['B2'][0]} ({param_text['B2'][1]})")
+    axs[2][0].set_ylabel(param_text['aggratio'][0])
+    
+    axs[2][0].set_xlabel('Integrated NPP (mmol m$^{-2}$ d$^{-1}$)')
+    axs[2][1].set_xlabel('Surface nitrate (µmol kg$^{-1}$)')
+
+    ax.set_ylabel('Integrated NPP (mmol m$^{-2}$ d$^{-1}$)')
+    ax.set_xlabel('Surface nitrate (µmol kg$^{-1}$)')
+    
+    for i in (0, 1, 2):
+        axs[i][1].yaxis.set_ticklabels([])
+    
+    for s in station_data:
+        
+        c = get_station_color(s)
+        s_df_params = mean_params[mean_params['station'] == s]
+        s_df_npp = mean_npp[mean_npp['station'] == s].iloc[0]
+        Lp = s_df_npp['Lp']
+        Po = s_df_npp['Po']
+        
+        mld = station_data[s]['mld']
+        
+        Bm2 = s_df_params.loc[s_df_params['depth'] <= mld]['Bm2'].mean()
+        B2 = s_df_params.loc[s_df_params['depth'] <= mld]['B2'].mean()
+        ratio = s_df_params.loc[s_df_params['depth'] <= mld]['aggratio'].mean()
+        
+        npp = Lp * Po * (1 - np.exp(-mld / Lp))
+        
+        axs[0][0].scatter(npp, Bm2, color=c)
+        axs[0][1].scatter(nuts[s]['nitrate'], Bm2, color=c)
+        axs[1][0].scatter(npp, B2, color=c)
+        axs[1][1].scatter(nuts[s]['nitrate'], B2, color=c)
+        axs[2][0].scatter(npp, ratio, color=c)
+        axs[2][1].scatter(nuts[s]['nitrate'], ratio, color=c)
+        
+        ax.scatter(nuts[s]['nitrate'], npp, color=c)
+
+    fig1.savefig(os.path.join(path, f'figs/aggratio_scatter.pdf'), bbox_inches='tight')
+    fig2.savefig(os.path.join(path, f'figs/npp_nitrate_scatter.pdf'), bbox_inches='tight')
+    plt.close()
+        
     
 if __name__ == '__main__':
     
@@ -1453,17 +1511,18 @@ if __name__ == '__main__':
     n_sets = 100000
     path = f'../../results/geotraces/mc_{n_sets}'
     all_files = get_filenames(path)
-    # compile_param_estimates(all_files)
+    compile_param_estimates(all_files)%
     # multipanel_context(path, station_data)
-    zg_phyto_scatter(station_data)
+    # zg_phyto_scatter(station_data)
     # param_section_compilation_dc(path, station_data, all_files)
-    # param_section_compilation_dv(path, station_data)
-    # ctd_plots(path, station_data)
-    # spaghetti_params(path, station_data)
+    param_section_compilation_dv(path, station_data)
+    ctd_plots(path, station_data)
+    spaghetti_params(path, station_data)
     # spaghetti_ctd(path, station_data)
     # spaghetti_poc(path, poc_data)
     # poc_section(path, poc_data, station_data)
     # section_map(path, station_data)
+    aggratio_scatter(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
