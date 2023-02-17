@@ -19,7 +19,6 @@ from mpl_toolkits.axes_grid1 import host_subplot
 from mpl_toolkits.axisartist import Axes
 from scipy.interpolate import interp1d
 from sklearn.cluster import KMeans
-from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
@@ -473,7 +472,7 @@ def param_section_compilation_dc(path, station_data, filenames):
 
         ax.invert_xaxis()
         ax.errorbar(lats, [priors[p][s][0] for s in station_data], yerr=[priors[p][s][1] for s in station_data],
-                    c='silver', fmt='d', zorder=2, elinewidth=1, ecolor='silver', ms=4,
+                    c=gray, fmt='d', zorder=2, elinewidth=1, ecolor=gray, ms=4,
                     capsize=2)
         if i < len(axs) - 1:
             ax.tick_params(axis='x',label1On=False)
@@ -1187,10 +1186,10 @@ def zg_phyto_scatter(station_data):
 
         pico, nano, micro = phyto_size_index(pig_data[s])
 
-        axs[0].scatter(pig_data[s]['chla'], t_flux, s=16, color=c)
-        axs[1].scatter(pico, t_flux, s=16, color=c)  
-        axs[2].scatter(nano, t_flux, s=16, color=c)  
-        axs[3].scatter(micro, t_flux, s=16, color=c)
+        axs[0].scatter(pig_data[s]['chla'], t_flux, s=16, color=c, zorder=2)
+        axs[1].scatter(pico, t_flux, s=16, color=c, zorder=2)  
+        axs[2].scatter(nano, t_flux, s=16, color=c, zorder=2)  
+        axs[3].scatter(micro, t_flux, s=16, color=c, zorder=2)
         
         a0_data0['x'].append(pig_data[s]['chla'])
         a1_data0['x'].append(pico)
@@ -1216,19 +1215,20 @@ def zg_phyto_scatter(station_data):
 
     for i, a in enumerate(((a0_data0, a0_data1), (a1_data0, a1_data1), (a2_data0, a2_data1), (a3_data0, a3_data1))):
         
-        x0 = np.array(a[0]['x']).reshape(-1, 1)
-        y0 = np.array(a[0]['y']).reshape(-1, 1)
-        reg0 = LinearRegression().fit(x0, y0)
-        y_fit0 = reg0.predict(x0)
-        axs[i].plot(x0, y_fit0, c=black)
+        reg0 = sm.OLS(a[0]['y'], sm.add_constant(a[0]['x'])).fit()
+        y_fit0 = reg0.predict()
 
-        x1 = np.array(a[1]['x']).reshape(-1, 1)
-        y1 = np.array(a[1]['y']).reshape(-1, 1)
-        reg1 = LinearRegression().fit(x1, y1)
-        y_fit1 = reg1.predict(x1)
-        axs[i].plot(x1, y_fit1, c=black, ls=':')
+        reg1 = sm.OLS(a[1]['y'], sm.add_constant(a[1]['x'])).fit()
+        y_fit1 = reg1.predict()
         
-        axs[i].set_title(f'$R^2$ = {reg0.score(x0, y0):.2f}, {reg1.score(x1, y1):.2f}')
+        if i != 1:
+            axs[i].plot(np.sort(a[0]['x']), np.sort(y_fit0), c=gray, zorder=1)
+            axs[i].plot(np.sort(a[1]['x']), np.sort(y_fit1), c=gray, ls=':', zorder=1)
+        else:
+            axs[i].plot(np.sort(a[0]['x']), np.sort(y_fit0)[::-1], c=gray, zorder=1)
+            axs[i].plot(np.sort(a[1]['x']), np.sort(y_fit1)[::-1], c=gray, ls=':', zorder=1)
+        
+        axs[i].set_title(f'{reg0.rsquared:.2f} ({reg0.f_pvalue:.4f})\n{reg1.rsquared:.2f} ({reg1.f_pvalue:.4f})')
 
     fig.savefig(os.path.join(path, f'figs/zg_phyto_scatter.pdf'), bbox_inches='tight')
     plt.close()
@@ -1514,7 +1514,7 @@ if __name__ == '__main__':
     all_files = get_filenames(path)
     # compile_param_estimates(all_files)
     # multipanel_context(path, station_data)
-    # zg_phyto_scatter(station_data)
+    zg_phyto_scatter(station_data)
     # param_section_compilation_dc(path, station_data, all_files)
     # param_section_compilation_dv(path, station_data)
     # ctd_plots(path, station_data)
@@ -1522,7 +1522,7 @@ if __name__ == '__main__':
     # spaghetti_ctd(path, station_data)
     # spaghetti_poc(path, poc_data)
     # poc_section(path, poc_data, station_data)
-    section_map(path, station_data)
+    # section_map(path, station_data)
     # aggratio_scatter(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')

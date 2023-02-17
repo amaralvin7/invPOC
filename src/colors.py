@@ -1,5 +1,6 @@
 """Colors used in figures."""
 black = '#000000'
+gray = '#C0C0C0'
 orange = '#E69F00'
 sky = '#56B4E9'
 green = '#009E73'
