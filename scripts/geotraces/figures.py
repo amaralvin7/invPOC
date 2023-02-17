@@ -1429,6 +1429,7 @@ def section_map(path, station_data):
     for s in station_data:
         c = get_station_color(s)
         ax.scatter(station_data[s]['longitude'], station_data[s]['latitude'], color=c, s=20, zorder=3)
+        ax.annotate(s, (station_data[s]['longitude'], station_data[s]['latitude']), fontsize=6, xytext=(station_data[s]['longitude']+0.75, station_data[s]['latitude']))
         
     plt.savefig(os.path.join(path, f'figs/section_map.pdf'), bbox_inches='tight')
     plt.close()
@@ -1511,18 +1512,18 @@ if __name__ == '__main__':
     n_sets = 100000
     path = f'../../results/geotraces/mc_{n_sets}'
     all_files = get_filenames(path)
-    compile_param_estimates(all_files)%
+    # compile_param_estimates(all_files)
     # multipanel_context(path, station_data)
     # zg_phyto_scatter(station_data)
     # param_section_compilation_dc(path, station_data, all_files)
-    param_section_compilation_dv(path, station_data)
-    ctd_plots(path, station_data)
-    spaghetti_params(path, station_data)
+    # param_section_compilation_dv(path, station_data)
+    # ctd_plots(path, station_data)
+    # spaghetti_params(path, station_data)
     # spaghetti_ctd(path, station_data)
     # spaghetti_poc(path, poc_data)
     # poc_section(path, poc_data, station_data)
-    # section_map(path, station_data)
-    aggratio_scatter(path, station_data)
+    section_map(path, station_data)
+    # aggratio_scatter(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
