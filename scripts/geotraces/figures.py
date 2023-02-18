@@ -794,12 +794,12 @@ def ctd_files_by_station():
 
 
 
-def ctd_plots(path, station_data):
+def ctd_plots_agg(path, station_data):
         
     # get mean param df across all stations
     with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
         df = pickle.load(f)
-    param_means = df.groupby(['depth', 'avg_depth', 'station']).mean().reset_index()
+    param_means = df.groupby(['depth', 'station']).mean().reset_index()
 
     station_fname = ctd_files_by_station()
     
@@ -817,7 +817,7 @@ def ctd_plots(path, station_data):
         
         color = get_station_color(s)
         
-        s_p_df = param_means.loc[param_means['station'] == s][['depth', 'avg_depth', p]]
+        s_p_df = param_means.loc[param_means['station'] == s][['depth', p]]
         ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
         ctd_df.drop([0, len(ctd_df) - 1], inplace=True)  # don't want first and last rows (non-numerical)
         for c in ['CTDPRS', 'CTDTMP', 'CTDOXY', 'CTDSAL']:
@@ -828,20 +828,15 @@ def ctd_plots(path, station_data):
         lat = station_data[s]['latitude']
         ctd_df['depth'] = -gsw.z_from_p(ctd_df['CTDPRS'].values, lat)
         
-        if 'w' not in p:
-            for j, (_, r) in enumerate(s_p_df.iterrows()):
-                
-                ydeep, yshal = get_layer_bounds(j, s_p_df['depth'].values)
-                ctd_in_layer = ctd_df.loc[(ctd_df['depth'] < ydeep) & (ctd_df['depth'] > yshal)]
-                avg_T = ctd_in_layer['CTDTMP'].mean()
-                avg_O = ctd_in_layer['CTDOXY'].mean()
+        for j, (_, r) in enumerate(s_p_df.iterrows()):
+            
+            ydeep, yshal = get_layer_bounds(j, s_p_df['depth'].values)
+            ctd_in_layer = ctd_df.loc[(ctd_df['depth'] < ydeep) & (ctd_df['depth'] > yshal)]
+            avg_T = ctd_in_layer['CTDTMP'].mean()
+            avg_O = ctd_in_layer['CTDOXY'].mean()
 
-                t_axs[i].scatter(avg_T, r[p], s=7, color=color)
-                o_axs[i].scatter(avg_O, r[p], s=7, color=color)
-        else:
-            closest_ctd = pd.merge_asof(s_p_df, ctd_df, on='depth', direction='nearest')
-            t_axs[i].scatter(closest_ctd['CTDTMP'], s_p_df[p], s=7, color=color)
-            o_axs[i].scatter(closest_ctd['CTDOXY'], s_p_df[p], s=7, color=color)
+            t_axs[i].scatter(avg_T, r[p], s=7, color=color)
+            o_axs[i].scatter(avg_O, r[p], s=7, color=color)
 
     for ax in t_axs:
         ax.set_xlim(0, 32)
@@ -862,9 +857,141 @@ def ctd_plots(path, station_data):
     lines, labels, line_length = get_station_color_legend()
     o_axs[0].legend(lines, labels, frameon=False, handlelength=line_length)
     
-    fig.savefig(os.path.join(path, f'figs/ctd_scatterplots.pdf'), bbox_inches='tight')
+    fig.savefig(os.path.join(path, f'figs/ctd_plots_agg.pdf'), bbox_inches='tight')
     plt.close() 
 
+
+def ctd_plots_remin(path, station_data):
+        
+    # get mean param df across all stations
+    with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
+        df = pickle.load(f)
+    param_means = df.groupby(['depth', 'station']).mean().reset_index()
+
+    station_fname = ctd_files_by_station()
+    
+    params = ('Bm1s', 'Bm1l')
+    param_text = get_param_text()
+    
+    fig, axs = plt.subplots(2, 2, figsize=(6, 5), tight_layout=True)
+    t_axs = [axs.flatten()[i] for i in [0, 2]]
+    o_axs = [axs.flatten()[i] for i in [1, 3]]
+    
+    t_axs[1].set_xlabel('Temperature (°C)')
+    o_axs[1].set_xlabel('Dissolved O$_2$ (µmol kg$^{-1}$)')
+
+    for (s, (i, p)) in product(station_fname, enumerate(params)):
+        
+        color = get_station_color(s)
+        
+        s_p_df = param_means.loc[param_means['station'] == s][['depth', p]]
+        ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
+        ctd_df.drop([0, len(ctd_df) - 1], inplace=True)  # don't want first and last rows (non-numerical)
+        for c in ['CTDPRS', 'CTDTMP', 'CTDOXY', 'CTDSAL']:
+            ctd_df[c] = pd.to_numeric(ctd_df[c])
+        ctd_df = ctd_df.loc[ctd_df['CTDPRS'] <= 600]
+        ctd_df = ctd_df[['CTDPRS', 'CTDTMP', 'CTDOXY', 'CTDSAL']]
+
+        lat = station_data[s]['latitude']
+        ctd_df['depth'] = -gsw.z_from_p(ctd_df['CTDPRS'].values, lat)
+        
+        for j, (_, r) in enumerate(s_p_df.iterrows()):
+            
+            ydeep, yshal = get_layer_bounds(j, s_p_df['depth'].values)
+            ctd_in_layer = ctd_df.loc[(ctd_df['depth'] < ydeep) & (ctd_df['depth'] > yshal)]
+            avg_T = ctd_in_layer['CTDTMP'].mean()
+            avg_O = ctd_in_layer['CTDOXY'].mean()
+
+            t_axs[i].scatter(avg_T, r[p], s=7, color=color)
+            o_axs[i].scatter(avg_O, r[p], s=7, color=color)
+
+    for ax in t_axs:
+        ax.set_xlim(0, 32)
+    for ax in o_axs:
+        ax.set_xlim(0, 330)
+
+    for i, p in enumerate(params):
+        if param_text[p][1]:
+            units = f' ({param_text[p][1]})'
+        else:
+            units = ''
+        t_axs[i].set_ylabel(f'{param_text[p][0]}{units}', fontsize=14)
+        o_axs[i].yaxis.set_ticklabels([])
+        if i < 1:
+            o_axs[i].xaxis.set_ticklabels([])
+            t_axs[i].xaxis.set_ticklabels([])
+            
+    lines, labels, line_length = get_station_color_legend()
+    o_axs[0].legend(lines, labels, frameon=False, handlelength=line_length)
+    
+    fig.savefig(os.path.join(path, f'figs/ctd_plots_remin.pdf'), bbox_inches='tight')
+    plt.close()
+
+
+def ctd_plots_sink(path, station_data):
+        
+    # get mean param df across all stations
+    with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
+        df = pickle.load(f)
+    param_means = df.groupby(['depth', 'avg_depth', 'station']).mean().reset_index()
+
+    station_fname = ctd_files_by_station()
+    
+    params = ('ws', 'wl')
+    param_text = get_param_text()
+    
+    fig, axs = plt.subplots(2, 2, figsize=(6, 5), tight_layout=True)
+    t_axs = [axs.flatten()[i] for i in [0, 2]]
+    v_axs = [axs.flatten()[i] for i in [1, 3]]
+    
+    t_axs[1].set_xlabel('Temperature (°C)')
+    v_axs[1].set_xlabel('Viscosity (g cm$^{-1}$ s$^{-1}$)')
+
+    for (s, (i, p)) in product(station_fname, enumerate(params)):
+        
+        color = get_station_color(s)
+        
+        s_p_df = param_means.loc[param_means['station'] == s][['depth', 'avg_depth', p]]
+        ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
+        ctd_df.drop([0, len(ctd_df) - 1], inplace=True)  # don't want first and last rows (non-numerical)
+        for c in ['CTDPRS', 'CTDTMP', 'CTDOXY', 'CTDSAL']:
+            ctd_df[c] = pd.to_numeric(ctd_df[c])
+        ctd_df = ctd_df.loc[ctd_df['CTDPRS'] <= 600]
+        ctd_df = ctd_df[['CTDPRS', 'CTDTMP', 'CTDOXY', 'CTDSAL']]
+        ctd_df['CTDVIS'] = (2.97e-9 * (ctd_df['CTDTMP']**4)
+                            -2.92e-7 * (ctd_df['CTDTMP']**3)
+                            +1.5e-5 * (ctd_df['CTDTMP']**2)
+                            -6e-4 * ctd_df['CTDTMP']
+                            + 0.0188
+                            + 2.43e-5 * (ctd_df['CTDSAL'] - 35))
+        lat = station_data[s]['latitude']
+        ctd_df['depth'] = -gsw.z_from_p(ctd_df['CTDPRS'].values, lat)
+        
+        closest_ctd = pd.merge_asof(s_p_df, ctd_df, on='depth', direction='nearest')
+        t_axs[i].scatter(closest_ctd['CTDTMP'], s_p_df[p], s=7, color=color)
+        v_axs[i].scatter(closest_ctd['CTDVIS'], s_p_df[p], s=7, color=color)
+
+    for ax in t_axs:
+        ax.set_xlim(0, 32)
+    for ax in v_axs:
+        ax.set_xlim(0.008, 0.018)
+
+    for i, p in enumerate(params):
+        if param_text[p][1]:
+            units = f' ({param_text[p][1]})'
+        else:
+            units = ''
+        t_axs[i].set_ylabel(f'{param_text[p][0]}{units}', fontsize=14)
+        v_axs[i].yaxis.set_ticklabels([])
+        if i < 1:
+            v_axs[i].xaxis.set_ticklabels([])
+            t_axs[i].xaxis.set_ticklabels([])
+            
+    lines, labels, line_length = get_station_color_legend()
+    v_axs[1].legend(lines, labels, frameon=False, handlelength=line_length)
+    
+    fig.savefig(os.path.join(path, f'figs/ctd_plots_sink.pdf'), bbox_inches='tight')
+    plt.close() 
             
 
 def param_profile_distribution(path, param):
@@ -1514,10 +1641,12 @@ if __name__ == '__main__':
     all_files = get_filenames(path)
     # compile_param_estimates(all_files)
     # multipanel_context(path, station_data)
-    zg_phyto_scatter(station_data)
+    # zg_phyto_scatter(station_data)
     # param_section_compilation_dc(path, station_data, all_files)
     # param_section_compilation_dv(path, station_data)
-    # ctd_plots(path, station_data)
+    ctd_plots_agg(path, station_data)
+    ctd_plots_remin(path, station_data)
+    ctd_plots_sink(path, station_data)
     # spaghetti_params(path, station_data)
     # spaghetti_ctd(path, station_data)
     # spaghetti_poc(path, poc_data)
