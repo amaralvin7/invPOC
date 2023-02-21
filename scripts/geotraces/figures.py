@@ -933,7 +933,7 @@ def ctd_plots_sink(path, station_data):
     # get mean param df across all stations
     with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
         df = pickle.load(f)
-    param_means = df.groupby(['depth', 'avg_depth', 'station']).mean().reset_index()
+    param_means = df.groupby(['depth', 'station']).mean().reset_index()
 
     station_fname = ctd_files_by_station()
     
@@ -951,7 +951,7 @@ def ctd_plots_sink(path, station_data):
         
         color = get_station_color(s)
         
-        s_p_df = param_means.loc[param_means['station'] == s][['depth', 'avg_depth', p]]
+        s_p_df = param_means.loc[param_means['station'] == s][['depth', p]]
         ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
         ctd_df.drop([0, len(ctd_df) - 1], inplace=True)  # don't want first and last rows (non-numerical)
         for c in ['CTDPRS', 'CTDTMP', 'CTDOXY', 'CTDSAL']:
@@ -1563,8 +1563,6 @@ def section_map(path, station_data):
 
 
 def aggratio_scatter(path, station_data):
-    
-    nuts = get_ml_nuts(station_data)
 
     with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
         dv_df = pickle.load(f)    
@@ -1578,24 +1576,39 @@ def aggratio_scatter(path, station_data):
     npp_df = dc_df[['station', 'Po', 'Lp']]
     mean_npp = npp_df.groupby(['station']).mean().reset_index()
     
-    fig1, axs = plt.subplots(3, 2, tight_layout=True, figsize=(7,10))
-    fig2, ax = plt.subplots(1, 1, tight_layout=True)
+    fig1, axs1 = plt.subplots(3, 2, tight_layout=True, figsize=(7,10))
     param_text = get_param_text()
     
-    axs[0][0].set_ylabel(f"{param_text['Bm2'][0]} ({param_text['Bm2'][1]})")
-    axs[1][0].set_ylabel(f"{param_text['B2'][0]} ({param_text['B2'][1]})")
-    axs[2][0].set_ylabel(param_text['aggratio'][0])
-    
-    axs[2][0].set_xlabel('Integrated NPP (mmol m$^{-2}$ d$^{-1}$)')
-    axs[2][1].set_xlabel('Surface nitrate (µmol kg$^{-1}$)')
-
-    ax.set_ylabel('Integrated NPP (mmol m$^{-2}$ d$^{-1}$)')
-    ax.set_xlabel('Surface nitrate (µmol kg$^{-1}$)')
+    axs1[0][0].set_ylabel(f"{param_text['Bm2'][0]} ({param_text['Bm2'][1]})")
+    axs1[1][0].set_ylabel(f"{param_text['B2'][0]} ({param_text['B2'][1]})")
+    axs1[2][0].set_ylabel(param_text['aggratio'][0])
+    axs1[2][0].set_xlabel('Integrated NPP (mmol m$^{-2}$ d$^{-1}$)')
+    axs1[2][1].set_xlabel('EZ flux (mmol m$^{-2}$ d$^{-1}$)')
     
     for i in (0, 1, 2):
-        axs[i][1].yaxis.set_ticklabels([])
+        axs1[i][1].yaxis.set_ticklabels([])
+        
+    npp_all = {0: [], 1: []}
+    t_flux_all = {0: [], 1: []}
+    Bm2_all = {0: [], 1: []}
+    Bm2_e_all = {0: [], 1: []}
+    B2_all = {0: [], 1: []}
+    B2_e_all = {0: [], 1: []}
+    ratio_all = {0: [], 1: []}
+    ratio_e_all = {0: [], 1: []}
+    colors_all = {0: [], 1: []}
     
     for s in station_data:
+
+        zg = station_data[s]['zg']
+        zgi = list(station_data[s]['grid']).index(zg)
+        t_fluxes = []
+        pickled_files = [f for f in os.listdir(path) if f'stn{s}.pkl' in f]
+        for f in pickled_files:
+            with open(os.path.join(path, f), 'rb') as file:
+                fluxes = pickle.load(file)['sink_fluxes']
+                t_fluxes.append(fluxes['T'][zgi][0])
+        t_flux = np.mean(t_fluxes)
         
         c = get_station_color(s)
         s_df_params = mean_params[mean_params['station'] == s]
@@ -1603,25 +1616,65 @@ def aggratio_scatter(path, station_data):
         Lp = s_df_npp['Lp']
         Po = s_df_npp['Po']
         
-        mld = station_data[s]['mld']
+        Bm2 = s_df_params.loc[s_df_params['depth'] <= zg]['Bm2'].mean()
+        Bm2_e = s_df_params.loc[s_df_params['depth'] <= zg]['Bm2'].std(ddof=1)
+        B2 = s_df_params.loc[s_df_params['depth'] <= zg]['B2'].mean()
+        B2_e = s_df_params.loc[s_df_params['depth'] <= zg]['B2'].std(ddof=1)
+        ratio = s_df_params.loc[s_df_params['depth'] <= zg]['aggratio'].mean()
+        ratio_e = s_df_params.loc[s_df_params['depth'] <= zg]['aggratio'].std(ddof=1)
         
-        Bm2 = s_df_params.loc[s_df_params['depth'] <= mld]['Bm2'].mean()
-        B2 = s_df_params.loc[s_df_params['depth'] <= mld]['B2'].mean()
-        ratio = s_df_params.loc[s_df_params['depth'] <= mld]['aggratio'].mean()
+        npp = Lp * Po * (1 - np.exp(-zg / Lp))
         
-        npp = Lp * Po * (1 - np.exp(-mld / Lp))
+        npp_all[0].append(npp)
+        t_flux_all[0].append(t_flux)
+        Bm2_all[0].append(Bm2)
+        Bm2_e_all[0].append(Bm2_e)
+        B2_all[0].append(B2)
+        B2_e_all[0].append(B2_e)
+        ratio_all[0].append(ratio)
+        ratio_e_all[0].append(ratio_e)
+        colors_all[0].append(c)
         
-        axs[0][0].scatter(npp, Bm2, color=c)
-        axs[0][1].scatter(nuts[s]['nitrate'], Bm2, color=c)
-        axs[1][0].scatter(npp, B2, color=c)
-        axs[1][1].scatter(nuts[s]['nitrate'], B2, color=c)
-        axs[2][0].scatter(npp, ratio, color=c)
-        axs[2][1].scatter(nuts[s]['nitrate'], ratio, color=c)
-        
-        ax.scatter(nuts[s]['nitrate'], npp, color=c)
+        if s > 9:
+
+            npp_all[1].append(npp)
+            t_flux_all[1].append(t_flux)
+            Bm2_all[1].append(Bm2)
+            Bm2_e_all[1].append(Bm2_e)
+            B2_all[1].append(B2)
+            B2_e_all[1].append(B2_e)
+            ratio_all[1].append(ratio)
+            ratio_e_all[1].append(ratio_e)
+            colors_all[1].append(c)
+
+    def subplot_regression(row, col, x, y, yerr):
+
+        for tup in ((0, '-'), (1, ':')):
+            a, b = tup
+            reg = sm.OLS(y[a], sm.add_constant(x[a])).fit()
+            yfit = reg.predict()
+            x_sort = np.sort(x[a])
+            yfit_sort = np.sort(yfit)
+            if reg.params[1] < 0:  #if slope is negative
+                yfit_sort = yfit_sort[::-1]
+            axs1[row][col].plot(x_sort, yfit_sort, c=gray, ls=b)
+            if b == '-':
+                axs1[row][col].text(0.95, 0.18, f'{reg.rsquared:.2f}\n({reg.f_pvalue:.4f})', horizontalalignment='right',
+                                    transform=transforms.blended_transform_factory(axs1[row][col].transAxes, axs1[row][col].transAxes))
+            else:
+                axs1[row][col].text(0.95, 0.05, f'{reg.rsquared:.2f}\n({reg.f_pvalue:.4f})', horizontalalignment='right',
+                                    transform=transforms.blended_transform_factory(axs1[row][col].transAxes, axs1[row][col].transAxes))
+            for i, _ in enumerate(x[a]):
+                axs1[row][col].errorbar(x[a][i], y[a][i], yerr[a][i], c=colors_all[a][i], fmt='o', elinewidth=1, ms=4, capsize=2)
+    
+    subplot_regression(0, 0, npp_all, Bm2_all, yerr=Bm2_e_all)
+    subplot_regression(0, 1, t_flux_all, Bm2_all, yerr=Bm2_e_all)
+    subplot_regression(1, 0, npp_all, B2_all, yerr=B2_e_all)
+    subplot_regression(1, 1, t_flux_all, B2_all, yerr=B2_e_all)
+    subplot_regression(2, 0, npp_all, ratio_all, yerr=ratio_e_all)
+    subplot_regression(2, 1, t_flux_all, ratio_all, yerr=ratio_e_all)
 
     fig1.savefig(os.path.join(path, f'figs/aggratio_scatter.pdf'), bbox_inches='tight')
-    fig2.savefig(os.path.join(path, f'figs/npp_nitrate_scatter.pdf'), bbox_inches='tight')
     plt.close()
         
     
@@ -1644,15 +1697,15 @@ if __name__ == '__main__':
     # zg_phyto_scatter(station_data)
     # param_section_compilation_dc(path, station_data, all_files)
     # param_section_compilation_dv(path, station_data)
-    ctd_plots_agg(path, station_data)
-    ctd_plots_remin(path, station_data)
-    ctd_plots_sink(path, station_data)
+    # ctd_plots_agg(path, station_data)
+    # ctd_plots_remin(path, station_data)
+    # ctd_plots_sink(path, station_data)
     # spaghetti_params(path, station_data)
     # spaghetti_ctd(path, station_data)
     # spaghetti_poc(path, poc_data)
     # poc_section(path, poc_data, station_data)
     # section_map(path, station_data)
-    # aggratio_scatter(path, station_data)
+    aggratio_scatter(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
