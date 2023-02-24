@@ -1351,11 +1351,15 @@ def zg_phyto_scatter(station_data):
         if i != 1:
             axs[i].plot(np.sort(a[0]['x']), np.sort(y_fit0), c=gray, zorder=1)
             axs[i].plot(np.sort(a[1]['x']), np.sort(y_fit1), c=gray, ls=':', zorder=1)
+            axs[i].text(0.68, 0.02, f'{reg0.rsquared:.2f} ({reg0.f_pvalue:.2f})\n{reg1.rsquared:.2f} ({reg1.f_pvalue:.2f})',
+                            transform=transforms.blended_transform_factory(axs[i].transAxes, axs[i].transAxes))
         else:
             axs[i].plot(np.sort(a[0]['x']), np.sort(y_fit0)[::-1], c=gray, zorder=1)
             axs[i].plot(np.sort(a[1]['x']), np.sort(y_fit1)[::-1], c=gray, ls=':', zorder=1)
+            axs[i].text(0.02, 0.02, f'{reg0.rsquared:.2f} ({reg0.f_pvalue:.2f})\n{reg1.rsquared:.2f} ({reg1.f_pvalue:.2f})',
+                            transform=transforms.blended_transform_factory(axs[i].transAxes, axs[i].transAxes))
         
-        axs[i].set_title(f'{reg0.rsquared:.2f} ({reg0.f_pvalue:.4f})\n{reg1.rsquared:.2f} ({reg1.f_pvalue:.4f})')
+
 
     fig.savefig(os.path.join(path, f'figs/zg_phyto_scatter.pdf'), bbox_inches='tight')
     plt.close()
@@ -1567,7 +1571,7 @@ def aggratio_scatter(path, station_data):
     with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
         dv_df = pickle.load(f)    
 
-    params_df = dv_df[['depth', 'station', 'aggratio', 'Bm2', 'B2']].copy()
+    params_df = dv_df[['depth', 'station', 'aggratio', 'Bm2', 'B2', 'B2p']].copy()
     mean_params = params_df.groupby(['depth', 'station']).mean().reset_index()
 
     with open(os.path.join(path, 'saved_params_dc.pkl'), 'rb') as f:
@@ -1576,16 +1580,17 @@ def aggratio_scatter(path, station_data):
     npp_df = dc_df[['station', 'Po', 'Lp']]
     mean_npp = npp_df.groupby(['station']).mean().reset_index()
     
-    fig1, axs1 = plt.subplots(3, 2, tight_layout=True, figsize=(7,10))
+    fig1, axs1 = plt.subplots(4, 2, tight_layout=True, figsize=(6,10))
     param_text = get_param_text()
     
-    axs1[0][0].set_ylabel(f"{param_text['Bm2'][0]} ({param_text['Bm2'][1]})")
+    axs1[0][0].set_ylabel(f"{param_text['B2p'][0]} ({param_text['B2p'][1]})")
     axs1[1][0].set_ylabel(f"{param_text['B2'][0]} ({param_text['B2'][1]})")
-    axs1[2][0].set_ylabel(param_text['aggratio'][0])
-    axs1[2][0].set_xlabel('Integrated NPP (mmol m$^{-2}$ d$^{-1}$)')
-    axs1[2][1].set_xlabel('EZ flux (mmol m$^{-2}$ d$^{-1}$)')
+    axs1[2][0].set_ylabel(f"{param_text['Bm2'][0]} ({param_text['Bm2'][1]})")
+    axs1[3][0].set_ylabel(param_text['aggratio'][0])
+    axs1[3][0].set_xlabel('Integrated NPP (mmol m$^{-2}$ d$^{-1}$)')
+    axs1[3][1].set_xlabel('EZ flux (mmol m$^{-2}$ d$^{-1}$)')
     
-    for i in (0, 1, 2):
+    for i in (0, 1, 2, 3):
         axs1[i][1].yaxis.set_ticklabels([])
         
     npp_all = {0: [], 1: []}
@@ -1594,6 +1599,8 @@ def aggratio_scatter(path, station_data):
     Bm2_e_all = {0: [], 1: []}
     B2_all = {0: [], 1: []}
     B2_e_all = {0: [], 1: []}
+    B2p_all = {0: [], 1: []}
+    B2p_e_all = {0: [], 1: []}
     ratio_all = {0: [], 1: []}
     ratio_e_all = {0: [], 1: []}
     colors_all = {0: [], 1: []}
@@ -1620,6 +1627,8 @@ def aggratio_scatter(path, station_data):
         Bm2_e = s_df_params.loc[s_df_params['depth'] <= zg]['Bm2'].std(ddof=1)
         B2 = s_df_params.loc[s_df_params['depth'] <= zg]['B2'].mean()
         B2_e = s_df_params.loc[s_df_params['depth'] <= zg]['B2'].std(ddof=1)
+        B2p = s_df_params.loc[s_df_params['depth'] <= zg]['B2p'].mean()
+        B2p_e = s_df_params.loc[s_df_params['depth'] <= zg]['B2p'].std(ddof=1)
         ratio = s_df_params.loc[s_df_params['depth'] <= zg]['aggratio'].mean()
         ratio_e = s_df_params.loc[s_df_params['depth'] <= zg]['aggratio'].std(ddof=1)
         
@@ -1631,6 +1640,8 @@ def aggratio_scatter(path, station_data):
         Bm2_e_all[0].append(Bm2_e)
         B2_all[0].append(B2)
         B2_e_all[0].append(B2_e)
+        B2p_all[0].append(B2p)
+        B2p_e_all[0].append(B2p_e)
         ratio_all[0].append(ratio)
         ratio_e_all[0].append(ratio_e)
         colors_all[0].append(c)
@@ -1643,11 +1654,13 @@ def aggratio_scatter(path, station_data):
             Bm2_e_all[1].append(Bm2_e)
             B2_all[1].append(B2)
             B2_e_all[1].append(B2_e)
+            B2p_all[1].append(B2p)
+            B2p_e_all[1].append(B2p_e)
             ratio_all[1].append(ratio)
             ratio_e_all[1].append(ratio_e)
             colors_all[1].append(c)
 
-    def subplot_regression(row, col, x, y, yerr):
+    def subplot_regression(row, col, x, y, yerr, textx, texty):
 
         for tup in ((0, '-'), (1, ':')):
             a, b = tup
@@ -1659,20 +1672,29 @@ def aggratio_scatter(path, station_data):
                 yfit_sort = yfit_sort[::-1]
             axs1[row][col].plot(x_sort, yfit_sort, c=gray, ls=b)
             if b == '-':
-                axs1[row][col].text(0.95, 0.18, f'{reg.rsquared:.2f}\n({reg.f_pvalue:.4f})', horizontalalignment='right',
+                axs1[row][col].text(textx, texty, f'{reg.rsquared:.2f} ({reg.f_pvalue:.2f})',
                                     transform=transforms.blended_transform_factory(axs1[row][col].transAxes, axs1[row][col].transAxes))
             else:
-                axs1[row][col].text(0.95, 0.05, f'{reg.rsquared:.2f}\n({reg.f_pvalue:.4f})', horizontalalignment='right',
+                axs1[row][col].text(textx, texty - 0.07, f'{reg.rsquared:.2f} ({reg.f_pvalue:.2f})',
                                     transform=transforms.blended_transform_factory(axs1[row][col].transAxes, axs1[row][col].transAxes))
             for i, _ in enumerate(x[a]):
                 axs1[row][col].errorbar(x[a][i], y[a][i], yerr[a][i], c=colors_all[a][i], fmt='o', elinewidth=1, ms=4, capsize=2)
     
-    subplot_regression(0, 0, npp_all, Bm2_all, yerr=Bm2_e_all)
-    subplot_regression(0, 1, t_flux_all, Bm2_all, yerr=Bm2_e_all)
-    subplot_regression(1, 0, npp_all, B2_all, yerr=B2_e_all)
-    subplot_regression(1, 1, t_flux_all, B2_all, yerr=B2_e_all)
-    subplot_regression(2, 0, npp_all, ratio_all, yerr=ratio_e_all)
-    subplot_regression(2, 1, t_flux_all, ratio_all, yerr=ratio_e_all)
+    subplot_regression(0, 0, npp_all, B2p_all, B2p_e_all, 0.67, 0.09)
+    subplot_regression(0, 1, t_flux_all, B2p_all, B2p_e_all, 0.67, 0.09)
+    subplot_regression(1, 0, npp_all, B2_all, B2_e_all, 0.67, 0.09)
+    subplot_regression(1, 1, t_flux_all, B2_all, B2_e_all, 0.67, 0.09)
+    subplot_regression(2, 0, npp_all, Bm2_all, Bm2_e_all, 0.67, 0.09)
+    subplot_regression(2, 1, t_flux_all, Bm2_all, Bm2_e_all, 0.67, 0.09)
+    subplot_regression(3, 0, npp_all, ratio_all, ratio_e_all, 0.67, 0.09)
+    subplot_regression(3, 1, t_flux_all, ratio_all, ratio_e_all, 0.67, 0.09)
+    
+    for i, a in enumerate(axs1.flatten()):
+        if i < 6:
+            a.xaxis.set_ticklabels([])
+
+    lines, labels, line_length = get_station_color_legend()
+    axs1[3][1].legend(lines, labels, frameon=False, handlelength=line_length)
 
     fig1.savefig(os.path.join(path, f'figs/aggratio_scatter.pdf'), bbox_inches='tight')
     plt.close()
@@ -1694,7 +1716,7 @@ if __name__ == '__main__':
     all_files = get_filenames(path)
     # compile_param_estimates(all_files)
     # multipanel_context(path, station_data)
-    # zg_phyto_scatter(station_data)
+    zg_phyto_scatter(station_data)
     # param_section_compilation_dc(path, station_data, all_files)
     # param_section_compilation_dv(path, station_data)
     # ctd_plots_agg(path, station_data)
