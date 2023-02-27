@@ -65,9 +65,9 @@ def hist_success(path, filenames):
     stations = list(data.poc_by_station().keys())
     stations.sort()
     d = {s: len([i for i in filenames if f'stn{s}.pkl' in i]) for s in stations}
-    plt.bar(range(len(d)), list(d.values()), align='center')
+    plt.bar(range(len(d)), list(d.values()), align='center', log=True)
     plt.xticks(range(len(d)), list(d.keys()))
-    plt.savefig(os.path.join(path, 'figs/hist_success'))
+    plt.savefig(os.path.join(path, 'figs/hist_success.pdf'))
     plt.close()
 
 def hist_stats(path, filenames, suffix=''):
@@ -940,12 +940,9 @@ def ctd_plots_sink(path, station_data):
     params = ('ws', 'wl')
     param_text = get_param_text()
     
-    fig, axs = plt.subplots(2, 2, figsize=(6, 5), tight_layout=True)
-    t_axs = [axs.flatten()[i] for i in [0, 2]]
-    v_axs = [axs.flatten()[i] for i in [1, 3]]
+    fig, axs = plt.subplots(2, 1, figsize=(4, 5), tight_layout=True)
     
-    t_axs[1].set_xlabel('Temperature (°C)')
-    v_axs[1].set_xlabel('Viscosity (g cm$^{-1}$ s$^{-1}$)')
+    axs[1].set_xlabel('Viscosity (g cm$^{-1}$ s$^{-1}$)')
 
     for (s, (i, p)) in product(station_fname, enumerate(params)):
         
@@ -968,12 +965,9 @@ def ctd_plots_sink(path, station_data):
         ctd_df['depth'] = -gsw.z_from_p(ctd_df['CTDPRS'].values, lat)
         
         closest_ctd = pd.merge_asof(s_p_df, ctd_df, on='depth', direction='nearest')
-        t_axs[i].scatter(closest_ctd['CTDTMP'], s_p_df[p], s=7, color=color)
-        v_axs[i].scatter(closest_ctd['CTDVIS'], s_p_df[p], s=7, color=color)
+        axs[i].scatter(closest_ctd['CTDVIS'], s_p_df[p], s=7, color=color)
 
-    for ax in t_axs:
-        ax.set_xlim(0, 32)
-    for ax in v_axs:
+    for ax in axs:
         ax.set_xlim(0.008, 0.018)
 
     for i, p in enumerate(params):
@@ -981,14 +975,12 @@ def ctd_plots_sink(path, station_data):
             units = f' ({param_text[p][1]})'
         else:
             units = ''
-        t_axs[i].set_ylabel(f'{param_text[p][0]}{units}', fontsize=14)
-        v_axs[i].yaxis.set_ticklabels([])
+        axs[i].set_ylabel(f'{param_text[p][0]}{units}', fontsize=14)
         if i < 1:
-            v_axs[i].xaxis.set_ticklabels([])
-            t_axs[i].xaxis.set_ticklabels([])
+            axs[i].xaxis.set_ticklabels([])
             
     lines, labels, line_length = get_station_color_legend()
-    v_axs[1].legend(lines, labels, frameon=False, handlelength=line_length)
+    axs[1].legend(lines, labels, frameon=False, handlelength=line_length)
     
     fig.savefig(os.path.join(path, f'figs/ctd_plots_sink.pdf'), bbox_inches='tight')
     plt.close() 
@@ -1714,20 +1706,21 @@ if __name__ == '__main__':
     n_sets = 100000
     path = f'../../results/geotraces/mc_{n_sets}'
     all_files = get_filenames(path)
+    hist_success(path, all_files)
     # compile_param_estimates(all_files)
     # multipanel_context(path, station_data)
-    zg_phyto_scatter(station_data)
+    # zg_phyto_scatter(station_data)
     # param_section_compilation_dc(path, station_data, all_files)
     # param_section_compilation_dv(path, station_data)
     # ctd_plots_agg(path, station_data)
     # ctd_plots_remin(path, station_data)
-    # ctd_plots_sink(path, station_data)
+    ctd_plots_sink(path, station_data)
     # spaghetti_params(path, station_data)
     # spaghetti_ctd(path, station_data)
     # spaghetti_poc(path, poc_data)
     # poc_section(path, poc_data, station_data)
     # section_map(path, station_data)
-    aggratio_scatter(path, station_data)
+    # aggratio_scatter(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
