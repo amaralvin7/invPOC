@@ -1572,18 +1572,17 @@ def aggratio_scatter(path, station_data):
     npp_df = dc_df[['station', 'Po', 'Lp']]
     mean_npp = npp_df.groupby(['station']).mean().reset_index()
     
-    fig1, axs1 = plt.subplots(4, 2, tight_layout=True, figsize=(6,10))
+    fig1, axs1 = plt.subplots(4, 1, tight_layout=True, figsize=(4,10))
+    fig2, ax2 = plt.subplots(1, 1, tight_layout=True, figsize=(4,2.5))
     param_text = get_param_text()
     
-    axs1[0][0].set_ylabel(f"{param_text['B2p'][0]} ({param_text['B2p'][1]})")
-    axs1[1][0].set_ylabel(f"{param_text['B2'][0]} ({param_text['B2'][1]})")
-    axs1[2][0].set_ylabel(f"{param_text['Bm2'][0]} ({param_text['Bm2'][1]})")
-    axs1[3][0].set_ylabel(param_text['aggratio'][0])
-    axs1[3][0].set_xlabel('Integrated NPP (mmol m$^{-2}$ d$^{-1}$)')
-    axs1[3][1].set_xlabel('EZ flux (mmol m$^{-2}$ d$^{-1}$)')
-    
-    for i in (0, 1, 2, 3):
-        axs1[i][1].yaxis.set_ticklabels([])
+    axs1[0].set_ylabel(f"{param_text['B2p'][0]} ({param_text['B2p'][1]})")
+    axs1[1].set_ylabel(f"{param_text['B2'][0]} ({param_text['B2'][1]})")
+    axs1[2].set_ylabel(f"{param_text['Bm2'][0]} ({param_text['Bm2'][1]})")
+    axs1[3].set_ylabel(param_text['aggratio'][0])
+    axs1[3].set_xlabel('Integrated NPP (mmol m$^{-2}$ d$^{-1}$)')
+    ax2.set_xlabel(param_text['aggratio'][0])
+    ax2.set_ylabel('EZ flux (mmol m$^{-2}$ d$^{-1}$)')
         
     npp_all = {0: [], 1: []}
     t_flux_all = {0: [], 1: []}
@@ -1652,7 +1651,7 @@ def aggratio_scatter(path, station_data):
             ratio_e_all[1].append(ratio_e)
             colors_all[1].append(c)
 
-    def subplot_regression(row, col, x, y, yerr, textx, texty):
+    def subplot_regression(ax, x, y, textx, texty, err, errpos):
 
         for tup in ((0, '-'), (1, ':')):
             a, b = tup
@@ -1662,33 +1661,33 @@ def aggratio_scatter(path, station_data):
             yfit_sort = np.sort(yfit)
             if reg.params[1] < 0:  #if slope is negative
                 yfit_sort = yfit_sort[::-1]
-            axs1[row][col].plot(x_sort, yfit_sort, c=gray, ls=b)
+            ax.plot(x_sort, yfit_sort, c=gray, ls=b)
             if b == '-':
-                axs1[row][col].text(textx, texty, f'{reg.rsquared:.2f} ({reg.f_pvalue:.2f})',
-                                    transform=transforms.blended_transform_factory(axs1[row][col].transAxes, axs1[row][col].transAxes))
+                ax.text(textx, texty, f'{reg.rsquared:.2f} ({reg.f_pvalue:.2f})',
+                                    transform=transforms.blended_transform_factory(ax.transAxes, ax.transAxes))
             else:
-                axs1[row][col].text(textx, texty - 0.07, f'{reg.rsquared:.2f} ({reg.f_pvalue:.2f})',
-                                    transform=transforms.blended_transform_factory(axs1[row][col].transAxes, axs1[row][col].transAxes))
+                ax.text(textx, texty - 0.07, f'{reg.rsquared:.2f} ({reg.f_pvalue:.2f})',
+                                    transform=transforms.blended_transform_factory(ax.transAxes, ax.transAxes))
             for i, _ in enumerate(x[a]):
-                axs1[row][col].errorbar(x[a][i], y[a][i], yerr[a][i], c=colors_all[a][i], fmt='o', elinewidth=1, ms=4, capsize=2)
+                if errpos == 'y':
+                    ax.errorbar(x[a][i], y[a][i], yerr=err[a][i], c=colors_all[a][i], fmt='o', elinewidth=1, ms=4, capsize=2)
+                else:
+                    ax.errorbar(x[a][i], y[a][i], xerr=err[a][i], c=colors_all[a][i], fmt='o', elinewidth=1, ms=4, capsize=2)
     
-    subplot_regression(0, 0, npp_all, B2p_all, B2p_e_all, 0.67, 0.09)
-    subplot_regression(0, 1, t_flux_all, B2p_all, B2p_e_all, 0.67, 0.09)
-    subplot_regression(1, 0, npp_all, B2_all, B2_e_all, 0.67, 0.09)
-    subplot_regression(1, 1, t_flux_all, B2_all, B2_e_all, 0.67, 0.09)
-    subplot_regression(2, 0, npp_all, Bm2_all, Bm2_e_all, 0.67, 0.09)
-    subplot_regression(2, 1, t_flux_all, Bm2_all, Bm2_e_all, 0.67, 0.09)
-    subplot_regression(3, 0, npp_all, ratio_all, ratio_e_all, 0.67, 0.09)
-    subplot_regression(3, 1, t_flux_all, ratio_all, ratio_e_all, 0.67, 0.09)
+    subplot_regression(axs1[0], npp_all, B2p_all, 0.74, 0.09, B2p_e_all, 'y')
+    subplot_regression(axs1[1], npp_all, B2_all, 0.74, 0.09, B2_e_all, 'y')
+    subplot_regression(axs1[2], npp_all, Bm2_all, 0.74, 0.09, Bm2_e_all, 'y')
+    subplot_regression(axs1[3], npp_all, ratio_all, 0.74, 0.09, ratio_e_all, 'y')
+    subplot_regression(ax2, ratio_all, t_flux_all, 0.75, 0.93, ratio_e_all, 'x')
     
-    for i, a in enumerate(axs1.flatten()):
-        if i < 6:
-            a.xaxis.set_ticklabels([])
+    for a in axs1[:-1]:
+        a.xaxis.set_ticklabels([])
 
     lines, labels, line_length = get_station_color_legend()
-    axs1[3][1].legend(lines, labels, frameon=False, handlelength=line_length)
+    axs1[3].legend(lines, labels, frameon=False, handlelength=line_length)
 
-    fig1.savefig(os.path.join(path, f'figs/aggratio_scatter.pdf'), bbox_inches='tight')
+    fig1.savefig(os.path.join(path, f'figs/aggratio_npp.pdf'), bbox_inches='tight')
+    fig2.savefig(os.path.join(path, f'figs/aggratio_ezflux.pdf'), bbox_inches='tight')
     plt.close()
         
     
@@ -1706,7 +1705,7 @@ if __name__ == '__main__':
     n_sets = 100000
     path = f'../../results/geotraces/mc_{n_sets}'
     all_files = get_filenames(path)
-    hist_success(path, all_files)
+    # hist_success(path, all_files)
     # compile_param_estimates(all_files)
     # multipanel_context(path, station_data)
     # zg_phyto_scatter(station_data)
@@ -1714,13 +1713,13 @@ if __name__ == '__main__':
     # param_section_compilation_dv(path, station_data)
     # ctd_plots_agg(path, station_data)
     # ctd_plots_remin(path, station_data)
-    ctd_plots_sink(path, station_data)
+    # ctd_plots_sink(path, station_data)
     # spaghetti_params(path, station_data)
     # spaghetti_ctd(path, station_data)
     # spaghetti_poc(path, poc_data)
     # poc_section(path, poc_data, station_data)
     # section_map(path, station_data)
-    # aggratio_scatter(path, station_data)
+    aggratio_scatter(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
