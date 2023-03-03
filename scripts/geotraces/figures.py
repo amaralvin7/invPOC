@@ -1573,7 +1573,7 @@ def aggratio_scatter(path, station_data):
     mean_npp = npp_df.groupby(['station']).mean().reset_index()
     
     fig1, axs1 = plt.subplots(4, 1, tight_layout=True, figsize=(4,10))
-    fig2, ax2 = plt.subplots(1, 1, tight_layout=True, figsize=(4,2.5))
+    fig2, ax2 = plt.subplots(1, 1, tight_layout=True, figsize=(4,3))
     param_text = get_param_text()
     
     axs1[0].set_ylabel(f"{param_text['B2p'][0]} ({param_text['B2p'][1]})")
@@ -1651,23 +1651,24 @@ def aggratio_scatter(path, station_data):
             ratio_e_all[1].append(ratio_e)
             colors_all[1].append(c)
 
-    def subplot_regression(ax, x, y, textx, texty, err, errpos):
+    def subplot_regression(ax, x, y, textx, texty, err, errpos, regress=False):
 
         for tup in ((0, '-'), (1, ':')):
             a, b = tup
-            reg = sm.OLS(y[a], sm.add_constant(x[a])).fit()
-            yfit = reg.predict()
-            x_sort = np.sort(x[a])
-            yfit_sort = np.sort(yfit)
-            if reg.params[1] < 0:  #if slope is negative
-                yfit_sort = yfit_sort[::-1]
-            ax.plot(x_sort, yfit_sort, c=gray, ls=b)
-            if b == '-':
-                ax.text(textx, texty, f'{reg.rsquared:.2f} ({reg.f_pvalue:.2f})',
-                                    transform=transforms.blended_transform_factory(ax.transAxes, ax.transAxes))
-            else:
-                ax.text(textx, texty - 0.07, f'{reg.rsquared:.2f} ({reg.f_pvalue:.2f})',
-                                    transform=transforms.blended_transform_factory(ax.transAxes, ax.transAxes))
+            if regress:
+                reg = sm.OLS(y[a], sm.add_constant(x[a])).fit()
+                yfit = reg.predict()
+                x_sort = np.sort(x[a])
+                yfit_sort = np.sort(yfit)
+                if reg.params[1] < 0:  #if slope is negative
+                    yfit_sort = yfit_sort[::-1]
+                ax.plot(x_sort, yfit_sort, c=gray, ls=b)
+                if b == '-':
+                    ax.text(textx, texty, f'{reg.rsquared:.2f} ({reg.f_pvalue:.2f})',
+                                        transform=transforms.blended_transform_factory(ax.transAxes, ax.transAxes))
+                else:
+                    ax.text(textx, texty - 0.07, f'{reg.rsquared:.2f} ({reg.f_pvalue:.2f})',
+                                        transform=transforms.blended_transform_factory(ax.transAxes, ax.transAxes))
             for i, _ in enumerate(x[a]):
                 if errpos == 'y':
                     ax.errorbar(x[a][i], y[a][i], yerr=err[a][i], c=colors_all[a][i], fmt='o', elinewidth=1, ms=4, capsize=2)
@@ -1678,7 +1679,7 @@ def aggratio_scatter(path, station_data):
     subplot_regression(axs1[1], npp_all, B2_all, 0.74, 0.09, B2_e_all, 'y')
     subplot_regression(axs1[2], npp_all, Bm2_all, 0.74, 0.09, Bm2_e_all, 'y')
     subplot_regression(axs1[3], npp_all, ratio_all, 0.74, 0.09, ratio_e_all, 'y')
-    subplot_regression(ax2, ratio_all, t_flux_all, 0.75, 0.93, ratio_e_all, 'x')
+    subplot_regression(ax2, ratio_all, t_flux_all, 0.75, 0.93, ratio_e_all, 'x', regress=False)
     
     for a in axs1[:-1]:
         a.xaxis.set_ticklabels([])
