@@ -1197,22 +1197,22 @@ def get_param_text():
     return param_text
 
 
-def get_ml_pigs(station_data):
+def get_avg_pigs(station_data, depth_label):
     
     names = ('but', 'hex', 'allo', 'chla', 'chlb', 'fuco', 'peri', 'zea')
-    ml_pigs = {s: {n: {} for n in names} for s in station_data}
+    avg_pigs = {s: {n: {} for n in names} for s in station_data}
 
     pig_data = pd.read_csv('../../../geotraces/pigments.csv',
                            usecols=['station', 'depth', 'but', 'hex', 'allo',
                                     'chla', 'chlb', 'fuco', 'peri', 'zea'])
     
     for s in station_data:
-        ml = station_data[s]['mld']
-        s_df = pig_data.loc[(pig_data['station'] == s) & (pig_data['depth'] <= ml)]
+        depth = station_data[s][depth_label]
+        s_df = pig_data.loc[(pig_data['station'] == s) & (pig_data['depth'] <= depth)]
         for n in names:
-            ml_pigs[s][n] = s_df[n].mean()
+            avg_pigs[s][n] = s_df[n].mean()
     
-    return ml_pigs
+    return avg_pigs
 
 def get_ml_nuts(station_data):
     
@@ -1263,97 +1263,114 @@ def get_station_color(station):
     
     return c
 
-def zg_phyto_scatter(station_data):
+def flux_pigs_scatter(station_data):
 
-    pig_data = get_ml_pigs(station_data)
-    fig, axs = plt.subplots(1, 4, figsize=(12, 4), tight_layout=True)
+    pig_data = get_avg_pigs(station_data, 'zg')
+    fig, axs = plt.subplots(3, 4, figsize=(12, 10), tight_layout=True)
     
-    axs[0].set_ylabel('EZ flux (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+    axs[0][0].set_ylabel('EZ flux (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+    axs[1][0].set_ylabel('Transfer efficiency', fontsize=14)
+    axs[2][0].set_ylabel('Export efficiency', fontsize=14)
     
-    for ax in axs.flatten()[1:]:
-        ax.yaxis.set_ticklabels([])
+    for i, ax in enumerate(axs.flatten()):
+        if i % 4:
+            ax.yaxis.set_ticklabels([])
     
-    axs[0].set_xlabel('Chl. a (ng L$^{-1}$)', fontsize=14)
-    axs[1].set_xlabel('Frac. pico', fontsize=14)
-    axs[2].set_xlabel('Frac. nano', fontsize=14)
-    axs[3].set_xlabel('Frac. micro', fontsize=14)
+    axs[2][0].set_xlabel('Chl. a (ng L$^{-1}$)', fontsize=14)
+    axs[2][1].set_xlabel('Frac. pico', fontsize=14)
+    axs[2][2].set_xlabel('Frac. nano', fontsize=14)
+    axs[2][3].set_xlabel('Frac. micro', fontsize=14)
     
-    a0_data0 = {'x': [], 'y': []}
-    a1_data0 = {'x': [], 'y': []}
-    a2_data0 = {'x': [], 'y': []}
-    a3_data0 = {'x': [], 'y': []}
+    stations = list(station_data.keys())
+    chla_bs = []  # by station
+    pico_bs = []
+    nano_bs = []
+    micro_bs = []
+    zg_fluxes_bs = []
+    xfer_effs_bs = []
+    xport_effs_bs = []
 
-    a0_data1 = {'x': [], 'y': []}
-    a1_data1 = {'x': [], 'y': []}
-    a2_data1 = {'x': [], 'y': []}
-    a3_data1 = {'x': [], 'y': []}
-    
-    for s in station_data:
-        
+    for s in stations:
         c = get_station_color(s)
-        
         grid = np.array(station_data[s]['grid'])
         zg = station_data[s]['zg']
         zgi = list(grid).index(zg)
-        t_fluxes = []
+        zgp100 = zg + 100
+        interp_depths = grid[grid < zgp100].max(), grid[grid > zgp100].min()  # pump depths that surround zgp100
+        zg_fluxes = []
+        xfer_effs = []
+        xport_effs = []
         pickled_files = [f for f in os.listdir(path) if f'stn{s}.pkl' in f]
         for f in pickled_files:
             with open(os.path.join(path, f), 'rb') as file:
-                fluxes = pickle.load(file)['sink_fluxes']
-                t_fluxes.append(fluxes['T'][zgi][0])
-        t_flux = np.mean(t_fluxes)
-
+                results = pickle.load(file)
+                fluxes = results['sink_fluxes']['T']
+                zg_fluxes.append(fluxes[zgi][0])
+                interp_fluxes = [fluxes[list(grid).index(i)][0] for i in interp_depths]
+                interped_flux = interp1d(interp_depths, interp_fluxes)(zgp100)
+                xfer_effs.append(interped_flux[()] / fluxes[zgi][0])
+                Lp = results['params']['Lp']['posterior']
+                Po = results['params']['Po']['posterior']
+                npp = 0
+                for layer in range(zgi + 1):
+                    zi, zim1 = get_layer_bounds(layer, grid)
+                    npp += Lp * Po * (np.exp(-zim1 / Lp) - np.exp(-zi / Lp))
+                xport_effs.append(fluxes[zgi][0] / npp)
+                
+        zg_flux = np.mean(zg_fluxes)
+        xfer_eff = np.mean(xfer_effs)
+        xport_eff = np.mean(xport_effs)
+        
         pico, nano, micro = phyto_size_index(pig_data[s])
 
-        axs[0].scatter(pig_data[s]['chla'], t_flux, s=16, color=c, zorder=2)
-        axs[1].scatter(pico, t_flux, s=16, color=c, zorder=2)  
-        axs[2].scatter(nano, t_flux, s=16, color=c, zorder=2)  
-        axs[3].scatter(micro, t_flux, s=16, color=c, zorder=2)
+        for i, ydata in enumerate((zg_flux, xfer_eff, xport_eff)):
+            axs[i][0].scatter(pig_data[s]['chla'], ydata, s=16, color=c, zorder=2)
+            axs[i][1].scatter(pico, ydata, s=16, color=c, zorder=2)  
+            axs[i][2].scatter(nano, ydata, s=16, color=c, zorder=2)  
+            axs[i][3].scatter(micro, ydata, s=16, color=c, zorder=2)
         
-        a0_data0['x'].append(pig_data[s]['chla'])
-        a1_data0['x'].append(pico)
-        a2_data0['x'].append(nano)
-        a3_data0['x'].append(micro)
+        zg_fluxes_bs.append(zg_flux)
+        xfer_effs_bs.append(xfer_eff)
+        xport_effs_bs.append(xport_eff)
         
-        for a in (a0_data0, a1_data0, a2_data0, a3_data0):
-            a['y'].append(t_flux)
-        
-        if s > 9:
-    
-            a0_data1['x'].append(pig_data[s]['chla'])
-            a1_data1['x'].append(pico)
-            a2_data1['x'].append(nano)
-            a3_data1['x'].append(micro)
-            
-            for a in (a0_data1, a1_data1, a2_data1, a3_data1):
-                a['y'].append(t_flux)       
-        
+        chla_bs.append(pig_data[s]['chla'])
+        pico_bs.append(pico)
+        nano_bs.append(nano)
+        micro_bs.append(micro)
 
     lines, labels, line_length = get_station_color_legend()
-    axs[0].legend(lines, labels, frameon=False, handlelength=line_length)
+    axs[0][0].legend(lines, labels, frameon=False, handlelength=line_length)
 
-    for i, a in enumerate(((a0_data0, a0_data1), (a1_data0, a1_data1), (a2_data0, a2_data1), (a3_data0, a3_data1))):
+    ydatas = (zg_fluxes_bs, xfer_effs_bs, xport_effs_bs)
+    xdatas = (chla_bs, pico_bs, nano_bs, micro_bs)
+    # for (i, ydata), (j, xdata) in product(enumerate(ydatas), enumerate(xdatas)):
+    for j, xdata in enumerate(xdatas):
+        i = 0
+        ydata = zg_fluxes_bs
         
-        reg0 = sm.OLS(a[0]['y'], sm.add_constant(a[0]['x'])).fit()
+        xdata2 = [x for i, x in enumerate(xdata) if stations[i] > 9]
+        ydata2 = [y for i, y in enumerate(ydata) if stations[i] > 9]
+        
+        reg0 = sm.OLS(ydata, sm.add_constant(xdata)).fit()
         y_fit0 = reg0.predict()
 
-        reg1 = sm.OLS(a[1]['y'], sm.add_constant(a[1]['x'])).fit()
+        reg1 = sm.OLS(ydata2, sm.add_constant(xdata2)).fit()
         y_fit1 = reg1.predict()
         
-        if i != 1:
-            axs[i].plot(np.sort(a[0]['x']), np.sort(y_fit0), c=gray, zorder=1)
-            axs[i].plot(np.sort(a[1]['x']), np.sort(y_fit1), c=gray, ls=':', zorder=1)
-            axs[i].text(0.68, 0.02, f'{reg0.rsquared:.2f} ({reg0.f_pvalue:.2f})\n{reg1.rsquared:.2f} ({reg1.f_pvalue:.2f})',
-                            transform=transforms.blended_transform_factory(axs[i].transAxes, axs[i].transAxes))
+        if j != 1:
+            axs[i][j].plot(np.sort(xdata), np.sort(y_fit0), c=gray, zorder=1)
+            axs[i][j].plot(np.sort(xdata2), np.sort(y_fit1), c=gray, ls=':', zorder=1)
+            axs[i][j].text(0.68, 0.02, f'{reg0.rsquared:.2f} ({reg0.f_pvalue:.2f})\n{reg1.rsquared:.2f} ({reg1.f_pvalue:.2f})',
+                            transform=transforms.blended_transform_factory(axs[i][j].transAxes, axs[i][j].transAxes))
         else:
-            axs[i].plot(np.sort(a[0]['x']), np.sort(y_fit0)[::-1], c=gray, zorder=1)
-            axs[i].plot(np.sort(a[1]['x']), np.sort(y_fit1)[::-1], c=gray, ls=':', zorder=1)
-            axs[i].text(0.02, 0.02, f'{reg0.rsquared:.2f} ({reg0.f_pvalue:.2f})\n{reg1.rsquared:.2f} ({reg1.f_pvalue:.2f})',
-                            transform=transforms.blended_transform_factory(axs[i].transAxes, axs[i].transAxes))
+            axs[i][j].plot(np.sort(xdata), np.sort(y_fit0)[::-1], c=gray, zorder=1)
+            axs[i][j].plot(np.sort(xdata2), np.sort(y_fit1)[::-1], c=gray, ls=':', zorder=1)
+            axs[i][j].text(0.02, 0.02, f'{reg0.rsquared:.2f} ({reg0.f_pvalue:.2f})\n{reg1.rsquared:.2f} ({reg1.f_pvalue:.2f})',
+                            transform=transforms.blended_transform_factory(axs[i][j].transAxes, axs[i][j].transAxes))
         
 
 
-    fig.savefig(os.path.join(path, f'figs/zg_phyto_scatter.pdf'), bbox_inches='tight')
+    fig.savefig(os.path.join(path, f'figs/flux_pigs_scatter.pdf'), bbox_inches='tight')
     plt.close()
 
 
@@ -1371,7 +1388,7 @@ def phyto_size_index(d):
 
 def multipanel_context(path, station_data):
     
-    pig_data = get_ml_pigs(station_data)
+    pig_data = get_avg_pigs(station_data, 'mld')
     nut_data = get_ml_nuts(station_data)
     
     ylabels = {0: 'Nitrate\n(µmol kg$^{-1}$)',
@@ -1651,7 +1668,7 @@ def aggratio_scatter(path, station_data):
             ratio_e_all[1].append(ratio_e)
             colors_all[1].append(c)
 
-    def subplot_regression(ax, x, y, textx, texty, err, errpos, regress=False):
+    def subplot_regression(ax, x, y, textx, texty, err, errpos, regress=True):
 
         for tup in ((0, '-'), (1, ':')):
             a, b = tup
@@ -1709,7 +1726,7 @@ if __name__ == '__main__':
     # hist_success(path, all_files)
     # compile_param_estimates(all_files)
     # multipanel_context(path, station_data)
-    # zg_phyto_scatter(station_data)
+    flux_pigs_scatter(station_data)
     # param_section_compilation_dc(path, station_data, all_files)
     # param_section_compilation_dv(path, station_data)
     # ctd_plots_agg(path, station_data)
@@ -1720,7 +1737,7 @@ if __name__ == '__main__':
     # spaghetti_poc(path, poc_data)
     # poc_section(path, poc_data, station_data)
     # section_map(path, station_data)
-    aggratio_scatter(path, station_data)
+    # aggratio_scatter(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
