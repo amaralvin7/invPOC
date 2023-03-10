@@ -1524,7 +1524,7 @@ def phyto_size_index(d):
 
 def multipanel_context(path, station_data):
     
-    pig_data = get_avg_pigs(station_data, 'mld')
+    pig_data = get_avg_pigs(station_data, 'zg')
     nut_data = get_ml_nuts(station_data)
     
     ylabels = {0: 'Nitrate\n(µmol kg$^{-1}$)',
@@ -1768,7 +1768,7 @@ if __name__ == '__main__':
     all_files = get_filenames(path)
     # hist_success(path, all_files)
     # compile_param_estimates(all_files)
-    # multipanel_context(path, station_data)
+    multipanel_context(path, station_data)
     # flux_pigs_scatter(station_data)
     # agg_pigs_scatter(station_data, 'zg')
     # agg_pigs_scatter(station_data, 'mld')
@@ -1782,7 +1782,7 @@ if __name__ == '__main__':
     # spaghetti_poc(path, poc_data)
     # poc_section(path, poc_data, station_data)
     # section_map(path, station_data)
-    aggratio_ezflux(path, station_data)
+    # aggratio_ezflux(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
