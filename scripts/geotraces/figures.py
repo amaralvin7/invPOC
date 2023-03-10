@@ -1275,11 +1275,16 @@ def flux_pigs_scatter(station_data):
     for i, ax in enumerate(axs.flatten()):
         if i % 4:
             ax.yaxis.set_ticklabels([])
+        if i < 8:
+            ax.xaxis.set_ticklabels([])
     
     axs[2][0].set_xlabel('Chl. a (ng L$^{-1}$)', fontsize=14)
     axs[2][1].set_xlabel('Frac. pico', fontsize=14)
     axs[2][2].set_xlabel('Frac. nano', fontsize=14)
     axs[2][3].set_xlabel('Frac. micro', fontsize=14)
+
+    for ax in axs[1]:
+        ax.axhline(1, ls='--', c=black)
     
     stations = list(station_data.keys())
     chla_bs = []  # by station
@@ -1341,37 +1346,168 @@ def flux_pigs_scatter(station_data):
     lines, labels, line_length = get_station_color_legend()
     axs[0][0].legend(lines, labels, frameon=False, handlelength=line_length)
 
-    ydatas = (zg_fluxes_bs, xfer_effs_bs, xport_effs_bs)
     xdatas = (chla_bs, pico_bs, nano_bs, micro_bs)
-    # for (i, ydata), (j, xdata) in product(enumerate(ydatas), enumerate(xdatas)):
-    for j, xdata in enumerate(xdatas):
-        i = 0
-        ydata = zg_fluxes_bs
+    for j, xdata0 in enumerate(xdatas):
+        ydata0 = zg_fluxes_bs
         
-        xdata2 = [x for i, x in enumerate(xdata) if stations[i] > 9]
-        ydata2 = [y for i, y in enumerate(ydata) if stations[i] > 9]
+        xdata1 = [x for i, x in enumerate(xdata0) if stations[i] > 9]
+        ydata1 = [y for i, y in enumerate(ydata0) if stations[i] > 9]
         
-        reg0 = sm.OLS(ydata, sm.add_constant(xdata)).fit()
+        reg0 = sm.OLS(ydata0, sm.add_constant(xdata0)).fit()
         y_fit0 = reg0.predict()
 
-        reg1 = sm.OLS(ydata2, sm.add_constant(xdata2)).fit()
+        reg1 = sm.OLS(ydata1, sm.add_constant(xdata1)).fit()
         y_fit1 = reg1.predict()
         
         if j != 1:
-            axs[i][j].plot(np.sort(xdata), np.sort(y_fit0), c=gray, zorder=1)
-            axs[i][j].plot(np.sort(xdata2), np.sort(y_fit1), c=gray, ls=':', zorder=1)
-            axs[i][j].text(0.68, 0.02, f'{reg0.rsquared:.2f} ({reg0.f_pvalue:.2f})\n{reg1.rsquared:.2f} ({reg1.f_pvalue:.2f})',
-                            transform=transforms.blended_transform_factory(axs[i][j].transAxes, axs[i][j].transAxes))
+            axs[0][j].plot(np.sort(xdata0), np.sort(y_fit0), c=gray, zorder=1)
+            axs[0][j].plot(np.sort(xdata1), np.sort(y_fit1), c=gray, ls=':', zorder=1)
+            axs[0][j].text(0.68, 0.02, f'{reg0.rsquared:.2f} ({reg0.f_pvalue:.2f})\n{reg1.rsquared:.2f} ({reg1.f_pvalue:.2f})',
+                            transform=transforms.blended_transform_factory(axs[0][j].transAxes, axs[0][j].transAxes))
         else:
-            axs[i][j].plot(np.sort(xdata), np.sort(y_fit0)[::-1], c=gray, zorder=1)
-            axs[i][j].plot(np.sort(xdata2), np.sort(y_fit1)[::-1], c=gray, ls=':', zorder=1)
-            axs[i][j].text(0.02, 0.02, f'{reg0.rsquared:.2f} ({reg0.f_pvalue:.2f})\n{reg1.rsquared:.2f} ({reg1.f_pvalue:.2f})',
-                            transform=transforms.blended_transform_factory(axs[i][j].transAxes, axs[i][j].transAxes))
-        
-
+            axs[0][j].plot(np.sort(xdata0), np.sort(y_fit0)[::-1], c=gray, zorder=1)
+            axs[0][j].plot(np.sort(xdata1), np.sort(y_fit1)[::-1], c=gray, ls=':', zorder=1)
+            axs[0][j].text(0.02, 0.02, f'{reg0.rsquared:.2f} ({reg0.f_pvalue:.2f})\n{reg1.rsquared:.2f} ({reg1.f_pvalue:.2f})',
+                            transform=transforms.blended_transform_factory(axs[0][j].transAxes, axs[0][j].transAxes))
 
     fig.savefig(os.path.join(path, f'figs/flux_pigs_scatter.pdf'), bbox_inches='tight')
     plt.close()
+
+
+def agg_pigs_scatter(station_data, depth_label):
+
+    with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
+        dv_df = pickle.load(f)
+
+    params_df = dv_df[['depth', 'station', 'aggratio', 'Bm2', 'B2', 'B2p']].copy()
+    mean_params = params_df.groupby(['depth', 'station']).mean().reset_index()
+
+    with open(os.path.join(path, 'saved_params_dc.pkl'), 'rb') as f:
+        dc_df = pickle.load(f)    
+    
+    npp_df = dc_df[['station', 'Po', 'Lp']]
+    mean_npp = npp_df.groupby(['station']).mean().reset_index()
+
+    param_text = get_param_text()
+    pig_data = get_avg_pigs(station_data, depth_label)
+    fig, axs = plt.subplots(4, 5, figsize=(16, 12))
+    
+    for i, ax in enumerate(axs.flatten()):
+        if i % 5:
+            ax.yaxis.set_ticklabels([])
+        if i < 15:
+            ax.xaxis.set_ticklabels([])
+    
+    axs[3][0].set_xlabel('Integrated NPP (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
+    axs[3][1].set_xlabel('Chl. a (ng L$^{-1}$)', fontsize=14)
+    axs[3][2].set_xlabel('Frac. pico', fontsize=14)
+    axs[3][3].set_xlabel('Frac. nano', fontsize=14)
+    axs[3][4].set_xlabel('Frac. micro', fontsize=14)
+
+    axs[0][0].set_ylabel(f"{param_text['B2p'][0]} ({param_text['B2p'][1]})", fontsize=14)
+    axs[1][0].set_ylabel(f"{param_text['B2'][0]} ({param_text['B2'][1]})", fontsize=14)
+    axs[2][0].set_ylabel(f"{param_text['Bm2'][0]} ({param_text['Bm2'][1]})", fontsize=14)
+    axs[3][0].set_ylabel(param_text['aggratio'][0], fontsize=14)
+    
+    stations = list(station_data.keys())
+    npp_bs = []  # by station
+    chla_bs = []
+    pico_bs = []
+    nano_bs = []
+    micro_bs = []
+    Bm2_bs = []
+    Bm2_e_bs = []
+    B2_bs = []
+    B2_e_bs = []
+    B2p_bs = []
+    B2p_e_bs = []
+    ratio_bs = []
+    ratio_e_bs = []
+
+    for s in stations:
+        
+        depth = station_data[s][depth_label]
+        c = get_station_color(s)
+        s_df_params = mean_params[mean_params['station'] == s]
+        s_df_npp = mean_npp[mean_npp['station'] == s].iloc[0]
+        Lp = s_df_npp['Lp']
+        Po = s_df_npp['Po']
+        
+        if len(s_df_params.loc[s_df_params['depth'] <= depth]) == 0:
+            continue
+        
+        Bm2 = s_df_params.loc[s_df_params['depth'] <= depth]['Bm2'].mean()
+        Bm2_e = s_df_params.loc[s_df_params['depth'] <= depth]['Bm2'].std(ddof=1)
+        B2 = s_df_params.loc[s_df_params['depth'] <= depth]['B2'].mean()
+        B2_e = s_df_params.loc[s_df_params['depth'] <= depth]['B2'].std(ddof=1)
+        B2p = s_df_params.loc[s_df_params['depth'] <= depth]['B2p'].mean()
+        B2p_e = s_df_params.loc[s_df_params['depth'] <= depth]['B2p'].std(ddof=1)
+        ratio = s_df_params.loc[s_df_params['depth'] <= depth]['aggratio'].mean()
+        ratio_e = s_df_params.loc[s_df_params['depth'] <= depth]['aggratio'].std(ddof=1)
+        
+        npp = Lp * Po * (1 - np.exp(-depth / Lp))
+
+        Bm2_bs.append(Bm2)
+        Bm2_e_bs.append(Bm2_e)
+        B2_bs.append(B2)
+        B2_e_bs.append(B2_e)
+        B2p_bs.append(B2p)
+        B2p_e_bs.append(B2p_e)
+        ratio_bs.append(ratio)
+        ratio_e_bs.append(ratio_e)
+        
+        pico, nano, micro = phyto_size_index(pig_data[s])
+        
+
+        for i, (ydata, yerr) in enumerate(((B2p, B2p_e), (B2, B2_e), (Bm2, Bm2_e), (ratio, ratio_e))):
+            axs[i][0].errorbar(npp, ydata, yerr=yerr, c=c, fmt='o', elinewidth=1, ms=4, capsize=2)
+            axs[i][1].errorbar(pig_data[s]['chla'], ydata, yerr=yerr, c=c, fmt='o', elinewidth=1, ms=4, capsize=2)
+            axs[i][2].errorbar(pico, ydata, yerr=yerr, c=c, fmt='o', elinewidth=1, ms=4, capsize=2)
+            axs[i][3].errorbar(nano, ydata, yerr=yerr, c=c, fmt='o', elinewidth=1, ms=4, capsize=2)
+            axs[i][4].errorbar(micro, ydata, yerr=yerr, c=c, fmt='o', elinewidth=1, ms=4, capsize=2)
+        
+        npp_bs.append(npp)
+        chla_bs.append(pig_data[s]['chla'])
+        pico_bs.append(pico)
+        nano_bs.append(nano)
+        micro_bs.append(micro)
+
+    lines, labels, line_length = get_station_color_legend()
+    axs[0][0].legend(lines, labels, frameon=False, handlelength=line_length, loc='lower left')
+
+    ydatas = ((B2p_bs, B2_bs, Bm2_bs, ratio_bs))
+    xdatas = (npp_bs, chla_bs, pico_bs, nano_bs, micro_bs)
+    
+    for (i, ydata0), (j, xdata0) in product(enumerate(ydatas), enumerate(xdatas)):
+        
+        xdata1 = [x for i, x in enumerate(xdata0) if stations[i] > 9]
+        ydata1 = [y for i, y in enumerate(ydata0) if stations[i] > 9]
+        
+        reg0 = sm.OLS(ydata0, sm.add_constant(xdata0)).fit()
+        yfit0 = reg0.predict()
+        xdata0_sort = np.sort(xdata0)
+        yfit0_sort = np.sort(yfit0)
+        if reg0.params[1] < 0:  #if slope is negative
+            yfit0_sort = yfit0_sort[::-1]
+        axs[i][j].plot(xdata0_sort, yfit0_sort, c=gray, ls='-')
+
+        reg1 = sm.OLS(ydata1, sm.add_constant(xdata1)).fit()
+        yfit1 = reg1.predict()
+        xdata1_sort = np.sort(xdata1)
+        yfit1_sort = np.sort(yfit1)
+        if reg1.params[1] < 0:  #if slope is negative
+            yfit1_sort = yfit1_sort[::-1]
+        axs[i][j].plot(xdata1_sort, yfit1_sort, c=gray, ls=':')
+
+        axs[i][j].text(0.5, 0.94, f'{reg0.rsquared:.2f} ({reg0.f_pvalue:.2f})',
+                            transform=transforms.blended_transform_factory(axs[i][j].transAxes, axs[i][j].transAxes))
+        axs[i][j].text(0.5, 0.94 - 0.07, f'{reg1.rsquared:.2f} ({reg1.f_pvalue:.2f})',
+                            transform=transforms.blended_transform_factory(axs[i][j].transAxes, axs[i][j].transAxes))
+
+        
+    fig.savefig(os.path.join(path, f'figs/agg_pigs_scatter_{depth_label}.pdf'), bbox_inches='tight')
+    plt.close()
+
 
 
 def phyto_size_index(d):
@@ -1575,43 +1711,19 @@ def section_map(path, station_data):
     plt.close()
 
 
-def aggratio_scatter(path, station_data):
+def aggratio_ezflux(path, station_data):
 
     with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
         dv_df = pickle.load(f)    
 
     params_df = dv_df[['depth', 'station', 'aggratio', 'Bm2', 'B2', 'B2p']].copy()
     mean_params = params_df.groupby(['depth', 'station']).mean().reset_index()
-
-    with open(os.path.join(path, 'saved_params_dc.pkl'), 'rb') as f:
-        dc_df = pickle.load(f)    
     
-    npp_df = dc_df[['station', 'Po', 'Lp']]
-    mean_npp = npp_df.groupby(['station']).mean().reset_index()
-    
-    fig1, axs1 = plt.subplots(4, 1, tight_layout=True, figsize=(4,10))
-    fig2, ax2 = plt.subplots(1, 1, tight_layout=True, figsize=(4,3))
+    fig, ax = plt.subplots(1, 1, tight_layout=True, figsize=(4,3))
     param_text = get_param_text()
     
-    axs1[0].set_ylabel(f"{param_text['B2p'][0]} ({param_text['B2p'][1]})")
-    axs1[1].set_ylabel(f"{param_text['B2'][0]} ({param_text['B2'][1]})")
-    axs1[2].set_ylabel(f"{param_text['Bm2'][0]} ({param_text['Bm2'][1]})")
-    axs1[3].set_ylabel(param_text['aggratio'][0])
-    axs1[3].set_xlabel('Integrated NPP (mmol m$^{-2}$ d$^{-1}$)')
-    ax2.set_xlabel(param_text['aggratio'][0])
-    ax2.set_ylabel('EZ flux (mmol m$^{-2}$ d$^{-1}$)')
-        
-    npp_all = {0: [], 1: []}
-    t_flux_all = {0: [], 1: []}
-    Bm2_all = {0: [], 1: []}
-    Bm2_e_all = {0: [], 1: []}
-    B2_all = {0: [], 1: []}
-    B2_e_all = {0: [], 1: []}
-    B2p_all = {0: [], 1: []}
-    B2p_e_all = {0: [], 1: []}
-    ratio_all = {0: [], 1: []}
-    ratio_e_all = {0: [], 1: []}
-    colors_all = {0: [], 1: []}
+    ax.set_xlabel(param_text['aggratio'][0])
+    ax.set_ylabel('EZ flux (mmol m$^{-2}$ d$^{-1}$)')
     
     for s in station_data:
 
@@ -1627,85 +1739,16 @@ def aggratio_scatter(path, station_data):
         
         c = get_station_color(s)
         s_df_params = mean_params[mean_params['station'] == s]
-        s_df_npp = mean_npp[mean_npp['station'] == s].iloc[0]
-        Lp = s_df_npp['Lp']
-        Po = s_df_npp['Po']
         
-        Bm2 = s_df_params.loc[s_df_params['depth'] <= zg]['Bm2'].mean()
-        Bm2_e = s_df_params.loc[s_df_params['depth'] <= zg]['Bm2'].std(ddof=1)
-        B2 = s_df_params.loc[s_df_params['depth'] <= zg]['B2'].mean()
-        B2_e = s_df_params.loc[s_df_params['depth'] <= zg]['B2'].std(ddof=1)
-        B2p = s_df_params.loc[s_df_params['depth'] <= zg]['B2p'].mean()
-        B2p_e = s_df_params.loc[s_df_params['depth'] <= zg]['B2p'].std(ddof=1)
         ratio = s_df_params.loc[s_df_params['depth'] <= zg]['aggratio'].mean()
         ratio_e = s_df_params.loc[s_df_params['depth'] <= zg]['aggratio'].std(ddof=1)
         
-        npp = Lp * Po * (1 - np.exp(-zg / Lp))
-        
-        npp_all[0].append(npp)
-        t_flux_all[0].append(t_flux)
-        Bm2_all[0].append(Bm2)
-        Bm2_e_all[0].append(Bm2_e)
-        B2_all[0].append(B2)
-        B2_e_all[0].append(B2_e)
-        B2p_all[0].append(B2p)
-        B2p_e_all[0].append(B2p_e)
-        ratio_all[0].append(ratio)
-        ratio_e_all[0].append(ratio_e)
-        colors_all[0].append(c)
-        
-        if s > 9:
-
-            npp_all[1].append(npp)
-            t_flux_all[1].append(t_flux)
-            Bm2_all[1].append(Bm2)
-            Bm2_e_all[1].append(Bm2_e)
-            B2_all[1].append(B2)
-            B2_e_all[1].append(B2_e)
-            B2p_all[1].append(B2p)
-            B2p_e_all[1].append(B2p_e)
-            ratio_all[1].append(ratio)
-            ratio_e_all[1].append(ratio_e)
-            colors_all[1].append(c)
-
-    def subplot_regression(ax, x, y, textx, texty, err, errpos, regress=True):
-
-        for tup in ((0, '-'), (1, ':')):
-            a, b = tup
-            if regress:
-                reg = sm.OLS(y[a], sm.add_constant(x[a])).fit()
-                yfit = reg.predict()
-                x_sort = np.sort(x[a])
-                yfit_sort = np.sort(yfit)
-                if reg.params[1] < 0:  #if slope is negative
-                    yfit_sort = yfit_sort[::-1]
-                ax.plot(x_sort, yfit_sort, c=gray, ls=b)
-                if b == '-':
-                    ax.text(textx, texty, f'{reg.rsquared:.2f} ({reg.f_pvalue:.2f})',
-                                        transform=transforms.blended_transform_factory(ax.transAxes, ax.transAxes))
-                else:
-                    ax.text(textx, texty - 0.07, f'{reg.rsquared:.2f} ({reg.f_pvalue:.2f})',
-                                        transform=transforms.blended_transform_factory(ax.transAxes, ax.transAxes))
-            for i, _ in enumerate(x[a]):
-                if errpos == 'y':
-                    ax.errorbar(x[a][i], y[a][i], yerr=err[a][i], c=colors_all[a][i], fmt='o', elinewidth=1, ms=4, capsize=2)
-                else:
-                    ax.errorbar(x[a][i], y[a][i], xerr=err[a][i], c=colors_all[a][i], fmt='o', elinewidth=1, ms=4, capsize=2)
-    
-    subplot_regression(axs1[0], npp_all, B2p_all, 0.74, 0.09, B2p_e_all, 'y')
-    subplot_regression(axs1[1], npp_all, B2_all, 0.74, 0.09, B2_e_all, 'y')
-    subplot_regression(axs1[2], npp_all, Bm2_all, 0.74, 0.09, Bm2_e_all, 'y')
-    subplot_regression(axs1[3], npp_all, ratio_all, 0.74, 0.09, ratio_e_all, 'y')
-    subplot_regression(ax2, ratio_all, t_flux_all, 0.75, 0.93, ratio_e_all, 'x', regress=False)
-    
-    for a in axs1[:-1]:
-        a.xaxis.set_ticklabels([])
+        ax.errorbar(ratio, t_flux, xerr=ratio_e, c=c, fmt='o', elinewidth=1, ms=4, capsize=2)
 
     lines, labels, line_length = get_station_color_legend()
-    axs1[3].legend(lines, labels, frameon=False, handlelength=line_length)
+    ax.legend(lines, labels, frameon=False, handlelength=line_length)
 
-    fig1.savefig(os.path.join(path, f'figs/aggratio_npp.pdf'), bbox_inches='tight')
-    fig2.savefig(os.path.join(path, f'figs/aggratio_ezflux.pdf'), bbox_inches='tight')
+    fig.savefig(os.path.join(path, f'figs/aggratio_ezflux.pdf'), bbox_inches='tight')
     plt.close()
         
     
@@ -1726,7 +1769,9 @@ if __name__ == '__main__':
     # hist_success(path, all_files)
     # compile_param_estimates(all_files)
     # multipanel_context(path, station_data)
-    flux_pigs_scatter(station_data)
+    # flux_pigs_scatter(station_data)
+    # agg_pigs_scatter(station_data, 'zg')
+    # agg_pigs_scatter(station_data, 'mld')
     # param_section_compilation_dc(path, station_data, all_files)
     # param_section_compilation_dv(path, station_data)
     # ctd_plots_agg(path, station_data)
@@ -1737,7 +1782,7 @@ if __name__ == '__main__':
     # spaghetti_poc(path, poc_data)
     # poc_section(path, poc_data, station_data)
     # section_map(path, station_data)
-    # aggratio_scatter(path, station_data)
+    aggratio_ezflux(path, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
