@@ -539,7 +539,7 @@ def get_station_color_legend():
              Line2D([0], [0], color=vermillion, lw=4),
              Line2D([0], [0], color=blue, lw=4)]
     
-    labels = ['Shelf', 'N. Pac', 'Eq.', 'S. Pac']
+    labels = ['Subarctic', 'N. Pac', 'Eq.', 'S. Pac']
     
     line_length = 1
     
@@ -775,9 +775,9 @@ def aou_scatter(path, params):
 
 def ctd_files_by_station():
 
-    # pigrath (ODF) casts from Jen's POC flux table for all staitons except
+    # pigrath (ODF) casts from Jen's POC flux table for all stations except
     # 8, 14, 29, and 39, which are from GTC
-    station_cast = {4: 5, 5: 5, 6: 5, 8: 6, 10: 5, 12: 6, 14: 6, 16: 5,  # 3: 4, 
+    station_cast = {4: 5, 5: 5, 6: 5, 8: 6, 10: 5, 12: 6, 14: 6, 16: 5, 
                     18: 5, 19: 4, 21: 5, 23: 4, 25: 5, 27: 5, 29: 6, 31: 5,
                     33: 5, 35: 5, 37: 5, 39: 6}
     
@@ -1113,8 +1113,8 @@ def total_sinking_flux_check(path, filenames, station_data):
 
 def plot_Th_flux_data():
     
-    flux_data = pd.read_excel('../../../geotraces/gp15_flux.xlsx',
-                              usecols=('station_number', 'depth', 'POCFlux1d'))
+    flux_data = pd.read_excel('../../../geotraces/sinkingflux_Th.xlsx',
+                              usecols=('station', 'depth', 'flux'))
 
     diffs = []
     
@@ -1127,13 +1127,13 @@ def plot_Th_flux_data():
         ax.axvline(0, c=black, ls='--')
         
         depths = poc_data[s]['depth']
-        s_df = flux_data.loc[(flux_data['station_number'] == s) & (flux_data['depth'] < 620)]
-        ax.scatter(s_df['POCFlux1d'], s_df['depth'], c=blue)
+        s_df = flux_data.loc[(flux_data['station'] == s) & (flux_data['depth'] < 620)]
+        ax.scatter(s_df['flux'], s_df['depth'], c=blue)
         
         for d in depths:
             ax.axhline(d, c=black, ls=':')
             nearby = s_df.iloc[(s_df['depth']-d).abs().argsort()[:1]].iloc[0]
-            ax.scatter(nearby['POCFlux1d'], nearby['depth'], c=orange)
+            ax.scatter(nearby['flux'], nearby['depth'], c=orange)
             diffs.append(abs(d - nearby['depth']))
             # print(s, abs(d - nearby['depth']))
         fig.savefig(f'../../fluxes_stn{s}.png')
@@ -1646,7 +1646,7 @@ def ballast_scatterplots(path, station_data):
     scheme = plt.cm.plasma
     param_text = get_param_text()
     
-    pump_data = pd.read_csv('../../../geotraces/GP15merge.csv',
+    pump_data = pd.read_csv('../../../geotraces/poc_conc.csv',
                             usecols=['GTStn',
                                     'CorrectedMeanDepthm',
                                     'Latitudedegrees_north',

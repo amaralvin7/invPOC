@@ -13,7 +13,7 @@ from src.framework import define_equation_elements, define_state_elements
 
 def load_poc_data():
     
-    metadata = pd.read_csv('../../../geotraces/GP15merge.csv',
+    metadata = pd.read_csv('../../../geotraces/poc_conc.csv',
                            usecols=('GTNum', 'GTStn', 'CastType',
                                     'CorrectedMeanDepthm',
                                     'Latitudedegrees_north', 
@@ -23,9 +23,9 @@ def load_poc_data():
     # SPM_SPT_pM has NaN for intercal samples, useful for dropping later
     cols = ('SPM_SPT_ugL', 'POC_SPT_uM', 'POC_LPT_uM')
     
-    values = pd.read_csv('../../../geotraces/GP15merge.csv', usecols=cols)
-    errors = pd.read_csv('../../../geotraces/GP15mergesd.csv', usecols=cols)
-    flags = pd.read_csv('../../../geotraces/GP15mergeflag.csv', usecols=cols)
+    values = pd.read_csv('../../../geotraces/poc_conc.csv', usecols=cols)
+    errors = pd.read_csv('../../../geotraces/poc_sd.csv', usecols=cols)
+    flags = pd.read_csv('../../../geotraces/poc_flag.csv', usecols=cols)
 
     data = merge_poc_data(metadata, values, errors, flags)
     data.dropna(inplace=True)
@@ -165,15 +165,15 @@ def extract_nc_data(poc_data, dir):
 
 def load_mixed_layer_depths():
 
-    mld_df = pd.read_csv('../../../geotraces/MLDextract.csv')
-    mld_dict = dict(zip(mld_df['Station'], mld_df['MLD05']))
+    mld_df = pd.read_csv('../../../geotraces/mld.csv')
+    mld_dict = dict(zip(mld_df['station'], mld_df['depth']))
 
     return mld_dict
 
 def load_Th_fluxes():
 
-    df = pd.read_csv('../../../geotraces/gp15_flux.csv',
-                     usecols=('station_number', 'depth', 'POCFlux1d'))
+    df = pd.read_csv('../../../geotraces/sinkingflux_Th.csv',
+                     usecols=('station', 'depth', 'flux'))
 
     return df
 
@@ -195,13 +195,13 @@ def get_station_Th_fluxes(grid, max_depth, station, flux_df):
     flux_layers = []
     flux_depths = []
     flux_vals = []
-    s_df = flux_df.loc[(flux_df['station_number'] == station) & (flux_df['depth'] < max_depth)]
+    s_df = flux_df.loc[(flux_df['station'] == station) & (flux_df['depth'] < max_depth)]
     for i, depth in enumerate(grid):
         nearby = s_df.iloc[(s_df['depth'] - depth).abs().argsort()[:1]].iloc[0]
-        if nearby['POCFlux1d'] > 0:
+        if nearby['flux'] > 0:
             flux_layers.append(i)
             flux_depths.append(nearby['depth'])
-            flux_vals.append(nearby['POCFlux1d'])
+            flux_vals.append(nearby['flux'])
     fluxes = pd.DataFrame(list(zip(flux_layers, flux_depths, flux_vals)), columns=['layer', 'depth', 'flux'])
     
     return fluxes  
