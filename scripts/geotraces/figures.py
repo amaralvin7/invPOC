@@ -1750,8 +1750,34 @@ def aggratio_ezflux(path, station_data):
 
     fig.savefig(os.path.join(path, f'figs/aggratio_ezflux.pdf'), bbox_inches='tight')
     plt.close()
-        
+
+
+def poc_stats(poc_data, station_data):
     
+    d = {'POCS': {'EZ': [], 'UMZ': []},
+         'POCL': {'EZ': [], 'UMZ': []}}
+
+    
+    for s in station_data:
+        zg = station_data[s]['zg']
+        s_df = poc_data[s]
+        ez = s_df.loc[s_df['depth'] <= zg]
+        uz = s_df.loc[s_df['depth'] > zg]
+        for t in d:
+            d[t]['EZ'].extend(ez[t].values)
+            d[t]['UMZ'].extend(uz[t].values)
+    
+    for t in d:
+        print(f'**********{t}**********')
+        for z in ('EZ', 'UMZ'):
+            print(f'----{z}----')
+            a = d[t][z]
+            print(f'N = {len(a)}')
+            print(f'mean = {np.mean(a)}')
+            print(f'std = {np.std(a, ddof=1)}')
+            print(f'range = {np.ptp(a)}')
+
+
 if __name__ == '__main__':
     
     start_time = time()
@@ -1768,7 +1794,7 @@ if __name__ == '__main__':
     all_files = get_filenames(path)
     # hist_success(path, all_files)
     # compile_param_estimates(all_files)
-    multipanel_context(path, station_data)
+    # multipanel_context(path, station_data)
     # flux_pigs_scatter(station_data)
     # agg_pigs_scatter(station_data, 'zg')
     # agg_pigs_scatter(station_data, 'mld')
@@ -1782,7 +1808,8 @@ if __name__ == '__main__':
     # spaghetti_poc(path, poc_data)
     # poc_section(path, poc_data, station_data)
     # section_map(path, station_data)
-    # aggratio_ezflux(path, station_data)
+    # aggratio_ezflux(path, station_data) 
+    poc_stats(poc_data, station_data)
 
     print(f'--- {(time() - start_time)/60} minutes ---')
 
