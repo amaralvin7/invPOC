@@ -1778,6 +1778,37 @@ def poc_stats(poc_data, station_data):
             print(f'range = {np.ptp(a)}')
 
 
+def param_stats(path, station_data):
+
+    with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
+        df = pickle.load(f)    
+
+    params = ('B2p', 'B2', 'Bm2', 'aggratio', 'Bm1s', 'Bm1l', 'ws', 'wl')
+    
+    stations = np.sort(list(station_data.keys()))
+    
+    for p in params:
+        print(f'***********{p}***********')
+        d = {'EZ': [], 'UMZ': []}
+        p_df = df[['depth', 'station', p]]
+        mean = p_df.groupby(['depth', 'station']).mean().reset_index()
+        for s in stations:
+            print(f'----{s}----')
+            zg = station_data[s]['zg']
+            s_df = mean.loc[mean['station'] == s]
+            print(f'N = {len(s_df)}')
+            print(f'mean = {s_df[p].mean()}')
+            print(f'std = {s_df[p].std(ddof=1)}')
+            ez = s_df.loc[s_df['depth'] <= zg][p]
+            uz = s_df.loc[s_df['depth'] > zg][p]
+            d['EZ'].extend(ez.values)
+            d['UMZ'].extend(uz.values)
+        for z in ('EZ', 'UMZ'):
+            print(f'----{z}----')
+            print(f'N = {len(d[z])}')
+            print(f'mean = {np.mean(d[z])}')
+            print(f'std = {np.std(d[z], ddof=1)}')
+
 if __name__ == '__main__':
     
     start_time = time()
@@ -1809,8 +1840,9 @@ if __name__ == '__main__':
     # poc_section(path, poc_data, station_data)
     # section_map(path, station_data)
     # aggratio_ezflux(path, station_data) 
-    poc_stats(poc_data, station_data)
-
+    # poc_stats(poc_data, station_data)
+    param_stats(path, station_data)
+    
     print(f'--- {(time() - start_time)/60} minutes ---')
 
     
