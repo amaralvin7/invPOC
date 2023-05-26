@@ -1202,7 +1202,7 @@ def get_avg_pigs(station_data, depth_label):
     names = ('but', 'hex', 'allo', 'chla', 'chlb', 'fuco', 'peri', 'zea')
     avg_pigs = {s: {n: {} for n in names} for s in station_data}
 
-    pig_data = pd.read_csv('../../../geotraces/pigments.csv',
+    pig_data = pd.read_csv('../../../data/geotraces/pigments.csv',
                            usecols=['station', 'depth', 'but', 'hex', 'allo',
                                     'chla', 'chlb', 'fuco', 'peri', 'zea'])
     
@@ -1369,6 +1369,9 @@ def flux_pigs_scatter(station_data):
             axs[0][j].plot(np.sort(xdata1), np.sort(y_fit1)[::-1], c=gray, ls=':', zorder=1)
             axs[0][j].text(0.02, 0.02, f'{reg0.rsquared:.2f} ({reg0.f_pvalue:.2f})\n{reg1.rsquared:.2f} ({reg1.f_pvalue:.2f})',
                             transform=transforms.blended_transform_factory(axs[0][j].transAxes, axs[0][j].transAxes))
+
+    for ax in axs.flatten()[4:]:
+        ax.set_ylim(0)
 
     fig.savefig(os.path.join(path, f'figs/flux_pigs_scatter.pdf'), bbox_inches='tight')
     plt.close()
@@ -1826,7 +1829,7 @@ if __name__ == '__main__':
     # hist_success(path, all_files)
     # compile_param_estimates(all_files)
     # multipanel_context(path, station_data)
-    # flux_pigs_scatter(station_data)
+    flux_pigs_scatter(station_data)
     # agg_pigs_scatter(station_data, 'zg')
     # agg_pigs_scatter(station_data, 'mld')
     # param_section_compilation_dc(path, station_data, all_files)
@@ -1841,7 +1844,7 @@ if __name__ == '__main__':
     # section_map(path, station_data)
     # aggratio_ezflux(path, station_data) 
     # poc_stats(poc_data, station_data)
-    param_stats(path, station_data)
+    # param_stats(path, station_data)
     
     print(f'--- {(time() - start_time)/60} minutes ---')
 
