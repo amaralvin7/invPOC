@@ -1782,7 +1782,7 @@ def poc_stats(poc_data, station_data):
 
 
 def param_stats(path, station_data):
-
+    
     with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
         df = pickle.load(f)    
 
@@ -1792,25 +1792,62 @@ def param_stats(path, station_data):
     
     for p in params:
         print(f'***********{p}***********')
-        d = {'EZ': [], 'UMZ': []}
+        d = {'EZ': {'subarctic': [], 'npac': [], 'eq': [], 'spac': [], 'total': []},
+             'UMZ': {'subarctic': [], 'npac': [], 'eq': [], 'spac': [], 'total': []}}
         p_df = df[['depth', 'station', p]]
         mean = p_df.groupby(['depth', 'station']).mean().reset_index()
         for s in stations:
-            print(f'----{s}----')
             zg = station_data[s]['zg']
             s_df = mean.loc[mean['station'] == s]
-            print(f'N = {len(s_df)}')
-            print(f'mean = {s_df[p].mean()}')
-            print(f'std = {s_df[p].std(ddof=1)}')
             ez = s_df.loc[s_df['depth'] <= zg][p]
             uz = s_df.loc[s_df['depth'] > zg][p]
-            d['EZ'].extend(ez.values)
-            d['UMZ'].extend(uz.values)
-        for z in ('EZ', 'UMZ'):
-            print(f'----{z}----')
-            print(f'N = {len(d[z])}')
-            print(f'mean = {np.mean(d[z])}')
-            print(f'std = {np.std(d[z], ddof=1)}')
+            d['EZ']['total'].extend(ez.values)
+            d['UMZ']['total'].extend(uz.values)
+            if s < 9:
+                k = 'subarctic'
+            elif s < 28:
+                k = 'npac'
+            elif s < 34:
+                k = 'eq'
+            else:
+                k = 'spac'
+            d['EZ'][k].extend(ez.values)
+            d['UMZ'][k].extend(uz.values)
+        
+        bar_means = []
+        bar_stds = []
+        bar_ticklabels = []
+        bar_colors = []
+        width = 0.4
+        fig, ax = plt.subplots(1, 1, figsize=(9, 6))
+        fig.supylabel(p, fontsize=14)
+        ax.grid(visible=True, which='major', axis='y', zorder=1)
+        for zone, regime in product(('EZ', 'UMZ'), ('subarctic', 'npac', 'eq', 'spac', 'total')):
+            print(f'----{zone, regime}----')
+            z_r_mean = np.mean(d[zone][regime])
+            z_r_std = np.std(d[zone][regime], ddof=1)
+            print(f'N = {len(d[zone][regime])}')
+            print(f'mean = {z_r_mean}')
+            print(f'std = {z_r_std}')
+            bar_means.append(z_r_mean)
+            bar_stds.append(z_r_std)
+            bar_ticklabels.append('\n'.join([zone, regime]))
+            if regime == 'subarctic':
+                c = green
+            elif regime == 'npac':
+                c = orange
+            elif regime == 'eq':
+                c = vermillion
+            elif regime == 'spac':
+                c = blue
+            else:
+                c = gray
+            bar_colors.append(c)
+        ax.bar(np.arange(len(bar_means)), bar_means, width, yerr=bar_stds, color=bar_colors, error_kw={'elinewidth': 1}, zorder=10)
+        ax.set_xticks(np.arange(len(bar_means)), bar_ticklabels)
+        
+        fig.savefig(os.path.join(path, f'figs/param_stats_{p}.pdf'), bbox_inches='tight')
+        plt.close()
 
 if __name__ == '__main__':
     
@@ -1829,7 +1866,7 @@ if __name__ == '__main__':
     # hist_success(path, all_files)
     # compile_param_estimates(all_files)
     # multipanel_context(path, station_data)
-    flux_pigs_scatter(station_data)
+    # flux_pigs_scatter(station_data)
     # agg_pigs_scatter(station_data, 'zg')
     # agg_pigs_scatter(station_data, 'mld')
     # param_section_compilation_dc(path, station_data, all_files)
@@ -1844,7 +1881,7 @@ if __name__ == '__main__':
     # section_map(path, station_data)
     # aggratio_ezflux(path, station_data) 
     # poc_stats(poc_data, station_data)
-    # param_stats(path, station_data)
+    param_stats(path, station_data)
     
     print(f'--- {(time() - start_time)/60} minutes ---')
 
