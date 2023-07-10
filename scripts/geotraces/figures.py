@@ -6,6 +6,7 @@ import sys
 
 import cartopy.crs
 import gsw
+import h5py
 import matplotlib.pyplot as plt
 import matplotlib.transforms as transforms
 import numpy as np
@@ -1849,6 +1850,45 @@ def param_stats(path, station_data):
         fig.savefig(os.path.join(path, f'figs/param_stats_{p}.pdf'), bbox_inches='tight')
         plt.close()
 
+
+def results_to_h5(path, filenames, station_data):
+    
+    # stations = [10, 27]
+    stations = station_data.keys()
+    # filenames = [f for f in filenames if int(f.split('.')[0].split('_')[1][3:]) in stations]
+
+    with h5py.File('output.h5', 'w') as hfile:
+        
+        for stn in stations:  # write station metadata
+            stn_grp = hfile.create_group(f'/{stn}')
+            stn_grp.attrs['mld'] = station_data[stn]['mld']
+            stn_grp.attrs['zg'] = station_data[stn]['zg']
+            stn_grp.attrs['latitude'] = station_data[stn]['latitude']
+            stn_grp.attrs['longitude'] = station_data[stn]['longitude']
+            stn_grp.attrs['grid'] = station_data[stn]['grid']
+            stn_grp.attrs['midpoints'] = [np.mean(get_layer_bounds(l, station_data[stn]['grid'])) for l in station_data[stn]['layers']]
+            stn_grp.attrs['POCS_prior'] = station_data[stn]['tracers']['POCS']['prior']
+            stn_grp.attrs['POCL_prior'] = station_data[stn]['tracers']['POCL']['prior']                 
+        
+        print('Writing output to "output.h5"')
+        for f in tqdm(filenames):  # write results from each inversion file
+            paramset, stn = f.split('.')[0].split('_')
+            paramset = paramset[2:]
+            stn = stn[3:]
+            with open(os.path.join(path, f), 'rb') as pickled:
+                results = pickle.load(pickled)
+                paramset_grp = hfile.create_group(f'/{stn}/{paramset}/')
+                for p in results['params']:
+                    ds = paramset_grp.create_dataset(p, data=results['params'][p]['posterior'])
+                    # if not results['params'][p]['dv']:
+                    #     print(ds, ds[()])
+                    # else:
+                    #     print(ds, ds[:])
+                for t in results['tracers']:
+                    ds = paramset_grp.create_dataset(t, data=results['tracers'][t]['posterior'])                
+                    # print(ds, ds[:])
+
+
 if __name__ == '__main__':
     
     start_time = time()
@@ -1881,7 +1921,8 @@ if __name__ == '__main__':
     # section_map(path, station_data)
     # aggratio_ezflux(path, station_data) 
     # poc_stats(poc_data, station_data)
-    param_stats(path, station_data)
+    # param_stats(path, station_data)
+    results_to_h5(path, all_files, station_data)
     
     print(f'--- {(time() - start_time)/60} minutes ---')
 
