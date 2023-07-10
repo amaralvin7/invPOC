@@ -533,14 +533,19 @@ def poc_section(path, poc_data, station_data):
     plt.close()
     
 
-def get_station_color_legend():
+def get_station_color_legend(all_regimes=False):
 
     lines = [Line2D([0], [0], color=green, lw=4),
              Line2D([0], [0], color=orange, lw=4),
              Line2D([0], [0], color=vermillion, lw=4),
              Line2D([0], [0], color=blue, lw=4)]
     
-    labels = ['Subarctic', 'N. Pac', 'Eq.', 'S. Pac']
+    labels = ['Subarctic', 'N. Pac', 'Equator', 'S. Pac']
+    
+    if all_regimes:
+        lines.append(Line2D([0], [0], color=gray, lw=4))
+        labels = ['Subarctic', 'N. Pac', 'Eq.', 'S. Pac', 'All']
+    
     
     line_length = 1
     
@@ -597,7 +602,7 @@ def spaghetti_ctd(path, station_data):
     # profiles of T, O2, N2, params
     for s in station_fname:
         color = get_station_color(s)
-        ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
+        ctd_df = pd.read_csv(os.path.join('../../../data/geotraces/ctd', station_fname[s]), header=12)
         ctd_df.drop([0, len(ctd_df) - 1], inplace=True)  # don't want first and last rows (non-numerical)
         for c in ['CTDPRS', 'CTDOXY', 'CTDTMP']:
             ctd_df[c] = pd.to_numeric(ctd_df[c])
@@ -783,7 +788,7 @@ def ctd_files_by_station():
                     33: 5, 35: 5, 37: 5, 39: 6}
     
     station_fname = {}
-    fnames = [f for f in os.listdir('../../../geotraces/ctd') if '.csv' in f]  # get filenames for each station
+    fnames = [f for f in os.listdir('../../../data/geotraces/ctd') if '.csv' in f]  # get filenames for each station
     for f in fnames:
         prefix  = f.split('_')[0]
         station = int(prefix[:3])
@@ -819,7 +824,7 @@ def ctd_plots_agg(path, station_data):
         color = get_station_color(s)
         
         s_p_df = param_means.loc[param_means['station'] == s][['depth', p]]
-        ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
+        ctd_df = pd.read_csv(os.path.join('../../../data/geotraces/ctd', station_fname[s]), header=12)
         ctd_df.drop([0, len(ctd_df) - 1], inplace=True)  # don't want first and last rows (non-numerical)
         for c in ['CTDPRS', 'CTDTMP', 'CTDOXY', 'CTDSAL']:
             ctd_df[c] = pd.to_numeric(ctd_df[c])
@@ -886,7 +891,7 @@ def ctd_plots_remin(path, station_data):
         color = get_station_color(s)
         
         s_p_df = param_means.loc[param_means['station'] == s][['depth', p]]
-        ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
+        ctd_df = pd.read_csv(os.path.join('../../../data/geotraces/ctd', station_fname[s]), header=12)
         ctd_df.drop([0, len(ctd_df) - 1], inplace=True)  # don't want first and last rows (non-numerical)
         for c in ['CTDPRS', 'CTDTMP', 'CTDOXY', 'CTDSAL']:
             ctd_df[c] = pd.to_numeric(ctd_df[c])
@@ -950,7 +955,7 @@ def ctd_plots_sink(path, station_data):
         color = get_station_color(s)
         
         s_p_df = param_means.loc[param_means['station'] == s][['depth', p]]
-        ctd_df = pd.read_csv(os.path.join('../../../geotraces/ctd', station_fname[s]), header=12)
+        ctd_df = pd.read_csv(os.path.join('../../../data/geotraces/ctd', station_fname[s]), header=12)
         ctd_df.drop([0, len(ctd_df) - 1], inplace=True)  # don't want first and last rows (non-numerical)
         for c in ['CTDPRS', 'CTDTMP', 'CTDOXY', 'CTDSAL']:
             ctd_df[c] = pd.to_numeric(ctd_df[c])
@@ -1153,7 +1158,7 @@ def plot_ctd_data():
     
     station_fname = {}
 
-    path = '../../../geotraces/ctd'
+    path = '../../../data/geotraces/ctd'
     
     # get filenames for each station
     fnames = [f for f in os.listdir(path) if '.csv' in f]
@@ -1221,7 +1226,7 @@ def get_ml_nuts(station_data):
     ml_nuts = {s: {n: {} for n in names} for s in station_data}
 
     # ODF data
-    nut_data = pd.read_csv('../../../geotraces/bottledata.csv',
+    nut_data = pd.read_csv('../../../data/geotraces/bottledata.csv',
                            usecols=['STNNBR',
                                     'CTDPRS',
                                     'NITRATE_D_CONC_BOTTLE_bugat8',
@@ -1849,7 +1854,7 @@ def param_barplots(path, station_data):
         axs[i].bar(np.arange(len(bar_means)), bar_means, width, yerr=bar_stds, color=bar_colors, error_kw={'elinewidth': 1}, zorder=10, hatch=bar_hatches)
         axs[i].xaxis.set_ticks([])
 
-    lines, labels, line_length = get_station_color_legend()
+    lines, labels, line_length = get_station_color_legend(all_regimes=True)
     axs[1].legend(lines, labels, frameon=False, handlelength=line_length)
         
     fig.savefig(os.path.join(path, f'figs/param_barplots.pdf'), bbox_inches='tight')
@@ -1924,7 +1929,7 @@ if __name__ == '__main__':
     # spaghetti_poc(path, poc_data)
     # poc_section(path, poc_data, station_data)
     # section_map(path, station_data)
-    # aggratio_ezflux(path, station_data) 
+    # aggratio_ezflux(path, station_data)
     # poc_stats(poc_data, station_data)
     param_barplots(path, station_data)
     # results_to_h5(path, all_files, station_data)
