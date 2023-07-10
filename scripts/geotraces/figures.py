@@ -1267,25 +1267,21 @@ def get_station_color(station):
 def flux_pigs_scatter(station_data):
 
     pig_data = get_avg_pigs(station_data, 'zg')
-    fig, axs = plt.subplots(3, 4, figsize=(12, 10), tight_layout=True)
+    fig, axs = plt.subplots(2, 4, figsize=(12, 6), tight_layout=True)
     
     axs[0][0].set_ylabel('EZ flux (mmol m$^{-2}$ d$^{-1}$)', fontsize=14)
-    axs[1][0].set_ylabel('Transfer efficiency', fontsize=14)
-    axs[2][0].set_ylabel('Export efficiency', fontsize=14)
+    axs[1][0].set_ylabel('Export efficiency', fontsize=14)
     
     for i, ax in enumerate(axs.flatten()):
         if i % 4:
             ax.yaxis.set_ticklabels([])
-        if i < 8:
+        if i < 4:
             ax.xaxis.set_ticklabels([])
     
-    axs[2][0].set_xlabel('Chl. a (ng L$^{-1}$)', fontsize=14)
-    axs[2][1].set_xlabel('Frac. pico', fontsize=14)
-    axs[2][2].set_xlabel('Frac. nano', fontsize=14)
-    axs[2][3].set_xlabel('Frac. micro', fontsize=14)
-
-    for ax in axs[1]:
-        ax.axhline(1, ls='--', c=black)
+    axs[1][0].set_xlabel('Chl. a (ng L$^{-1}$)', fontsize=14)
+    axs[1][1].set_xlabel('Frac. pico', fontsize=14)
+    axs[1][2].set_xlabel('Frac. nano', fontsize=14)
+    axs[1][3].set_xlabel('Frac. micro', fontsize=14)
     
     stations = list(station_data.keys())
     chla_bs = []  # by station
@@ -1293,7 +1289,6 @@ def flux_pigs_scatter(station_data):
     nano_bs = []
     micro_bs = []
     zg_fluxes_bs = []
-    xfer_effs_bs = []
     xport_effs_bs = []
 
     for s in stations:
@@ -1301,10 +1296,7 @@ def flux_pigs_scatter(station_data):
         grid = np.array(station_data[s]['grid'])
         zg = station_data[s]['zg']
         zgi = list(grid).index(zg)
-        zgp100 = zg + 100
-        interp_depths = grid[grid < zgp100].max(), grid[grid > zgp100].min()  # pump depths that surround zgp100
         zg_fluxes = []
-        xfer_effs = []
         xport_effs = []
         pickled_files = [f for f in os.listdir(path) if f'stn{s}.pkl' in f]
         for f in pickled_files:
@@ -1312,9 +1304,6 @@ def flux_pigs_scatter(station_data):
                 results = pickle.load(file)
                 fluxes = results['sink_fluxes']['T']
                 zg_fluxes.append(fluxes[zgi][0])
-                interp_fluxes = [fluxes[list(grid).index(i)][0] for i in interp_depths]
-                interped_flux = interp1d(interp_depths, interp_fluxes)(zgp100)
-                xfer_effs.append(interped_flux[()] / fluxes[zgi][0])
                 Lp = results['params']['Lp']['posterior']
                 Po = results['params']['Po']['posterior']
                 npp = 0
@@ -1324,19 +1313,17 @@ def flux_pigs_scatter(station_data):
                 xport_effs.append(fluxes[zgi][0] / npp)
                 
         zg_flux = np.mean(zg_fluxes)
-        xfer_eff = np.mean(xfer_effs)
         xport_eff = np.mean(xport_effs)
         
         pico, nano, micro = phyto_size_index(pig_data[s])
 
-        for i, ydata in enumerate((zg_flux, xfer_eff, xport_eff)):
+        for i, ydata in enumerate((zg_flux, xport_eff)):
             axs[i][0].scatter(pig_data[s]['chla'], ydata, s=16, color=c, zorder=2)
             axs[i][1].scatter(pico, ydata, s=16, color=c, zorder=2)  
             axs[i][2].scatter(nano, ydata, s=16, color=c, zorder=2)  
             axs[i][3].scatter(micro, ydata, s=16, color=c, zorder=2)
         
         zg_fluxes_bs.append(zg_flux)
-        xfer_effs_bs.append(xfer_eff)
         xport_effs_bs.append(xport_eff)
         
         chla_bs.append(pig_data[s]['chla'])
@@ -1906,7 +1893,7 @@ if __name__ == '__main__':
     # hist_success(path, all_files)
     # compile_param_estimates(all_files)
     # multipanel_context(path, station_data)
-    # flux_pigs_scatter(station_data)
+    flux_pigs_scatter(station_data)
     # agg_pigs_scatter(station_data, 'zg')
     # agg_pigs_scatter(station_data, 'mld')
     # param_section_compilation_dc(path, station_data, all_files)
@@ -1922,7 +1909,7 @@ if __name__ == '__main__':
     # aggratio_ezflux(path, station_data) 
     # poc_stats(poc_data, station_data)
     # param_stats(path, station_data)
-    results_to_h5(path, all_files, station_data)
+    # results_to_h5(path, all_files, station_data)
     
     print(f'--- {(time() - start_time)/60} minutes ---')
 
