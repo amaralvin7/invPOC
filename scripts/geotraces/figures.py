@@ -1769,16 +1769,23 @@ def poc_stats(poc_data, station_data):
             print(f'range = {np.ptp(a)}')
 
 
-def param_stats(path, station_data):
+def param_barplots(path, station_data):
     
     with open(os.path.join(path, 'saved_params_dv.pkl'), 'rb') as f:
         df = pickle.load(f)    
 
     params = ('B2p', 'B2', 'Bm2', 'aggratio', 'Bm1s', 'Bm1l', 'ws', 'wl')
     
-    stations = np.sort(list(station_data.keys()))
+    param_text = get_param_text()
     
-    for p in params:
+    stations = np.sort(list(station_data.keys()))
+
+    fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6), (ax7, ax8)) = plt.subplots(4, 2, figsize=(7, 12), tight_layout=True)
+    axs = (ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8)
+    fig.subplots_adjust(wspace=0.1, hspace=0.5, left=0.15)
+
+    
+    for i, p in enumerate(params):
         print(f'***********{p}***********')
         d = {'EZ': {'subarctic': [], 'npac': [], 'eq': [], 'spac': [], 'total': []},
              'UMZ': {'subarctic': [], 'npac': [], 'eq': [], 'spac': [], 'total': []}}
@@ -1801,41 +1808,52 @@ def param_stats(path, station_data):
                 k = 'spac'
             d['EZ'][k].extend(ez.values)
             d['UMZ'][k].extend(uz.values)
+
+        if param_text[p][1]:
+            units = f' ({param_text[p][1]})'
+        else:
+            units = ''
+        axs[i].set_xlabel(f'{param_text[p][0]}{units}', fontsize=14)
         
         bar_means = []
         bar_stds = []
-        bar_ticklabels = []
         bar_colors = []
-        width = 0.4
-        fig, ax = plt.subplots(1, 1, figsize=(9, 6))
-        fig.supylabel(p, fontsize=14)
-        ax.grid(visible=True, which='major', axis='y', zorder=1)
+        bar_hatches = []
+        width = 0.6
+
         for zone, regime in product(('EZ', 'UMZ'), ('subarctic', 'npac', 'eq', 'spac', 'total')):
             print(f'----{zone, regime}----')
+            z_r_n = len(d[zone][regime])
             z_r_mean = np.mean(d[zone][regime])
-            z_r_std = np.std(d[zone][regime], ddof=1)
-            print(f'N = {len(d[zone][regime])}')
+            z_r_std = np.std(d[zone][regime], ddof=1)/np.sqrt(z_r_n)
+            print(f'N = {z_r_n}')
             print(f'mean = {z_r_mean}')
             print(f'std = {z_r_std}')
             bar_means.append(z_r_mean)
             bar_stds.append(z_r_std)
-            bar_ticklabels.append('\n'.join([zone, regime]))
             if regime == 'subarctic':
-                c = green
+                bar_colors.append(green)
             elif regime == 'npac':
-                c = orange
+                bar_colors.append(orange)
             elif regime == 'eq':
-                c = vermillion
+                bar_colors.append(vermillion)
             elif regime == 'spac':
-                c = blue
+                bar_colors.append(blue)
             else:
-                c = gray
-            bar_colors.append(c)
-        ax.bar(np.arange(len(bar_means)), bar_means, width, yerr=bar_stds, color=bar_colors, error_kw={'elinewidth': 1}, zorder=10)
-        ax.set_xticks(np.arange(len(bar_means)), bar_ticklabels)
+                bar_colors.append(gray)
+            if zone == 'EZ':
+                bar_hatches.append(None)
+            else:
+                bar_hatches.append('.')
+            
+        axs[i].bar(np.arange(len(bar_means)), bar_means, width, yerr=bar_stds, color=bar_colors, error_kw={'elinewidth': 1}, zorder=10, hatch=bar_hatches)
+        axs[i].xaxis.set_ticks([])
+
+    lines, labels, line_length = get_station_color_legend()
+    axs[1].legend(lines, labels, frameon=False, handlelength=line_length)
         
-        fig.savefig(os.path.join(path, f'figs/param_stats_{p}.pdf'), bbox_inches='tight')
-        plt.close()
+    fig.savefig(os.path.join(path, f'figs/param_barplots.pdf'), bbox_inches='tight')
+    plt.close()
 
 
 def results_to_h5(path, filenames, station_data):
@@ -1893,7 +1911,7 @@ if __name__ == '__main__':
     # hist_success(path, all_files)
     # compile_param_estimates(all_files)
     # multipanel_context(path, station_data)
-    flux_pigs_scatter(station_data)
+    # flux_pigs_scatter(station_data)
     # agg_pigs_scatter(station_data, 'zg')
     # agg_pigs_scatter(station_data, 'mld')
     # param_section_compilation_dc(path, station_data, all_files)
@@ -1908,7 +1926,7 @@ if __name__ == '__main__':
     # section_map(path, station_data)
     # aggratio_ezflux(path, station_data) 
     # poc_stats(poc_data, station_data)
-    # param_stats(path, station_data)
+    param_barplots(path, station_data)
     # results_to_h5(path, all_files, station_data)
     
     print(f'--- {(time() - start_time)/60} minutes ---')
