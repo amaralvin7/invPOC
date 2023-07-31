@@ -586,6 +586,9 @@ def spaghetti_params(path, station_data):
             c = get_station_color(s)
             s_df = mean.loc[mean['station'] == s]
             axs[i].plot(s_df[p], s_df[depth_str], c=c)
+        
+        if p == 'aggratio':
+            axs[i].axvline(1, c=black, alpha=0.2, zorder=1)
 
     lines, labels, line_length = get_station_color_legend()
     axs[0].legend(lines, labels, frameon=False, handlelength=line_length)
@@ -1583,6 +1586,11 @@ def multipanel_context(path, station_data):
             ax.set_xlabel('Latitude (°N)')
         for s in station_data:
             ax.text(station_data[s]['latitude'], 1.02, s, ha='center', size=6, transform=transforms.blended_transform_factory(ax.transData, ax.transAxes))
+    
+    axs[3].set_ylim(0, 500)
+    axs[4].set_ylim(0, 0.7)
+    axs[5].set_ylim(0, 0.6)
+    axs[6].set_ylim(0, 0.4)
 
     fig.savefig(os.path.join(path, f'figs/multipanel_context.pdf'), bbox_inches='tight')
     plt.close()
@@ -1915,7 +1923,7 @@ if __name__ == '__main__':
     all_files = get_filenames(path)
     # hist_success(path, all_files)
     # compile_param_estimates(all_files)
-    # multipanel_context(path, station_data)
+    multipanel_context(path, station_data)
     # flux_pigs_scatter(station_data)
     # agg_pigs_scatter(station_data, 'zg')
     # agg_pigs_scatter(station_data, 'mld')
@@ -1924,14 +1932,14 @@ if __name__ == '__main__':
     # ctd_plots_agg(path, station_data)
     # ctd_plots_remin(path, station_data)
     # ctd_plots_sink(path, station_data)
-    # spaghetti_params(path, station_data)
+    spaghetti_params(path, station_data)
     # spaghetti_ctd(path, station_data)
     # spaghetti_poc(path, poc_data)
     # poc_section(path, poc_data, station_data)
     # section_map(path, station_data)
     # aggratio_ezflux(path, station_data)
     # poc_stats(poc_data, station_data)
-    param_barplots(path, station_data)
+    # param_barplots(path, station_data)
     # results_to_h5(path, all_files, station_data)
     
     print(f'--- {(time() - start_time)/60} minutes ---')
