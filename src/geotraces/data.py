@@ -225,6 +225,7 @@ def get_station_data(poc_data, params, ez_depths, flux_constraint=False):
         d[s]['longitude'] = poc_data[s].iloc[0]['longitude']
         d[s]['layers'] = layers
         d[s]['zg'] = zg
+        d[s]['ezd'] = ez_depths[s]
         d[s]['umz_start'] = grid.index(zg) + 1
         d[s]['tracers'] = tracers
         if flux_constraint:

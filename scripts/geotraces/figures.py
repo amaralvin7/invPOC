@@ -503,8 +503,10 @@ def poc_section(path, poc_data, station_data):
     lats = [station_data[s]['latitude'] for s in station_data]
     mlds_unsorted = [station_data[s]['mld'] for s in station_data]
     zgs_unsorted = [station_data[s]['zg'] for s in station_data]
+    ezds_unsorted = [station_data[s]['ezd'] for s in station_data]
     mlds = [mld for _, mld in sorted(zip(lats, mlds_unsorted))]
     zgs = [zg for _, zg in sorted(zip(lats, zgs_unsorted))]
+    ezds = [zg for _, zg in sorted(zip(lats, ezds_unsorted))]
     lats.sort()
     
     fig, axs = plt.subplots(2, 1, figsize=(10, 6), tight_layout=True)
@@ -516,7 +518,8 @@ def poc_section(path, poc_data, station_data):
         ax.set_ylim(top=0, bottom=630)
         ax.set_ylabel('Depth (m)', fontsize=12)
         ax.plot(lats, mlds, c='k', zorder=1, ls='--')
-        ax.plot(lats, zgs, c='k', zorder=1)
+        ax.plot(lats, ezds, c='k', zorder=1)
+        ax.plot(lats, zgs, c='k', zorder=1, ls=':')
     
     axs[0].tick_params(axis='x', label1On=False)
     axs[1].set_xlabel('Latitude (°N)', fontsize=12)
@@ -1923,7 +1926,7 @@ if __name__ == '__main__':
     all_files = get_filenames(path)
     # hist_success(path, all_files)
     # compile_param_estimates(all_files)
-    multipanel_context(path, station_data)
+    # multipanel_context(path, station_data)
     # flux_pigs_scatter(station_data)
     # agg_pigs_scatter(station_data, 'zg')
     # agg_pigs_scatter(station_data, 'mld')
@@ -1932,10 +1935,10 @@ if __name__ == '__main__':
     # ctd_plots_agg(path, station_data)
     # ctd_plots_remin(path, station_data)
     # ctd_plots_sink(path, station_data)
-    spaghetti_params(path, station_data)
+    # spaghetti_params(path, station_data)
     # spaghetti_ctd(path, station_data)
     # spaghetti_poc(path, poc_data)
-    # poc_section(path, poc_data, station_data)
+    poc_section(path, poc_data, station_data)
     # section_map(path, station_data)
     # aggratio_ezflux(path, station_data)
     # poc_stats(poc_data, station_data)
