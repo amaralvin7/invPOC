@@ -5,6 +5,7 @@ import time
 import warnings
 import sys
 
+import h5py
 import itertools
 import multiprocessing as mp
 import numpy as np
@@ -16,28 +17,18 @@ import src.framework as framework
 import src.fluxes as fluxes
 import src.unpack as unpack
 
-# warnings.simplefilter('error')
 
-poc_data = data.poc_by_station()
-param_uniformity = data.define_param_uniformity()
-npp_data = data.extract_nc_data(poc_data, 'cbpm')
-Lp_priors = data.get_Lp_priors(poc_data)
-ez_depths = data.get_ez_depths(Lp_priors)
-Po_priors = data.get_Po_priors(poc_data, Lp_priors, npp_data)
-B3_priors = data.get_B3_priors(npp_data)
-station_data = data.get_station_data(poc_data, param_uniformity, ez_depths, flux_constraint=True)
-
-def generate_param_sets(n_runs):
+def generate_param_sets(n_param_sets):
 
     median_POCS = data.get_median_POCS()
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
-    compilation = pd.read_csv('../../../geotraces/paramcompilation.csv')
+    compilation = pd.read_csv('../../../data/geotraces/paramcompilation.csv')
     random.seed(0)
     
     extrema = get_param_extrema(compilation, params, median_POCS)
     
     param_sets = []
-    for i in range(n_runs):
+    for i in range(n_param_sets):
         param_set = {}
         param_set['id'] = i
         for p in params:
@@ -45,6 +36,7 @@ def generate_param_sets(n_runs):
         param_sets.append(param_set)
 
     return param_sets
+
 
 def get_param_extrema(compilation, params, median_POCS):
 
@@ -64,6 +56,7 @@ def get_param_extrema(compilation, params, median_POCS):
     
     return extrema
 
+
 def get_param_range(values):
     
     q1, q3 = [np.percentile(values, p) for p in (25, 75)]
@@ -75,8 +68,9 @@ def get_param_range(values):
     
     return min_max
 
+
 def invert_station(args):
-    
+
     station, mc_params = args
     grid = station_data[station]['grid']
     layers = station_data[station]['layers']
@@ -110,7 +104,7 @@ def invert_station(args):
     success = ati.success_check(converged, state_elements, xhat, Ckp1, zg)
 
     if success:
-
+        print(station, int(mc_params["id"]))
         x_resids = ati.normalized_state_residuals(xhat, xo, Co)
         tracer_estimates, param_estimates, tsf_estimates = unpack.unpack_state_estimates(
             tracers, params, state_elements, xhat, Ckp1, layers)
@@ -119,37 +113,48 @@ def invert_station(args):
         unpack.merge_by_keys(param_estimates, params)
         
         sink_fluxes = fluxes.sinking_fluxes(layers, state_elements, Ckp1, tracers, params)
-        
-        results = {'tracers': tracers,
-                   'params': params,
-                   'total_sinking_flux': tsf_estimates,
-                   'sink_fluxes': sink_fluxes,
-                   'x_resids': x_resids,
-                   'convergence_evolution': conv_ev,
-                   'cost_evolution': cost_ev}
 
-        filename = f'ps{int(mc_params["id"])}_stn{station}.pkl'
-        
-        with open(os.path.join(save_path, filename), 'wb') as f:
-            pickle.dump(results, f)
-    
+        with h5py.File(output_path, 'a') as hfile:
+            paramset_grp = hfile.create_group(f'/{station}/{int(mc_params["id"])}/')
+            for p in param_estimates:
+                paramset_grp.create_dataset(p, data=param_estimates[p]['posterior'])
+            for t in tracer_estimates:
+                paramset_grp.create_dataset(t, data=tracer_estimates[t]['posterior']) 
+            for sf in ('S', 'L', 'T'):
+                paramset_grp.create_dataset(f'sinkflux_{sf}', data=[i[0] for i in sink_fluxes[sf]])               
+            paramset_grp.create_dataset('tsf', data=tsf_estimates['posterior'])
+            paramset_grp.create_dataset('convergence_evolution', data=conv_ev)
+            paramset_grp.create_dataset('cost_evolution', data=cost_ev)
+            paramset_grp.create_dataset('x_resids', data=x_resids)
+
 
 if __name__ == '__main__':
     
     start_time = time.time()
-    
-    n_param_sets = 100000
-    
-    save_path = f'../../results/geotraces/mc_{n_param_sets}'
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
-        
-    param_sets = generate_param_sets(n_param_sets)
 
+    # warnings.simplefilter('error')
+
+    poc_data = data.poc_by_station()
+    param_uniformity = data.define_param_uniformity()
+    npp_data = data.extract_nc_data(poc_data, 'cbpm')
+    Lp_priors = data.get_Lp_priors(poc_data)
+    ez_depths = data.get_ez_depths(Lp_priors)
+    Po_priors = data.get_Po_priors(poc_data, Lp_priors, npp_data)
+    B3_priors = data.get_B3_priors(npp_data)
+    station_data = data.get_station_data(poc_data, param_uniformity, ez_depths, flux_constraint=True)
     stations = poc_data.keys()
+
+
+    output_path = '../../results/geotraces/output.h5'  # create an output file with a group for each station
+    with h5py.File(output_path, 'w') as hfile:
+        for station in stations:
+            hfile.create_group(f'/{station}')
+
     station_list = []
     set_list = []
 
+    n_param_sets = 100000
+    param_sets = generate_param_sets(n_param_sets)
     for s in param_sets:
         station_list.extend(stations)
         set_list.extend(itertools.repeat(s, len(stations)))
@@ -159,7 +164,5 @@ if __name__ == '__main__':
         p.imap_unordered(invert_station, inputs)
         p.close()
         p.join()
-    
-    # invert_station((23, param_sets[0]))
 
     print(f'--- {(time.time() - start_time)/60} minutes ---')
