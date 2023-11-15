@@ -13,7 +13,7 @@ from src.framework import define_equation_elements, define_state_elements
 
 def load_poc_data():
     
-    metadata = pd.read_csv('../../../data/geotraces/poc_conc.csv',
+    metadata = pd.read_csv('../../data/geotraces/poc_conc.csv',
                            usecols=('GTNum', 'GTStn', 'CastType',
                                     'CorrectedMeanDepthm',
                                     'Latitudedegrees_north', 
@@ -23,9 +23,9 @@ def load_poc_data():
     # SPM_SPT_pM has NaN for intercal samples, useful for dropping later
     cols = ('SPM_SPT_ugL', 'POC_SPT_uM', 'POC_LPT_uM')
     
-    values = pd.read_csv('../../../data/geotraces/poc_conc.csv', usecols=cols)
-    errors = pd.read_csv('../../../data/geotraces/poc_sd.csv', usecols=cols)
-    flags = pd.read_csv('../../../data/geotraces/poc_flag.csv', usecols=cols)
+    values = pd.read_csv('../../data/geotraces/poc_conc.csv', usecols=cols)
+    errors = pd.read_csv('../../data/geotraces/poc_sd.csv', usecols=cols)
+    flags = pd.read_csv('../../data/geotraces/poc_flag.csv', usecols=cols)
 
     data = merge_poc_data(metadata, values, errors, flags)
     data.dropna(inplace=True)
@@ -96,7 +96,7 @@ def load_nc_data(dir):
     datainfo = {'modis': {'ext': '.nc', 'dateidx': 3},
                 'cbpm': {'ext': '.hdf', 'dateidx': 1}}
     
-    path = f'../../../data/geotraces/{dir}'
+    path = f'../../data/geotraces/{dir}'
     filenames = [f for f in os.listdir(path) if datainfo[dir]['ext'] in f]
     data = {}
 
@@ -165,14 +165,15 @@ def extract_nc_data(poc_data, dir):
 
 def load_mixed_layer_depths():
 
-    mld_df = pd.read_csv('../../../data/geotraces/mld.csv')
+    mld_df = pd.read_csv('../../data/geotraces/mld.csv')
     mld_dict = dict(zip(mld_df['station'], mld_df['depth']))
 
     return mld_dict
 
+
 def load_Th_fluxes():
 
-    df = pd.read_csv('../../../data/geotraces/sinkingflux_Th.csv',
+    df = pd.read_csv('../../data/geotraces/sinkingflux_Th.csv',
                      usecols=('station', 'depth', 'flux'))
 
     return df
@@ -205,6 +206,7 @@ def get_station_Th_fluxes(grid, max_depth, station, flux_df):
     fluxes = pd.DataFrame(list(zip(flux_layers, flux_depths, flux_vals)), columns=['layer', 'depth', 'flux'])
     
     return fluxes  
+
 
 def get_station_data(poc_data, params, ez_depths, flux_constraint=False):
     

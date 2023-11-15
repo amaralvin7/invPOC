@@ -22,7 +22,7 @@ def generate_param_sets(n_param_sets):
 
     median_POCS = data.get_median_POCS()
     params = ('B2p', 'Bm2', 'Bm1s', 'Bm1l', 'ws', 'wl')
-    compilation = pd.read_csv('../../../data/geotraces/paramcompilation.csv')
+    compilation = pd.read_csv('../../data/geotraces/paramcompilation.csv')
     random.seed(0)
     
     extrema = get_param_extrema(compilation, params, median_POCS)
@@ -51,8 +51,6 @@ def get_param_extrema(compilation, params, median_POCS):
             df = compilation.loc[compilation['param'] == p]
             lo, hi = get_param_range(df['val'].to_numpy())
         extrema[p] = (lo, hi)
-    #     print(f'{p}: {lo, hi}')
-    # print(f'median_POCS: {median_POCS}')
     
     return extrema
 
@@ -104,7 +102,6 @@ def invert_station(args):
     success = ati.success_check(converged, state_elements, xhat, Ckp1, zg)
 
     if success:
-        print(station, int(mc_params["id"]))
         x_resids = ati.normalized_state_residuals(xhat, xo, Co)
         tracer_estimates, param_estimates, tsf_estimates = unpack.unpack_state_estimates(
             tracers, params, state_elements, xhat, Ckp1, layers)
@@ -114,18 +111,17 @@ def invert_station(args):
         
         sink_fluxes = fluxes.sinking_fluxes(layers, state_elements, Ckp1, tracers, params)
 
-        with h5py.File(output_path, 'a') as hfile:
-            paramset_grp = hfile.create_group(f'/{station}/{int(mc_params["id"])}/')
+        with h5py.File(f'{output_path}/{station}_{mc_params["id"]}.h5', 'w') as hfile:
             for p in param_estimates:
-                paramset_grp.create_dataset(p, data=param_estimates[p]['posterior'])
+                hfile.create_dataset(p, data=param_estimates[p]['posterior'])
             for t in tracer_estimates:
-                paramset_grp.create_dataset(t, data=tracer_estimates[t]['posterior']) 
+                hfile.create_dataset(t, data=tracer_estimates[t]['posterior']) 
             for sf in ('S', 'L', 'T'):
-                paramset_grp.create_dataset(f'sinkflux_{sf}', data=[i[0] for i in sink_fluxes[sf]])               
-            paramset_grp.create_dataset('tsf', data=tsf_estimates['posterior'])
-            paramset_grp.create_dataset('convergence_evolution', data=conv_ev)
-            paramset_grp.create_dataset('cost_evolution', data=cost_ev)
-            paramset_grp.create_dataset('x_resids', data=x_resids)
+                hfile.create_dataset(f'sinkflux_{sf}', data=[i[0] for i in sink_fluxes[sf]])               
+            hfile.create_dataset('tsf', data=tsf_estimates['posterior'])
+            hfile.create_dataset('convergence_evolution', data=conv_ev)
+            hfile.create_dataset('cost_evolution', data=cost_ev)
+            hfile.create_dataset('x_resids', data=x_resids)
 
 
 if __name__ == '__main__':
@@ -144,11 +140,8 @@ if __name__ == '__main__':
     station_data = data.get_station_data(poc_data, param_uniformity, ez_depths, flux_constraint=True)
     stations = poc_data.keys()
 
-
-    output_path = '../../results/geotraces/output.h5'  # create an output file with a group for each station
-    with h5py.File(output_path, 'w') as hfile:
-        for station in stations:
-            hfile.create_group(f'/{station}')
+    output_path = '../../results/geotraces/output'  # create an output file with a group for each station
+    os.makedirs(output_path)
 
     station_list = []
     set_list = []
