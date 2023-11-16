@@ -128,7 +128,7 @@ def param_section_compilation_dv():
         else:
             depth_str = 'depth'
         ax.scatter(mean['latitude'], mean[depth_str], c=to_plot, norm=norm, cmap=scheme, zorder=10)
-    fig.savefig('../../results/geotraces/figs/param_section_compilation_dv.pdf', bbox_inches='tight')
+    fig.savefig('../../results/geotraces/figs/FigureS2.pdf', bbox_inches='tight')
     plt.close()
 
 
@@ -190,7 +190,7 @@ def param_section_compilation_dc():
     for s, ax in product(station_data, axs):  # station labels and faint gridlines
         ax.text(station_data[s]['latitude'], 1.02, s, ha='center', size=6, transform=transforms.blended_transform_factory(ax.transData, ax.transAxes))
 
-    fig.savefig('../../results/geotraces/figs/param_section_compilation_dc.pdf', bbox_inches='tight')
+    fig.savefig('../../results/geotraces/figs/Figure6.pdf', bbox_inches='tight')
     plt.close()
 
 
@@ -232,7 +232,7 @@ def poc_section():
             ax.text(station_data[s]['latitude'], 1.02, s, ha='center', size=6, transform=transforms.blended_transform_factory(ax.transData, ax.transAxes))
             ax.scatter(poc_data[s]['latitude'], poc_data[s]['depth'], c=poc_data[s][tracer], norm=norm, cmap=scheme, zorder=10)
 
-    fig.savefig('../../results/geotraces/figs/section_poc.pdf', bbox_inches='tight')
+    fig.savefig('../../results/geotraces/figs/Figure2.pdf', bbox_inches='tight')
     plt.close()
     
 
@@ -295,7 +295,7 @@ def spaghetti_params():
     lines, labels, line_length = get_station_color_legend()
     axs[0].legend(lines, labels, frameon=False, handlelength=line_length)
 
-    fig.savefig('../../results/geotraces/figs/spaghetti_params.pdf', bbox_inches='tight')
+    fig.savefig('../../results/geotraces/figs/Figure7.pdf', bbox_inches='tight')
     plt.close()
 
 
@@ -332,7 +332,7 @@ def spaghetti_ctd():
     lines, labels, line_length = get_station_color_legend()
     axs[0].legend(lines, labels, frameon=False, handlelength=line_length)
 
-    fig.savefig('../../results/geotraces/figs/spaghetti_ctd.pdf', bbox_inches='tight')
+    fig.savefig('../../results/geotraces/figs/Figure5.pdf', bbox_inches='tight')
     plt.close()
 
 
@@ -358,7 +358,7 @@ def spaghetti_poc():
     lines, labels, line_length = get_station_color_legend()
     ax1.legend(lines, labels, frameon=False, handlelength=line_length)
 
-    fig.savefig('../../results/geotraces/figs/spaghetti_poc.pdf', bbox_inches='tight')
+    fig.savefig('../../results/geotraces/figs/FigureS1.pdf', bbox_inches='tight')
     plt.close()
 
 
@@ -444,7 +444,7 @@ def ctd_plots_remin():
     lines, labels, line_length = get_station_color_legend()
     o_axs[0].legend(lines, labels, frameon=False, handlelength=line_length)
     
-    fig.savefig('../../results/geotraces/figs/ctd_plots_remin.pdf', bbox_inches='tight')
+    fig.savefig('../../results/geotraces/figs/FigureS4.pdf', bbox_inches='tight')
     plt.close()
 
 
@@ -501,7 +501,7 @@ def ctd_plots_sink():
     lines, labels, line_length = get_station_color_legend()
     axs[1].legend(lines, labels, frameon=False, handlelength=line_length)
     
-    fig.savefig('../../results/geotraces/figs/ctd_plots_sink.pdf', bbox_inches='tight')
+    fig.savefig('../../results/geotraces/figs/FigureS3.pdf', bbox_inches='tight')
     plt.close() 
 
 
@@ -689,7 +689,7 @@ def flux_pigs_scatter():
     for ax in axs.flatten()[4:]:
         ax.set_ylim(0)
 
-    fig.savefig(f'../../results/geotraces/figs/flux_pigs_scatter.pdf', bbox_inches='tight')
+    fig.savefig(f'../../results/geotraces/figs/Figure9.pdf', bbox_inches='tight')
     plt.close()
 
 
@@ -822,7 +822,7 @@ def agg_pigs_scatter():
                             transform=transforms.blended_transform_factory(axs[i][j].transAxes, axs[i][j].transAxes))
 
         
-    fig.savefig(f'../../results/geotraces/figs/agg_pigs_scatter_zg.pdf', bbox_inches='tight')
+    fig.savefig(f'../../results/geotraces/figs/Figure10.pdf', bbox_inches='tight')
     plt.close()
 
 
@@ -915,7 +915,7 @@ def multipanel_context():
     axs[5].set_ylim(0, 0.6)
     axs[6].set_ylim(0, 0.4)
 
-    fig.savefig(f'../../results/geotraces/figs/multipanel_context.pdf', bbox_inches='tight')
+    fig.savefig(f'../../results/geotraces/figs/Figure4.pdf', bbox_inches='tight')
     plt.close()
 
 
@@ -933,7 +933,7 @@ def section_map():
         ax.scatter(station_data[s]['longitude'], station_data[s]['latitude'], color=c, s=20, zorder=3)
         ax.annotate(s, (station_data[s]['longitude'], station_data[s]['latitude']), fontsize=6, xytext=(station_data[s]['longitude']+0.75, station_data[s]['latitude']))
         
-    plt.savefig('../../results/geotraces/figs/section_map.pdf', bbox_inches='tight')
+    plt.savefig('../../results/geotraces/figs/Figure1.pdf', bbox_inches='tight')
     plt.close()
 
 
@@ -1021,7 +1021,7 @@ def param_barplots():
     lines, labels, line_length = get_station_color_legend(all_regimes=True)
     axs[1].legend(lines, labels, frameon=False, handlelength=line_length)
         
-    fig.savefig('../../results/geotraces/figs/param_barplots.pdf', bbox_inches='tight')
+    fig.savefig('../../results/geotraces/figs/Figure8.pdf', bbox_inches='tight')
     plt.close()
             
 
@@ -1038,18 +1038,18 @@ if __name__ == '__main__':
 
     output_fp = '../../results/geotraces/output.h5'
 
-    # multipanel_context()
-    # flux_pigs_scatter()
-    # agg_pigs_scatter()
-    # param_section_compilation_dc()
-    # param_section_compilation_dv()
-    # ctd_plots_remin()
-    # ctd_plots_sink()
-    # spaghetti_params()
-    # spaghetti_ctd()
-    # spaghetti_poc()
-    # poc_section()
-    # section_map()
+    multipanel_context()
+    flux_pigs_scatter()
+    agg_pigs_scatter()
+    param_section_compilation_dc()
+    param_section_compilation_dv()
+    ctd_plots_remin()
+    ctd_plots_sink()
+    spaghetti_params()
+    spaghetti_ctd()
+    spaghetti_poc()
+    poc_section()
+    section_map()
     param_barplots()
     
     print(f'--- {(time() - start_time)/60} minutes ---')
