@@ -980,7 +980,7 @@ def param_barplots():
                 units = f' ({param_text[p][1]})'
             else:
                 units = ''
-            axs[i].set_xlabel(f'{param_text[p][0]}{units}', fontsize=14)
+            axs[i].set_ylabel(f'{param_text[p][0]}{units}', fontsize=14)
             
             bar_means = []
             bar_stds = []
@@ -1038,18 +1038,18 @@ if __name__ == '__main__':
 
     output_fp = '../../results/geotraces/output.h5'
 
-    multipanel_context()
-    flux_pigs_scatter()
-    agg_pigs_scatter()
-    param_section_compilation_dc()
-    param_section_compilation_dv()
-    ctd_plots_remin()
-    ctd_plots_sink()
-    spaghetti_params()
-    spaghetti_ctd()
-    spaghetti_poc()
-    poc_section()
-    section_map()
+    # multipanel_context()
+    # flux_pigs_scatter()
+    # agg_pigs_scatter()
+    # param_section_compilation_dc()
+    # param_section_compilation_dv()
+    # ctd_plots_remin()
+    # ctd_plots_sink()
+    # spaghetti_params()
+    # spaghetti_ctd()
+    # spaghetti_poc()
+    # poc_section()
+    # section_map()
     param_barplots()
     
     print(f'--- {(time() - start_time)/60} minutes ---')
