@@ -3,7 +3,6 @@ import pickle
 import random
 import time
 import warnings
-import sys
 
 import h5py
 import itertools
@@ -128,8 +127,6 @@ if __name__ == '__main__':
     
     start_time = time.time()
 
-    # warnings.simplefilter('error')
-
     poc_data = data.poc_by_station()
     param_uniformity = data.define_param_uniformity()
     npp_data = data.extract_nc_data(poc_data, 'cbpm')
@@ -140,7 +137,7 @@ if __name__ == '__main__':
     station_data = data.get_station_data(poc_data, param_uniformity, ez_depths, flux_constraint=True)
     stations = poc_data.keys()
 
-    output_path = '../../results/geotraces/output'  # create an output file with a group for each station
+    output_path = '../../results/geotraces/output'
     os.makedirs(output_path)
 
     station_list = []
