@@ -5,9 +5,9 @@ pyrite (Particle cYcling Rates from Inversion of Tracers in the ocEan) is an inv
 I'm also currently working on [mpic](https://github.com/amaralvin7/mpic), which is a project aimed at classifying images of marine particles and estimating the carbon fluxes that these particles contribute as they sink down the water column.
 
 ## Citation
-Amaral, VJ, Lam, PJ, Marchal, O, Roca-Martí, M, Fox, J, Nelson, NB. 2022. Particle cycling rates at Station P as estimated from the inversion of POC concentration data. *Elementa: Science of the Anthropocene* 10(1). DOI: https://doi.org/10.1525/elementa.2021.00018
+Amaral, VJ, Lam, PJ, Marchal, O, Roca-Martí, M, Fox, J, Nelson, NB. 2022. Particle cycling rates at Station P as estimated from the inversion of POC concentration data. *Elementa: Science of the Anthropocene*, 10(1). DOI: https://doi.org/10.1525/elementa.2021.00018
 
-Amaral, VJ, Lam, PJ, Marchal, O, Kenyon, JA. In review. Cycling rates of particulate organic carbon along the GEOTRACES Pacific meridional transect GP15. *Global Biogeochemical Cycles*.
+Amaral, VJ, Lam, PJ, Marchal, O, Kenyon, JA. 2024. Cycling rates of particulate organic carbon along the GEOTRACES Pacific meridional transect GP15. *Global Biogeochemical Cycles*, 38. DOI: https://doi.org/10.1029/2023GB007940
 
 ## Installation (command line)
 Conda must be installed ([Miniconda](https://docs.conda.io/projects/conda/en/latest/glossary.html#miniconda-glossary) recommended). After cloning the repository, create a new virtual environment and download all required dependencies:
@@ -20,7 +20,7 @@ pip install -e .
 ```
 
 ## Usage
-The primary purpose of this release is to allow any user to replicate the results found in Amaral et al. (*Elementa*, 2022) and Amaral et al. (*GBC*, in review).
+The primary purpose of this release is to allow any user to replicate the results found in Amaral et al. (*Elementa*, 2022) and Amaral et al. (*GBC*, 2024).
 
 ### Amaral et al. (*Elementa*, 2022)
 
@@ -48,7 +48,7 @@ python figures.py
 ```
 Figures will be saved in ```./results/exports/figures/```.
 
-### Amaral et al. (*GBC*, in review)
+### Amaral et al. (*GBC*, 2024)
 
 1. Run all data inversions:
 ```
